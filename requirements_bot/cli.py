@@ -12,7 +12,9 @@ app = typer.Typer(
 def interview(
     project: str = typer.Option(..., prompt=True, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
-    model: str = typer.Option("openai:gpt-4o-mini", help="Provider:model identifier"),
+    model: str = typer.Option(
+        "anthropic:claude-3-haiku-20240307", help="Provider:model identifier"
+    ),
 ):
     """
     Runs an interactive interview in the console and writes a requirements document when done.

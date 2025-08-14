@@ -4,4 +4,5 @@ from requirements_bot.core.models import Session
 
 
 def write_document(session: Session, path: str | Path):
-    pass
+    with open(path, "w") as f:
+        f.write(session.to_markdown())

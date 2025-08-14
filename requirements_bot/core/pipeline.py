@@ -31,8 +31,11 @@ def run_interview(project: str, model_id: str) -> Session:
 
     # 2) Console loop
     answers: list[Answer] = []
-    for q in all_qs:
-        print(f"\n[{q.category.upper()}] {q.text}")
+    total_questions = len(all_qs)
+    print(f"\n=== Starting interview with {total_questions} questions ===")
+
+    for i, q in enumerate(all_qs, 1):
+        print(f"\n[{i}/{total_questions}] [{q.category.upper()}] {q.text}")
         a = input("> ").strip()
         if a:
             answers.append(Answer(question_id=q.id, text=a))
