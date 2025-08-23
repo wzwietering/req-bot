@@ -1,4 +1,3 @@
-# requirements_bot/core/pipeline.py
 import random
 
 from requirements_bot.core.models import Answer, Question, Session
@@ -48,3 +47,111 @@ def run_interview(project: str, model_id: str) -> Session:
     return Session(
         project=project, questions=all_qs, answers=answers, requirements=requirements
     )
+
+
+def run_conversational_interview(
+    project: str, model_id: str, max_questions: int = 15
+) -> Session:
+    """Run an interactive conversational requirements interview."""
+    provider = Provider.from_id(model_id)
+
+    # Start with seed questions
+    seed_questions = [
+        Question(id=f"q{i}", category=c, text=t, required=True)
+        for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+    ]
+
+    # Get initial LLM-generated questions
+    llm_questions = provider.generate_questions(project, seed_questions=seed_questions)
+
+    session = Session(
+        project=project,
+        questions=[],  # Will build this dynamically
+        answers=[],
+        conversation_complete=False,
+    )
+
+    # Question queue - start with shuffled seed questions
+    question_queue = seed_questions.copy()
+    random.shuffle(question_queue)
+
+    # Add some initial LLM questions to the queue
+    question_queue.extend(llm_questions[:3])
+
+    question_counter = 0
+
+    print(f"\n=== Starting conversational interview ===")
+    print(
+        "I'll ask questions to understand your requirements. I may ask follow-up questions based on your answers."
+    )
+
+    while (
+        question_queue
+        and question_counter < max_questions
+        and not session.conversation_complete
+    ):
+        current_question: Question = question_queue.pop(0)
+        question_counter += 1
+
+        # Add question to session
+        session.questions.append(current_question)
+
+        # Ask the question
+        print(
+            f"\n[{question_counter}] [{current_question.category.upper()}] {current_question.text}"
+        )
+        answer_text = input("> ").strip()
+
+        if answer_text:
+            answer = Answer(question_id=current_question.id, text=answer_text)
+            session.answers.append(answer)
+
+            # Analyze the answer and potentially generate follow-ups
+            context = session.get_context_for_question(current_question.id)
+            analysis = provider.analyze_answer(current_question, answer, context)
+
+            # Update answer with analysis results
+            answer.is_vague = not (analysis.is_complete and analysis.is_specific)
+            answer.needs_followup = bool(analysis.follow_up_questions)
+
+            # Add follow-up questions to the queue
+            if analysis.follow_up_questions:
+                follow_up_questions: list[Question] = []
+                for i, follow_up_text in enumerate(analysis.follow_up_questions):
+                    follow_up_id = f"followup_{current_question.id}_{i}"
+                    follow_up = Question(
+                        id=follow_up_id,
+                        text=follow_up_text,
+                        category=current_question.category,
+                        required=False,
+                    )
+                    follow_up_questions.append(follow_up)
+
+                # Insert follow-ups at the front of the queue for immediate asking
+                question_queue = follow_up_questions + question_queue
+
+                if analysis.analysis_notes:
+                    print(f"   → I need to ask a follow-up: {analysis.analysis_notes}")
+
+        # Every few questions, check if we have enough information
+        if question_counter % 5 == 0 or len(question_queue) == 0:
+            completeness = provider.assess_completeness(session)
+
+            if completeness.is_complete:
+                print(f"\n✓ Assessment: {completeness.reasoning}")
+                session.conversation_complete = True
+                break
+            elif completeness.missing_areas:
+                print(
+                    f"\n⚠ Still need info on: {', '.join(completeness.missing_areas)}"
+                )
+                # Could add logic here to generate questions for missing areas
+
+    # Generate final requirements
+    print(f"\n=== Generating requirements from {len(session.answers)} answers ===")
+    requirements = provider.summarize_requirements(
+        project, session.questions, session.answers
+    )
+    session.requirements = requirements
+
+    return session

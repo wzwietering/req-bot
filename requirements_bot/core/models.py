@@ -1,5 +1,4 @@
-# requirements_bot/core/models.py
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -23,12 +22,29 @@ class Question(BaseModel):
 class Answer(BaseModel):
     question_id: str
     text: str
+    is_vague: bool = False
+    needs_followup: bool = False
+
+
+class AnswerAnalysis(BaseModel):
+    is_complete: bool
+    is_specific: bool
+    is_consistent: bool
+    follow_up_questions: list[str] = []
+    analysis_notes: str | None = None
+
+
+class CompletenessAssessment(BaseModel):
+    is_complete: bool
+    missing_areas: list[str] = []
+    confidence_score: float
+    reasoning: str
 
 
 class Requirement(BaseModel):
     id: str
     title: str
-    rationale: Optional[str] = None
+    rationale: str | None = None
     priority: Literal["MUST", "SHOULD", "COULD"] = "MUST"
 
 
@@ -37,6 +53,22 @@ class Session(BaseModel):
     questions: list[Question]
     answers: list[Answer] = []
     requirements: list[Requirement] = []
+    conversation_complete: bool = False
+
+    def get_qa_history(self) -> list[tuple[Question, Answer | None]]:
+        """Get Q&A pairs in order."""
+        answer_map = {a.question_id: a for a in self.answers}
+        return [(q, answer_map.get(q.id)) for q in self.questions]
+
+    def get_context_for_question(self, question_id: str) -> str:
+        """Get context from previous answers for generating follow-ups."""
+        context_items: list[str] = []
+        for q, a in self.get_qa_history():
+            if q.id == question_id:
+                break
+            if a:
+                context_items.append(f"Q: {q.text}\nA: {a.text}")
+        return "\n\n".join(context_items)
 
     def to_markdown(self) -> str:
         """Generate a Markdown document from the session data."""
