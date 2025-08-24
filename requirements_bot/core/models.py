@@ -1,6 +1,8 @@
+from datetime import UTC, datetime
 from typing import Literal
+from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Question(BaseModel):
@@ -49,11 +51,14 @@ class Requirement(BaseModel):
 
 
 class Session(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     project: str
     questions: list[Question]
     answers: list[Answer] = []
     requirements: list[Requirement] = []
     conversation_complete: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def get_qa_history(self) -> list[tuple[Question, Answer | None]]:
         """Get Q&A pairs in order."""

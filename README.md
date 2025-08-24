@@ -12,6 +12,8 @@ Requirements Bot helps software teams and developers gather comprehensive requir
 - **Multi-Provider Support**: Works with Anthropic Claude, OpenAI, and Google Gemini models
 - **Intelligent Follow-ups**: AI analyzes answers and generates relevant follow-up questions
 - **Completeness Assessment**: Automatically assesses when enough information has been gathered
+- **Persistent Storage**: SQLite database storage for session persistence and retrieval
+- **Session Management**: Save, load, list, and delete interview sessions
 - **Structured Output**: Generates professional requirements documents in Markdown
 - **Question Categories**: Organizes questions by scope, users, constraints, non-functional requirements, interfaces, data, risks, and success metrics
 
@@ -36,6 +38,18 @@ poetry install
 git clone <repository-url>
 cd req-bot
 pip install -e .
+```
+
+### Database Setup
+
+Requirements Bot uses SQLite for persistent storage. The database will be created automatically on first use. For development or to manage database migrations:
+
+```bash
+# Initialize database (optional - happens automatically)
+alembic upgrade head
+
+# Create new migration after model changes
+alembic revision --autogenerate -m "Description of changes"
 ```
 
 ## Environment Variables
@@ -95,10 +109,20 @@ python -m requirements_bot.cli conversational --project "My Web App" --out "requ
 - `--project`: Project name/title (required, will prompt if not provided)
 - `--out`: Output file path (default: "requirements.md")
 - `--model`: AI provider and model identifier (default: "anthropic:claude-3-haiku-20240307")
+- `--db-path`: Database file path (default: "requirements_bot.db")
 
 #### Conversational Mode Options
 
 - `--max-questions`: Maximum number of questions to ask (default: 25)
+
+### Session Management
+
+Requirements Bot automatically saves interview sessions to a SQLite database. Sessions persist between runs and can be resumed or referenced later. The database includes:
+
+- **Sessions**: Interview metadata and completion status
+- **Questions**: All questions asked during interviews
+- **Answers**: User responses with analysis flags
+- **Requirements**: Generated requirements with priorities
 
 ## Example Session
 
@@ -169,11 +193,17 @@ The project is structured with a modular provider system:
 
 - `requirements_bot/cli.py`: Command-line interface
 - `requirements_bot/core/`: Core business logic and models
+  - `database.py`: SQLAlchemy ORM models
+  - `storage.py`: Database storage implementation
+  - `storage_interface.py`: Abstract storage interface
+  - `memory_storage.py`: In-memory storage for testing
 - `requirements_bot/providers/`: AI provider implementations
   - `anthropic.py`: Anthropic Claude integration
   - `openai.py`: OpenAI integration
   - `google.py`: Google Gemini integration
   - `base.py`: Abstract provider interface
+- `alembic/`: Database migration management
+- `tests/`: Comprehensive test suite including storage tests
 
 ## Question Categories
 
