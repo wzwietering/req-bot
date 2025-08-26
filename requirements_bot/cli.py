@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 import typer
 
@@ -14,12 +13,12 @@ app = typer.Typer(
 
 @app.command()
 def interview(
-    project: str = typer.Option(..., prompt=True, help="Project name/title"),
+    project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
     model: str = typer.Option(
         "anthropic:claude-3-haiku-20240307", help="Provider:model identifier"
     ),
-    session_id: Optional[str] = typer.Option(
+    session_id: str | None = typer.Option(
         None, "--session-id", help="Resume existing session by ID"
     ),
     db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
@@ -32,13 +31,13 @@ def interview(
 
 @app.command()
 def conversational(
-    project: str = typer.Option(..., prompt=True, help="Project name/title"),
+    project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
     model: str = typer.Option(
         "anthropic:claude-3-haiku-20240307", help="Provider:model identifier"
     ),
     max_questions: int = typer.Option(25, help="Maximum number of questions to ask"),
-    session_id: Optional[str] = typer.Option(
+    session_id: str | None = typer.Option(
         None, "--session-id", help="Resume existing session by ID"
     ),
     db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
@@ -70,9 +69,7 @@ def list_sessions(
         for session_id, project, updated_at, complete in sessions:
             status = "✓ Complete" if complete else "⚠ In Progress"
             updated_str = updated_at.strftime("%Y-%m-%d %H:%M:%S")
-            typer.echo(
-                f"{session_id[:8]}... | {project[:30]:<30} | {updated_str} | {status}"
-            )
+            typer.echo(f"{session_id} | {project[:30]:<30} | {updated_str} | {status}")
 
     except Exception as e:
         typer.echo(f"Error listing sessions: {e}", err=True)
@@ -140,14 +137,28 @@ def show_session(
 
 
 def _run(
-    project: str,
+    project: str | None,
     out: str,
     model: str,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     db_path: str = "requirements_bot.db",
 ):
     try:
         db_manager = DatabaseManager(db_path)
+
+        # If resuming a session, get project from the session
+        if session_id and not project:
+            existing_session = db_manager.load_session(session_id)
+            if existing_session:
+                project = existing_session.project
+            else:
+                typer.echo(f"Session {session_id} not found.", err=True)
+                raise typer.Exit(1)
+
+        # If no project provided and not resuming, prompt for it
+        if not project:
+            project = typer.prompt("Project name/title")
+
         session = run_interview(
             project=project,
             model_id=model,
@@ -161,21 +172,37 @@ def _run(
         typer.echo(f"Error during interview: {e}", err=True)
         # Fall back to non-persistent mode
         typer.echo("Falling back to non-persistent mode...")
+        if not project:
+            project = typer.prompt("Project name/title")
         session = run_interview(project=project, model_id=model)
         path = write_document(session, path=out)
         typer.echo(f"Requirements written to {path}")
 
 
 def _run_conversational(
-    project: str,
+    project: str | None,
     out: str,
     model: str,
     max_questions: int,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     db_path: str = "requirements_bot.db",
 ):
     try:
         db_manager = DatabaseManager(db_path)
+
+        # If resuming a session, get project from the session
+        if session_id and not project:
+            existing_session = db_manager.load_session(session_id)
+            if existing_session:
+                project = existing_session.project
+            else:
+                typer.echo(f"Session {session_id} not found.", err=True)
+                raise typer.Exit(1)
+
+        # If no project provided and not resuming, prompt for it
+        if not project:
+            project = typer.prompt("Project name/title")
+
         session = run_conversational_interview(
             project=project,
             model_id=model,
@@ -190,6 +217,8 @@ def _run_conversational(
         typer.echo(f"Error during conversational interview: {e}", err=True)
         # Fall back to non-persistent mode
         typer.echo("Falling back to non-persistent mode...")
+        if not project:
+            project = typer.prompt("Project name/title")
         session = run_conversational_interview(
             project=project, model_id=model, max_questions=max_questions
         )

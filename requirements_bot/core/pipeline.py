@@ -123,6 +123,28 @@ def run_conversational_interview(
                 q for q in session.questions if q.id not in answered_question_ids
             ]
             question_queue = remaining_questions
+
+            # If resuming a "completed" session, reopen it for more questions
+            if session.conversation_complete:
+                print("   → Reopening completed session for additional questions")
+                session.conversation_complete = False
+
+            # If no remaining questions, generate new ones to continue the conversation
+            if not question_queue:
+                print("   → Generating new questions to continue the conversation")
+                seed_questions = [
+                    Question(id=f"q{i}", category=c, text=t, required=True)
+                    for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+                ]
+                additional_questions = provider.generate_questions(
+                    session.project, seed_questions=seed_questions
+                )
+                # Filter out questions that are too similar to already asked ones
+                asked_texts = {q.text.lower() for q in session.questions}
+                new_questions = [
+                    q for q in additional_questions if q.text.lower() not in asked_texts
+                ]
+                question_queue.extend(new_questions[:5])  # Add up to 5 new questions
         else:
             print(f"\n⚠ Session {session_id} not found, starting new interview")
 
@@ -225,7 +247,10 @@ def run_conversational_interview(
                         print(f"⚠ Warning: Failed to save session with follow-ups: {e}")
 
         # Every few questions, check if we have enough information
-        if question_counter % 5 == 0 or len(question_queue) == 0:
+        # But don't check completeness too early - need at least 5 questions minimum
+        if (question_counter % 5 == 0 and question_counter >= 5) or (
+            len(question_queue) == 0 and question_counter >= 5
+        ):
             completeness = provider.assess_completeness(session)
 
             if completeness.is_complete:
@@ -236,7 +261,26 @@ def run_conversational_interview(
                 print(
                     f"\n⚠ Still need info on: {', '.join(completeness.missing_areas)}"
                 )
-                # Could add logic here to generate questions for missing areas
+                # Generate more questions for missing areas if queue is empty
+                if len(question_queue) == 0:
+                    print("   → Generating additional questions for missing areas")
+                    seed_questions = [
+                        Question(id=f"q{i}", category=c, text=t, required=True)
+                        for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+                    ]
+                    additional_questions = provider.generate_questions(
+                        session.project, seed_questions=seed_questions
+                    )
+                    # Filter out questions that are too similar to already asked ones
+                    asked_texts = {q.text.lower() for q in session.questions}
+                    new_questions = [
+                        q
+                        for q in additional_questions
+                        if q.text.lower() not in asked_texts
+                    ]
+                    question_queue.extend(
+                        new_questions[:3]
+                    )  # Add up to 3 new questions
 
     # Generate final requirements
     print(f"\n=== Generating requirements from {len(session.answers)} answers ===")
