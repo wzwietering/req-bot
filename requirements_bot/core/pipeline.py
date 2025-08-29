@@ -1,6 +1,8 @@
 import random
+from typing import Optional
 
 from requirements_bot.core.models import Answer, Question, Session
+from requirements_bot.core.storage import DatabaseManager
 from requirements_bot.providers.base import Provider
 
 CANNED_SEED_QUESTIONS = [
@@ -15,70 +17,164 @@ CANNED_SEED_QUESTIONS = [
 ]
 
 
-def run_interview(project: str, model_id: str) -> Session:
+def run_interview(
+    project: str,
+    model_id: str,
+    session_id: Optional[str] = None,
+    db_manager: Optional[DatabaseManager] = None,
+) -> Session:
     provider = Provider.from_id(model_id)
-    # 1) Seed + provider-augmented questions
-    questions = [
-        Question(id=f"q{i}", category=c, text=t)
-        for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
-    ]
-    llm_questions = provider.generate_questions(project, seed_questions=questions)
-    all_qs = questions + [
-        q for q in llm_questions if q.text not in {x.text for x in questions}
-    ]
-    random.shuffle(all_qs)
+
+    # Check if resuming an existing session
+    session = None
+    if session_id and db_manager:
+        session = db_manager.load_session(session_id)
+        if session:
+            print(f"\n=== Resuming interview for '{session.project}' ===")
+            # Continue from where we left off
+            answered_question_ids = {a.question_id for a in session.answers}
+            remaining_questions = [
+                q for q in session.questions if q.id not in answered_question_ids
+            ]
+            all_qs = remaining_questions
+        else:
+            print(f"\n⚠ Session {session_id} not found, starting new interview")
+
+    if not session:
+        # 1) Seed + provider-augmented questions
+        questions = [
+            Question(id=f"q{i}", category=c, text=t)
+            for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+        ]
+        llm_questions = provider.generate_questions(project, seed_questions=questions)
+        all_qs = questions + [
+            q for q in llm_questions if q.text not in {x.text for x in questions}
+        ]
+        random.shuffle(all_qs)
+
+        session = Session(
+            project=project, questions=all_qs, answers=[], requirements=[]
+        )
 
     # 2) Console loop
-    answers: list[Answer] = []
     total_questions = len(all_qs)
-    print(f"\n=== Starting interview with {total_questions} questions ===")
+    answered_count = len(session.answers)
+    print(
+        f"\n=== Starting interview with {total_questions - answered_count} remaining questions ==="
+    )
 
-    for i, q in enumerate(all_qs, 1):
+    for i, q in enumerate(all_qs, answered_count + 1):
         print(f"\n[{i}/{total_questions}] [{q.category.upper()}] {q.text}")
         a = input("> ").strip()
         if a:
-            answers.append(Answer(question_id=q.id, text=a))
+            answer = Answer(question_id=q.id, text=a)
+            session.answers.append(answer)
+
+            # Auto-save after each answer if db_manager is available
+            if db_manager:
+                try:
+                    db_manager.save_session(session)
+                except Exception as e:
+                    print(f"⚠ Warning: Failed to save session: {e}")
 
     # 3) Consolidate into requirements (LLM structured output)
     requirements = provider.summarize_requirements(
-        project, questions=all_qs, answers=answers
+        project, session.questions, session.answers
     )
+    session.requirements = requirements
+    session.conversation_complete = True
 
-    return Session(
-        project=project, questions=all_qs, answers=answers, requirements=requirements
-    )
+    # Final save
+    if db_manager:
+        try:
+            db_manager.save_session(session)
+        except Exception as e:
+            print(f"⚠ Warning: Failed to save final session: {e}")
+
+    return session
 
 
 def run_conversational_interview(
-    project: str, model_id: str, max_questions: int = 15
+    project: str,
+    model_id: str,
+    max_questions: int = 15,
+    session_id: Optional[str] = None,
+    db_manager: Optional[DatabaseManager] = None,
 ) -> Session:
     """Run an interactive conversational requirements interview."""
     provider = Provider.from_id(model_id)
 
-    # Start with seed questions
-    seed_questions = [
-        Question(id=f"q{i}", category=c, text=t, required=True)
-        for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
-    ]
-
-    # Get initial LLM-generated questions
-    llm_questions = provider.generate_questions(project, seed_questions=seed_questions)
-
-    session = Session(
-        project=project,
-        questions=[],  # Will build this dynamically
-        answers=[],
-        conversation_complete=False,
-    )
-
-    # Question queue - start with shuffled seed questions
-    question_queue = seed_questions.copy()
-    random.shuffle(question_queue)
-
-    # Add some initial LLM questions to the queue
-    question_queue.extend(llm_questions[:3])
-
+    # Check if resuming an existing session
+    session = None
+    question_queue = []
     question_counter = 0
+
+    if session_id and db_manager:
+        session = db_manager.load_session(session_id)
+        if session:
+            print(
+                f"\n=== Resuming conversational interview for '{session.project}' ==="
+            )
+            question_counter = len(session.answers)
+
+            # Rebuild question queue from unanswered questions
+            answered_question_ids = {a.question_id for a in session.answers}
+            remaining_questions = [
+                q for q in session.questions if q.id not in answered_question_ids
+            ]
+            question_queue = remaining_questions
+
+            # If resuming a "completed" session, reopen it for more questions
+            if session.conversation_complete:
+                print("   → Reopening completed session for additional questions")
+                session.conversation_complete = False
+
+            # If no remaining questions, generate new ones to continue the conversation
+            if not question_queue:
+                print("   → Generating new questions to continue the conversation")
+                seed_questions = [
+                    Question(id=f"q{i}", category=c, text=t, required=True)
+                    for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+                ]
+                additional_questions = provider.generate_questions(
+                    session.project, seed_questions=seed_questions
+                )
+                # Filter out questions that are too similar to already asked ones
+                asked_texts = {q.text.lower() for q in session.questions}
+                new_questions = [
+                    q for q in additional_questions if q.text.lower() not in asked_texts
+                ]
+                question_queue.extend(new_questions[:5])  # Add up to 5 new questions
+        else:
+            print(f"\n⚠ Session {session_id} not found, starting new interview")
+
+    if not session:
+        # Start with seed questions
+        seed_questions = [
+            Question(id=f"q{i}", category=c, text=t, required=True)
+            for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+        ]
+
+        # Get initial LLM-generated questions
+        llm_questions = provider.generate_questions(
+            project, seed_questions=seed_questions
+        )
+
+        session = Session(
+            project=project,
+            questions=[],  # Will build this dynamically
+            answers=[],
+            conversation_complete=False,
+        )
+
+        # Question queue - start with shuffled seed questions
+        question_queue = seed_questions.copy()
+        random.shuffle(question_queue)
+
+        # Add some initial LLM questions to the queue
+        question_queue.extend(llm_questions[:3])
+
+        question_counter = 0
 
     print(f"\n=== Starting conversational interview ===")
     print(
@@ -106,6 +202,13 @@ def run_conversational_interview(
             answer = Answer(question_id=current_question.id, text=answer_text)
             session.answers.append(answer)
 
+            # Auto-save after each answer if db_manager is available
+            if db_manager:
+                try:
+                    db_manager.save_session(session)
+                except Exception as e:
+                    print(f"⚠ Warning: Failed to save session: {e}")
+
             # Analyze the answer and potentially generate follow-ups
             context = session.get_context_for_question(current_question.id)
             analysis = provider.analyze_answer(current_question, answer, context)
@@ -126,6 +229,9 @@ def run_conversational_interview(
                         required=False,
                     )
                     follow_up_questions.append(follow_up)
+                    session.questions.append(
+                        follow_up
+                    )  # Add to session for persistence
 
                 # Insert follow-ups at the front of the queue for immediate asking
                 question_queue = follow_up_questions + question_queue
@@ -133,8 +239,18 @@ def run_conversational_interview(
                 if analysis.analysis_notes:
                     print(f"   → I need to ask a follow-up: {analysis.analysis_notes}")
 
+                # Save session with new follow-up questions
+                if db_manager:
+                    try:
+                        db_manager.save_session(session)
+                    except Exception as e:
+                        print(f"⚠ Warning: Failed to save session with follow-ups: {e}")
+
         # Every few questions, check if we have enough information
-        if question_counter % 5 == 0 or len(question_queue) == 0:
+        # But don't check completeness too early - need at least 5 questions minimum
+        if (question_counter % 5 == 0 and question_counter >= 5) or (
+            len(question_queue) == 0 and question_counter >= 5
+        ):
             completeness = provider.assess_completeness(session)
 
             if completeness.is_complete:
@@ -145,7 +261,26 @@ def run_conversational_interview(
                 print(
                     f"\n⚠ Still need info on: {', '.join(completeness.missing_areas)}"
                 )
-                # Could add logic here to generate questions for missing areas
+                # Generate more questions for missing areas if queue is empty
+                if len(question_queue) == 0:
+                    print("   → Generating additional questions for missing areas")
+                    seed_questions = [
+                        Question(id=f"q{i}", category=c, text=t, required=True)
+                        for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+                    ]
+                    additional_questions = provider.generate_questions(
+                        session.project, seed_questions=seed_questions
+                    )
+                    # Filter out questions that are too similar to already asked ones
+                    asked_texts = {q.text.lower() for q in session.questions}
+                    new_questions = [
+                        q
+                        for q in additional_questions
+                        if q.text.lower() not in asked_texts
+                    ]
+                    question_queue.extend(
+                        new_questions[:3]
+                    )  # Add up to 3 new questions
 
     # Generate final requirements
     print(f"\n=== Generating requirements from {len(session.answers)} answers ===")
@@ -153,5 +288,13 @@ def run_conversational_interview(
         project, session.questions, session.answers
     )
     session.requirements = requirements
+    session.conversation_complete = True
+
+    # Final save
+    if db_manager:
+        try:
+            db_manager.save_session(session)
+        except Exception as e:
+            print(f"⚠ Warning: Failed to save final session: {e}")
 
     return session
