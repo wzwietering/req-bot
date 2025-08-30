@@ -42,14 +42,27 @@ pip install -e .
 
 ### Database Setup
 
-Requirements Bot uses SQLite for persistent storage. The database will be created automatically on first use. For development or to manage database migrations:
+Requirements Bot uses SQLite for persistent storage with Alembic-based migration support. The database will be created automatically on first use with the latest schema.
+
+#### Database Migration Management
+
+The system includes a migration framework for schema evolution:
 
 ```bash
-# Initialize database (optional - happens automatically)
+# Initialize/upgrade database to latest schema
 alembic upgrade head
+
+# Check current migration status
+alembic current
+
+# View migration history
+alembic history --verbose
 
 # Create new migration after model changes
 alembic revision --autogenerate -m "Description of changes"
+
+# Rollback to previous migration (if needed)
+alembic downgrade -1
 ```
 
 ## Environment Variables
@@ -117,11 +130,11 @@ python -m requirements_bot.cli conversational --project "My Web App" --out "requ
 
 ### Session Management
 
-Requirements Bot automatically saves interview sessions to a SQLite database. Sessions persist between runs and can be resumed or referenced later. The database includes:
+Requirements Bot automatically saves interview sessions to a SQLite database. Sessions persist between runs and can be resumed or referenced later. The simplified database schema includes:
 
-- **Sessions**: Interview metadata and completion status
-- **Questions**: All questions asked during interviews
-- **Answers**: User responses with analysis flags
+- **Sessions**: Core interview metadata and completion status
+- **Questions**: All questions asked during interviews with categories
+- **Answers**: User responses with basic analysis flags
 - **Requirements**: Generated requirements with priorities
 
 ## Example Session
@@ -189,11 +202,13 @@ A: Our customers who want to browse products...
 
 ## Architecture
 
-The project is structured with a modular provider system:
+The project is structured with a modular provider system and simplified database management:
 
 - `requirements_bot/cli.py`: Command-line interface
 - `requirements_bot/core/`: Core business logic and models
-  - `database.py`: SQLAlchemy ORM models
+  - `database_models/`: Simplified SQLAlchemy ORM models
+  - `models.py`: Pydantic business models for validation
+  - `migration_manager.py`: Simple database migration management using Alembic
   - `storage.py`: Database storage implementation
   - `storage_interface.py`: Abstract storage interface
   - `memory_storage.py`: In-memory storage for testing
@@ -203,7 +218,8 @@ The project is structured with a modular provider system:
   - `google.py`: Google Gemini integration
   - `base.py`: Abstract provider interface
 - `alembic/`: Database migration management
-- `tests/`: Comprehensive test suite including storage tests
+  - `versions/`: Migration scripts with version tracking
+- `tests/`: Comprehensive test suite including migration tests
 
 ## Question Categories
 

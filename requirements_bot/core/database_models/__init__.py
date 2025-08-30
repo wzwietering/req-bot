@@ -1,3 +1,5 @@
+"""Simplified database models with core functionality only."""
+
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -10,14 +12,30 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    event,
 )
 from sqlalchemy.orm import declarative_base, relationship
 
-# SQLAlchemy Base
+# Single unified Base for all models
 Base = declarative_base()
 
 
+# Function to enable foreign key enforcement - to be called by engines
+def enable_sqlite_foreign_keys(engine):
+    """Enable foreign key enforcement for SQLite connections on an engine."""
+
+    @event.listens_for(engine, "connect")
+    def _enable_foreign_keys(dbapi_connection, connection_record):
+        """Enable foreign key enforcement for SQLite connections."""
+        if "sqlite" in str(dbapi_connection):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+
 class SessionTable(Base):
+    """Core session table for requirements gathering."""
+
     __tablename__ = "sessions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
@@ -36,15 +54,21 @@ class SessionTable(Base):
         "AnswerTable", back_populates="session", cascade="all, delete-orphan"
     )
     requirements = relationship(
-        "RequirementTable", back_populates="session", cascade="all, delete-orphan"
+        "RequirementTable",
+        back_populates="session",
+        cascade="all, delete-orphan",
     )
 
 
 class QuestionTable(Base):
+    """Questions table."""
+
     __tablename__ = "questions"
 
     id = Column(String, primary_key=True)
-    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(
+        String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
     text = Column(Text, nullable=False)
     category = Column(String, nullable=False)
     required = Column(Boolean, default=True)
@@ -59,12 +83,19 @@ class QuestionTable(Base):
 
 
 class AnswerTable(Base):
+    """Answers table."""
+
     __tablename__ = "answers"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(
+        String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
     question_id = Column(
-        String, ForeignKey("questions.id"), nullable=False, unique=True
+        String,
+        ForeignKey("questions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
     text = Column(Text, nullable=False)
     is_vague = Column(Boolean, default=False)
@@ -83,10 +114,14 @@ class AnswerTable(Base):
 
 
 class RequirementTable(Base):
+    """Requirements table."""
+
     __tablename__ = "requirements"
 
     id = Column(String, primary_key=True)
-    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(
+        String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
     title = Column(String, nullable=False)
     rationale = Column(Text)
     priority = Column(String, nullable=False, default="MUST")
@@ -97,3 +132,14 @@ class RequirementTable(Base):
 
     # Indexes
     __table_args__ = (Index("ix_requirements_session_id", "session_id"),)
+
+
+# Export core models only
+__all__ = [
+    "Base",
+    "SessionTable",
+    "QuestionTable",
+    "AnswerTable",
+    "RequirementTable",
+    "enable_sqlite_foreign_keys",
+]

@@ -7,8 +7,15 @@ from typing import Optional
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import joinedload, sessionmaker
 
-from .database import AnswerTable, Base, QuestionTable, RequirementTable, SessionTable
-from .models import Answer, Question, Requirement, Session
+from .database_models import Base  # SQLAlchemy ORM models
+from .database_models import (
+    AnswerTable,
+    QuestionTable,
+    RequirementTable,
+    SessionTable,
+    enable_sqlite_foreign_keys,
+)
+from .models import Answer, Question, Requirement, Session  # Pydantic models
 from .storage_interface import StorageInterface
 
 
@@ -61,6 +68,9 @@ class DatabaseManager(StorageInterface):
             pool_recycle=3600,
         )
         self.SessionLocal = sessionmaker(bind=self.engine)
+
+        # Enable foreign key constraints for SQLite
+        enable_sqlite_foreign_keys(self.engine)
 
         # Create tables
         Base.metadata.create_all(bind=self.engine)
