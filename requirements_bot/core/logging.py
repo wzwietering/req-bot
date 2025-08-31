@@ -1,0 +1,265 @@
+import json
+import logging
+import os
+import sys
+import time
+import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import datetime, timezone
+from typing import Any, Iterator
+
+# Context variables for correlation and tracing
+_ctx_trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
+_ctx_span_id: ContextVar[str | None] = ContextVar("span_id", default=None)
+_ctx_parent_span_id: ContextVar[str | None] = ContextVar("parent_span_id", default=None)
+_ctx_run_id: ContextVar[str | None] = ContextVar("run_id", default=None)
+_ctx_mask: ContextVar[bool] = ContextVar("mask", default=False)
+
+
+class ContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Inject context vars into the record so formatters can include them
+        record.trace_id = _ctx_trace_id.get()
+        record.span_id = _ctx_span_id.get()
+        record.parent_span_id = _ctx_parent_span_id.get()
+        record.run_id = _ctx_run_id.get()
+        record.component = getattr(record, "component", None)
+        record.operation = getattr(record, "operation", None)
+        return True
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, Any] = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
+            "level": record.levelname.lower(),
+            "message": record.getMessage(),
+        }
+
+        # Common fields
+        for key in (
+            "event",
+            "trace_id",
+            "span_id",
+            "parent_span_id",
+            "run_id",
+            "component",
+            "operation",
+            "duration_ms",
+            "status",
+            "error_type",
+            "error_msg",
+        ):
+            value = getattr(record, key, None)
+            if value is not None:
+                payload[key] = value
+
+        # Include any custom extras set on the record (exclude built-ins)
+        extras = {
+            k: v
+            for k, v in record.__dict__.items()
+            if k
+            not in {
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+            }
+            and k not in payload
+        }
+        if extras:
+            payload.update(extras)
+
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def _coerce_level(level: str | int | None) -> int:
+    if isinstance(level, int):
+        return level
+    if not level:
+        return logging.INFO
+    try:
+        return getattr(logging, str(level).upper())
+    except AttributeError:
+        return logging.INFO
+
+
+def init_logging(
+    level: str | int | None = None,
+    fmt: str | None = None,
+    file_path: str | None = None,
+    mask: bool | None = None,
+) -> logging.Logger:
+    """Initialize application-wide logging.
+
+    - level: log level or env `REQBOT_LOG_LEVEL` (default INFO)
+    - fmt: 'json' or 'text' or env `REQBOT_LOG_FORMAT` (default 'text')
+    - file_path: file path or env `REQBOT_LOG_FILE` (default stdout)
+    - mask: whether to mask sensitive text or env `REQBOT_LOG_MASK` (default False)
+    """
+
+    env_level = os.getenv("REQBOT_LOG_LEVEL")
+    env_format = os.getenv("REQBOT_LOG_FORMAT")
+    env_file = os.getenv("REQBOT_LOG_FILE")
+    env_mask = os.getenv("REQBOT_LOG_MASK")
+
+    resolved_level = _coerce_level(level or env_level or logging.INFO)
+    resolved_format = (fmt or env_format or "text").lower()
+    resolved_file = file_path or env_file
+    resolved_mask = bool(
+        mask
+        if mask is not None
+        else (env_mask or "").lower() in {"1", "true", "yes", "on"}
+    )
+
+    root = logging.getLogger()
+    root.setLevel(resolved_level)
+
+    # Remove existing handlers to avoid duplication on repeated init
+    for h in list(root.handlers):
+        root.removeHandler(h)
+
+    handler: logging.Handler
+    if resolved_file:
+        handler = logging.FileHandler(resolved_file)
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+
+    if resolved_format == "json":
+        formatter = JsonFormatter()
+    else:
+        # Simple human-readable format
+        formatter = logging.Formatter(
+            fmt="%(asctime)s %(levelname)s %(event)s %(message)s [trace=%(trace_id)s span=%(span_id)s]",
+            datefmt="%Y-%m-%dT%H:%M:%S",
+        )
+
+    handler.setFormatter(formatter)
+    handler.addFilter(ContextFilter())
+    root.addHandler(handler)
+
+    # Generate a run_id if not present
+    if not _ctx_run_id.get():
+        set_run_id(short_uuid())
+
+    set_masking(resolved_mask)
+
+    logger = logging.getLogger("requirements_bot")
+    logger.debug(
+        "logging initialized",
+        extra={
+            "event": "logging.init",
+            "component": "logging",
+            "operation": "init",
+            "level": resolved_level,
+            "format": resolved_format,
+            "file": resolved_file or "stdout",
+            "mask": resolved_mask,
+        },
+    )
+    return logger
+
+
+def short_uuid() -> str:
+    return uuid.uuid4().hex[:12]
+
+
+def set_trace_id(trace_id: str | None) -> None:
+    _ctx_trace_id.set(trace_id)
+
+
+def get_trace_id() -> str | None:
+    return _ctx_trace_id.get()
+
+
+def set_run_id(run_id: str) -> None:
+    _ctx_run_id.set(run_id)
+
+
+def get_run_id() -> str | None:
+    return _ctx_run_id.get()
+
+
+def set_masking(mask: bool) -> None:
+    _ctx_mask.set(mask)
+
+
+def is_masking() -> bool:
+    return _ctx_mask.get()
+
+
+def mask_text(text: str) -> str:
+    if not is_masking():
+        return text
+    return f"[masked len={len(text)}]"
+
+
+@contextmanager
+def span(event: str, **fields: Any) -> Iterator[None]:
+    """Context manager to time an operation and emit a structured log with correlation fields.
+
+    Usage:
+        with span("llm.generate_questions", component="provider", operation="generate_questions", provider="openai"):
+            ...
+    """
+
+    logger = logging.getLogger("requirements_bot")
+    parent = _ctx_span_id.get()
+    _ctx_parent_span_id.set(parent)
+    current = short_uuid()
+    _ctx_span_id.set(current)
+    start = time.perf_counter()
+    error_type: str | None = None
+    error_msg: str | None = None
+    try:
+        yield
+        status = "ok"
+    except Exception as e:  # noqa: BLE001 : intentional to capture and re-raise
+        status = "error"
+        error_type = type(e).__name__
+        error_msg = str(e)
+        raise
+    finally:
+        duration_ms = round((time.perf_counter() - start) * 1000.0, 3)
+        log_payload: dict[str, Any] = {
+            "event": event,
+            "component": fields.pop("component", None),
+            "operation": fields.pop("operation", None),
+            "duration_ms": duration_ms,
+            "status": status,
+        }
+        if error_type:
+            log_payload["error_type"] = error_type
+            log_payload["error_msg"] = error_msg
+        # Merge remaining fields
+        log_payload.update(fields)
+        logger.info("span", extra=log_payload)
+        # restore previous span
+        _ctx_span_id.set(parent)
+        _ctx_parent_span_id.set(None)
+
+
+def log_event(event: str, level: int = logging.INFO, **fields: Any) -> None:
+    logger = logging.getLogger("requirements_bot")
+    extra = {"event": event}
+    extra.update(fields)
+    logger.log(level, event, extra=extra)

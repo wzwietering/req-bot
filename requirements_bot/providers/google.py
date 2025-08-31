@@ -3,6 +3,7 @@ import os
 
 from google import genai
 
+from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.models import (
     Answer,
     AnswerAnalysis,
@@ -38,19 +39,35 @@ class ProviderImpl(Provider):
         full_prompt = f"{SYSTEM_INSTRUCTIONS['questions']}\n\n{prompt}"
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model, contents=full_prompt
-            )
+            with span(
+                "llm.generate_questions",
+                component="provider",
+                operation="generate_questions",
+                provider="google",
+                model=self.model,
+                prompt_len=len(full_prompt),
+            ):
+                response = self.client.models.generate_content(
+                    model=self.model, contents=full_prompt
+                )
 
-            content = response.text
-            if not content:
-                return []
+                content = response.text
+                if not content:
+                    return []
 
-            questions_data = json.loads(content)
-            return [Question(**q) for q in questions_data]
+                questions_data = json.loads(content)
+                return [Question(**q) for q in questions_data]
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
             # Fallback to empty list if parsing fails
-            print(f"Error parsing Google Gemini response: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="generate_questions",
+                provider="google",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             return []
 
     def summarize_requirements(
@@ -64,19 +81,35 @@ class ProviderImpl(Provider):
         full_prompt = f"{SYSTEM_INSTRUCTIONS['requirements']}\n\n{prompt}"
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model, contents=full_prompt
-            )
+            with span(
+                "llm.summarize_requirements",
+                component="provider",
+                operation="summarize_requirements",
+                provider="google",
+                model=self.model,
+                prompt_len=len(full_prompt),
+            ):
+                response = self.client.models.generate_content(
+                    model=self.model, contents=full_prompt
+                )
 
-            content = response.text
-            if not content:
-                return []
+                content = response.text
+                if not content:
+                    return []
 
-            requirements_data = json.loads(content)
-            return [Requirement(**req) for req in requirements_data]
+                requirements_data = json.loads(content)
+                return [Requirement(**req) for req in requirements_data]
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
             # Fallback to empty list if parsing fails
-            print(f"Error parsing Google Gemini response: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="summarize_requirements",
+                provider="google",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             return []
 
     def analyze_answer(
@@ -88,25 +121,41 @@ class ProviderImpl(Provider):
         full_prompt = f"{SYSTEM_INSTRUCTIONS['questions']}\n\n{prompt}"
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model, contents=full_prompt
-            )
-
-            content = response.text
-            if not content:
-                # Default analysis if no response
-                return AnswerAnalysis(
-                    is_complete=True,
-                    is_specific=True,
-                    is_consistent=True,
-                    follow_up_questions=[],
-                    analysis_notes="Analysis failed - defaulting to accepting answer",
+            with span(
+                "llm.analyze_answer",
+                component="provider",
+                operation="analyze_answer",
+                provider="google",
+                model=self.model,
+                prompt_len=len(full_prompt),
+            ):
+                response = self.client.models.generate_content(
+                    model=self.model, contents=full_prompt
                 )
 
-            analysis_data = json.loads(content)
-            return AnswerAnalysis(**analysis_data)
+                content = response.text
+                if not content:
+                    # Default analysis if no response
+                    return AnswerAnalysis(
+                        is_complete=True,
+                        is_specific=True,
+                        is_consistent=True,
+                        follow_up_questions=[],
+                        analysis_notes="Analysis failed - defaulting to accepting answer",
+                    )
+
+                analysis_data = json.loads(content)
+                return AnswerAnalysis(**analysis_data)
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            print(f"Error parsing answer analysis response: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="analyze_answer",
+                provider="google",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             # Default to accepting the answer if analysis fails
             return AnswerAnalysis(
                 is_complete=True,
@@ -130,24 +179,40 @@ class ProviderImpl(Provider):
         full_prompt = f"{SYSTEM_INSTRUCTIONS['requirements']}\n\n{prompt}"
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model, contents=full_prompt
-            )
-
-            content = response.text
-            if not content:
-                # Default assessment
-                return CompletenessAssessment(
-                    is_complete=len(session.questions) >= 8,
-                    missing_areas=[],
-                    confidence_score=0.5,
-                    reasoning="Assessment failed - using basic heuristics",
+            with span(
+                "llm.assess_completeness",
+                component="provider",
+                operation="assess_completeness",
+                provider="google",
+                model=self.model,
+                prompt_len=len(full_prompt),
+            ):
+                response = self.client.models.generate_content(
+                    model=self.model, contents=full_prompt
                 )
 
-            assessment_data = json.loads(content)
-            return CompletenessAssessment(**assessment_data)
+                content = response.text
+                if not content:
+                    # Default assessment
+                    return CompletenessAssessment(
+                        is_complete=len(session.questions) >= 8,
+                        missing_areas=[],
+                        confidence_score=0.5,
+                        reasoning="Assessment failed - using basic heuristics",
+                    )
+
+                assessment_data = json.loads(content)
+                return CompletenessAssessment(**assessment_data)
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            print(f"Error parsing completeness assessment: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="assess_completeness",
+                provider="google",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             # Fallback assessment
             return CompletenessAssessment(
                 is_complete=len(session.questions) >= 8,

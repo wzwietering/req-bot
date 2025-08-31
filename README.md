@@ -218,7 +218,30 @@ The project is structured with a modular provider system and simplified database
   - `google.py`: Google Gemini integration
   - `base.py`: Abstract provider interface
 - `alembic/`: Database migration management
-  - `versions/`: Migration scripts with version tracking
+
+## Logging and Observability
+
+Requirements Bot emits structured logs with correlation IDs to trace sessions and measure performance.
+
+- CLI flags available on all commands:
+  - `--log-level` (e.g., DEBUG, INFO)
+  - `--log-format` (`json` or `text`)
+  - `--log-file` (path to write logs; defaults to stdout)
+  - `--log-mask` (mask sensitive user inputs in logs)
+
+Environment variables: `REQBOT_LOG_LEVEL`, `REQBOT_LOG_FORMAT`, `REQBOT_LOG_FILE`, `REQBOT_LOG_MASK`.
+
+Each session’s `session_id` is used as the `trace_id`. Spans include `duration_ms`, `component`, and `operation` fields for easy aggregation.
+
+Generate a simple performance report from JSON logs:
+
+```bash
+python -m requirements_bot.cli logs-report --input reqbot.jsonl --top 20
+```
+
+This prints the slowest operations and summary statistics to help identify bottlenecks.
+
+- `versions/`: Migration scripts with version tracking
 - `tests/`: Comprehensive test suite including migration tests
 
 ## Question Categories

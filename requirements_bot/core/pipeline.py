@@ -1,5 +1,15 @@
+import logging
 import random
 
+from requirements_bot.core.logging import (
+    get_run_id,
+    get_trace_id,
+    log_event,
+    mask_text,
+    set_run_id,
+    set_trace_id,
+    span,
+)
 from requirements_bot.core.models import Answer, Question, Session
 from requirements_bot.core.storage import DatabaseManager
 from requirements_bot.providers.base import Provider
@@ -22,6 +32,14 @@ def run_interview(
     session_id: str | None = None,
     db_manager: DatabaseManager | None = None,
 ) -> Session:
+    # Ensure a trace id is available before any spans
+    if not get_trace_id():
+        rid = get_run_id()
+        if not rid:
+            rid = f"run-{random.randint(100000, 999999)}"
+            set_run_id(rid)
+        set_trace_id(rid)
+
     provider = Provider.from_id(model_id)
 
     # Check if resuming an existing session
@@ -30,6 +48,15 @@ def run_interview(
         session = db_manager.load_session(session_id)
         if session:
             print(f"\n=== Resuming interview for '{session.project}' ===")
+            set_trace_id(session.id)
+            log_event(
+                "interview.resume",
+                component="pipeline",
+                operation="resume",
+                session_id=session.id,
+                project=session.project,
+                mode="simple",
+            )
             # Continue from where we left off
             answered_question_ids = {a.question_id for a in session.answers}
             remaining_questions = [
@@ -45,7 +72,16 @@ def run_interview(
             Question(id=f"q{i}", category=c, text=t)
             for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
         ]
-        llm_questions = provider.generate_questions(project, seed_questions=questions)
+        with span(
+            "llm.generate_questions",
+            component="pipeline",
+            operation="generate_questions",
+            provider_model=model_id,
+            seed_count=len(questions),
+        ):
+            llm_questions = provider.generate_questions(
+                project, seed_questions=questions
+            )
         all_qs = questions + [
             q for q in llm_questions if q.text not in {x.text for x in questions}
         ]
@@ -53,6 +89,16 @@ def run_interview(
 
         session = Session(
             project=project, questions=all_qs, answers=[], requirements=[]
+        )
+        set_trace_id(session.id)
+        log_event(
+            "interview.start",
+            component="pipeline",
+            operation="start",
+            session_id=session.id,
+            project=project,
+            mode="simple",
+            total_questions=len(all_qs),
         )
 
     # 2) Console loop
@@ -68,25 +114,61 @@ def run_interview(
         if a:
             answer = Answer(question_id=q.id, text=a)
             session.answers.append(answer)
+            log_event(
+                "answer.received",
+                component="pipeline",
+                operation="answer",
+                session_id=session.id,
+                question_id=q.id,
+                category=q.category,
+                text_len=len(a),
+                preview=mask_text(a)[:80],
+            )
 
             # Auto-save after each answer if db_manager is available
             if db_manager:
                 try:
-                    db_manager.save_session(session)
+                    with span(
+                        "db.save_session",
+                        component="db",
+                        operation="save_session",
+                        session_id=session.id,
+                        answers=len(session.answers),
+                        questions=len(session.questions),
+                    ):
+                        db_manager.save_session(session)
                 except Exception as e:
                     print(f"⚠ Warning: Failed to save session: {e}")
 
     # 3) Consolidate into requirements (LLM structured output)
-    requirements = provider.summarize_requirements(
-        project, session.questions, session.answers
-    )
+    with span(
+        "llm.summarize_requirements",
+        component="pipeline",
+        operation="summarize_requirements",
+        session_id=session.id,
+        answers=len(session.answers),
+        questions=len(session.questions),
+        provider_model=model_id,
+    ):
+        requirements = provider.summarize_requirements(
+            project, session.questions, session.answers
+        )
     session.requirements = requirements
     session.conversation_complete = True
 
     # Final save
     if db_manager:
         try:
-            db_manager.save_session(session)
+            with span(
+                "db.save_session",
+                component="db",
+                operation="save_session",
+                session_id=session.id,
+                answers=len(session.answers),
+                questions=len(session.questions),
+                final=True,
+            ):
+                db_manager.save_session(session)
         except Exception as e:
             print(f"⚠ Warning: Failed to save final session: {e}")
 
@@ -101,6 +183,13 @@ def run_conversational_interview(
     db_manager: DatabaseManager | None = None,
 ) -> Session:
     """Run an interactive conversational requirements interview."""
+    # Ensure a trace id is available before any spans
+    if not get_trace_id():
+        rid = get_run_id()
+        if not rid:
+            rid = f"run-{random.randint(100000, 999999)}"
+            set_run_id(rid)
+        set_trace_id(rid)
     provider = Provider.from_id(model_id)
 
     # Check if resuming an existing session
@@ -115,6 +204,15 @@ def run_conversational_interview(
                 f"\n=== Resuming conversational interview for '{session.project}' ==="
             )
             question_counter = len(session.answers)
+            set_trace_id(session.id)
+            log_event(
+                "interview.resume",
+                component="pipeline",
+                operation="resume",
+                session_id=session.id,
+                project=session.project,
+                mode="conversational",
+            )
 
             # Rebuild question queue from unanswered questions
             answered_question_ids = {a.question_id for a in session.answers}
@@ -135,9 +233,16 @@ def run_conversational_interview(
                     Question(id=f"q{i}", category=c, text=t, required=True)
                     for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
                 ]
-                additional_questions = provider.generate_questions(
-                    session.project, seed_questions=seed_questions
-                )
+                with span(
+                    "llm.generate_questions",
+                    component="pipeline",
+                    operation="generate_questions",
+                    provider_model=model_id,
+                    seed_count=len(seed_questions),
+                ):
+                    additional_questions = provider.generate_questions(
+                        session.project, seed_questions=seed_questions
+                    )
                 # Filter out questions that are too similar to already asked ones
                 asked_texts = {q.text.lower() for q in session.questions}
                 new_questions = [
@@ -155,9 +260,16 @@ def run_conversational_interview(
         ]
 
         # Get initial LLM-generated questions
-        llm_questions = provider.generate_questions(
-            project, seed_questions=seed_questions
-        )
+        with span(
+            "llm.generate_questions",
+            component="pipeline",
+            operation="generate_questions",
+            provider_model=model_id,
+            seed_count=len(seed_questions),
+        ):
+            llm_questions = provider.generate_questions(
+                project, seed_questions=seed_questions
+            )
 
         session = Session(
             project=project,
@@ -174,6 +286,15 @@ def run_conversational_interview(
         question_queue.extend(llm_questions[:3])
 
         question_counter = 0
+        set_trace_id(session.id)
+        log_event(
+            "interview.start",
+            component="pipeline",
+            operation="start",
+            session_id=session.id,
+            project=project,
+            mode="conversational",
+        )
 
     print(f"\n=== Starting conversational interview ===")
     print(
@@ -200,17 +321,45 @@ def run_conversational_interview(
         if answer_text:
             answer = Answer(question_id=current_question.id, text=answer_text)
             session.answers.append(answer)
+            log_event(
+                "answer.received",
+                component="pipeline",
+                operation="answer",
+                session_id=session.id,
+                question_id=current_question.id,
+                category=current_question.category,
+                text_len=len(answer_text),
+                preview=mask_text(answer_text)[:80],
+            )
 
             # Auto-save after each answer if db_manager is available
             if db_manager:
                 try:
-                    db_manager.save_session(session)
+                    with span(
+                        "db.save_session",
+                        component="db",
+                        operation="save_session",
+                        session_id=session.id,
+                        answers=len(session.answers),
+                        questions=len(session.questions),
+                    ):
+                        db_manager.save_session(session)
                 except Exception as e:
                     print(f"⚠ Warning: Failed to save session: {e}")
 
             # Analyze the answer and potentially generate follow-ups
             context = session.get_context_for_question(current_question.id)
-            analysis = provider.analyze_answer(current_question, answer, context)
+            with span(
+                "llm.analyze_answer",
+                component="pipeline",
+                operation="analyze_answer",
+                session_id=session.id,
+                provider_model=model_id,
+                question_id=current_question.id,
+                category=current_question.category,
+                answer_len=len(answer_text),
+            ):
+                analysis = provider.analyze_answer(current_question, answer, context)
 
             # Update answer with analysis results
             answer.is_vague = not (analysis.is_complete and analysis.is_specific)
@@ -241,7 +390,15 @@ def run_conversational_interview(
                 # Save session with new follow-up questions
                 if db_manager:
                     try:
-                        db_manager.save_session(session)
+                        with span(
+                            "db.save_session",
+                            component="db",
+                            operation="save_session",
+                            session_id=session.id,
+                            answers=len(session.answers),
+                            questions=len(session.questions),
+                        ):
+                            db_manager.save_session(session)
                     except Exception as e:
                         print(f"⚠ Warning: Failed to save session with follow-ups: {e}")
 
@@ -250,7 +407,15 @@ def run_conversational_interview(
         if (question_counter % 5 == 0 and question_counter >= 5) or (
             len(question_queue) == 0 and question_counter >= 5
         ):
-            completeness = provider.assess_completeness(session)
+            with span(
+                "llm.assess_completeness",
+                component="pipeline",
+                operation="assess_completeness",
+                session_id=session.id,
+                provider_model=model_id,
+                qa_count=len(session.questions),
+            ):
+                completeness = provider.assess_completeness(session)
 
             if completeness.is_complete:
                 print(f"\n✓ Assessment: {completeness.reasoning}")
@@ -267,9 +432,16 @@ def run_conversational_interview(
                         Question(id=f"q{i}", category=c, text=t, required=True)
                         for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
                     ]
-                    additional_questions = provider.generate_questions(
-                        session.project, seed_questions=seed_questions
-                    )
+                    with span(
+                        "llm.generate_questions",
+                        component="pipeline",
+                        operation="generate_questions",
+                        provider_model=model_id,
+                        seed_count=len(seed_questions),
+                    ):
+                        additional_questions = provider.generate_questions(
+                            session.project, seed_questions=seed_questions
+                        )
                     # Filter out questions that are too similar to already asked ones
                     asked_texts = {q.text.lower() for q in session.questions}
                     new_questions = [
@@ -283,16 +455,34 @@ def run_conversational_interview(
 
     # Generate final requirements
     print(f"\n=== Generating requirements from {len(session.answers)} answers ===")
-    requirements = provider.summarize_requirements(
-        project, session.questions, session.answers
-    )
+    with span(
+        "llm.summarize_requirements",
+        component="pipeline",
+        operation="summarize_requirements",
+        session_id=session.id,
+        provider_model=model_id,
+        answers=len(session.answers),
+        questions=len(session.questions),
+    ):
+        requirements = provider.summarize_requirements(
+            project, session.questions, session.answers
+        )
     session.requirements = requirements
     session.conversation_complete = True
 
     # Final save
     if db_manager:
         try:
-            db_manager.save_session(session)
+            with span(
+                "db.save_session",
+                component="db",
+                operation="save_session",
+                session_id=session.id,
+                answers=len(session.answers),
+                questions=len(session.questions),
+                final=True,
+            ):
+                db_manager.save_session(session)
         except Exception as e:
             print(f"⚠ Warning: Failed to save final session: {e}")
 
