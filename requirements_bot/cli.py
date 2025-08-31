@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from statistics import mean
 from typing import Optional
@@ -28,8 +28,10 @@ def _init_logging_from_cli(
     log_mask: bool = False,
 ) -> None:
     init_logging(level=log_level, fmt=log_format, file_path=log_file, mask=log_mask)
-    # Fresh run id for each CLI invocation
-    set_run_id(datetime.utcnow().strftime("%Y%m%d%H%M%S%f")[-12:])
+    # Fresh run id for each CLI invocation; also set as initial trace id
+    _rid = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")[-12:]
+    set_run_id(_rid)
+    set_trace_id(_rid)
     log_event(
         "cli.start",
         component="cli",
@@ -321,7 +323,7 @@ def logs_report(
         return
 
     # Prepare rows sorted by max duration
-    rows = []
+    rows: list[tuple[str, int, float, float, float]] = []
     for key, durations in groups.items():
         durations.sort()
         count = len(durations)

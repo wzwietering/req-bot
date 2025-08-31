@@ -1,7 +1,15 @@
 import logging
 import random
 
-from requirements_bot.core.logging import log_event, mask_text, set_trace_id, span
+from requirements_bot.core.logging import (
+    get_run_id,
+    get_trace_id,
+    log_event,
+    mask_text,
+    set_run_id,
+    set_trace_id,
+    span,
+)
 from requirements_bot.core.models import Answer, Question, Session
 from requirements_bot.core.storage import DatabaseManager
 from requirements_bot.providers.base import Provider
@@ -24,6 +32,14 @@ def run_interview(
     session_id: str | None = None,
     db_manager: DatabaseManager | None = None,
 ) -> Session:
+    # Ensure a trace id is available before any spans
+    if not get_trace_id():
+        rid = get_run_id()
+        if not rid:
+            rid = f"run-{random.randint(100000, 999999)}"
+            set_run_id(rid)
+        set_trace_id(rid)
+
     provider = Provider.from_id(model_id)
 
     # Check if resuming an existing session
@@ -167,6 +183,13 @@ def run_conversational_interview(
     db_manager: DatabaseManager | None = None,
 ) -> Session:
     """Run an interactive conversational requirements interview."""
+    # Ensure a trace id is available before any spans
+    if not get_trace_id():
+        rid = get_run_id()
+        if not rid:
+            rid = f"run-{random.randint(100000, 999999)}"
+            set_run_id(rid)
+        set_trace_id(rid)
     logger = logging.getLogger("requirements_bot")
     provider = Provider.from_id(model_id)
 
