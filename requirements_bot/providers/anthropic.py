@@ -3,6 +3,7 @@ import os
 
 from anthropic import Anthropic
 
+from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.models import (
     Answer,
     AnswerAnalysis,
@@ -37,28 +38,44 @@ class ProviderImpl(Provider):
         prompt = generate_questions_prompt(project, seed_questions)
 
         try:
-            response = self.client.messages.create(
+            with span(
+                "llm.generate_questions",
+                component="provider",
+                operation="generate_questions",
+                provider="anthropic",
                 model=self.model,
-                max_tokens=1000,
-                system=SYSTEM_INSTRUCTIONS["questions"],
-                messages=[{"role": "user", "content": prompt}],
-            )
+                prompt_len=len(prompt),
+            ):
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=1000,
+                    system=SYSTEM_INSTRUCTIONS["questions"],
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
-            # Extract the text content from the response
-            content = ""
-            if response.content:
-                for block in response.content:
-                    if block.type == "text":
-                        content += block.text
+                # Extract the text content from the response
+                content = ""
+                if response.content:
+                    for block in response.content:
+                        if getattr(block, "type", None) == "text":
+                            content += getattr(block, "text", "")
 
-            if not content:
-                return []
+                if not content:
+                    return []
 
-            questions_data = json.loads(content)
-            return [Question(**q) for q in questions_data]
+                questions_data = json.loads(content)
+                return [Question(**q) for q in questions_data]
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
             # Fallback to empty list if parsing fails
-            print(f"Error parsing Anthropic response: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="generate_questions",
+                provider="anthropic",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             return []
 
     def summarize_requirements(
@@ -69,28 +86,44 @@ class ProviderImpl(Provider):
         prompt = summarize_requirements_prompt(project, questions, answers)
 
         try:
-            response = self.client.messages.create(
+            with span(
+                "llm.summarize_requirements",
+                component="provider",
+                operation="summarize_requirements",
+                provider="anthropic",
                 model=self.model,
-                max_tokens=1000,
-                system=SYSTEM_INSTRUCTIONS["requirements"],
-                messages=[{"role": "user", "content": prompt}],
-            )
+                prompt_len=len(prompt),
+            ):
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=1000,
+                    system=SYSTEM_INSTRUCTIONS["requirements"],
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
-            # Extract the text content from the response
-            content = ""
-            if response.content:
-                for block in response.content:
-                    if block.type == "text":
-                        content += block.text
+                # Extract the text content from the response
+                content = ""
+                if response.content:
+                    for block in response.content:
+                        if getattr(block, "type", None) == "text":
+                            content += getattr(block, "text", "")
 
-            if not content:
-                return []
+                if not content:
+                    return []
 
-            requirements_data = json.loads(content)
-            return [Requirement(**req) for req in requirements_data]
+                requirements_data = json.loads(content)
+                return [Requirement(**req) for req in requirements_data]
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
             # Fallback to empty list if parsing fails
-            print(f"Error parsing Anthropic response: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="summarize_requirements",
+                provider="anthropic",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             return []
 
     def analyze_answer(
@@ -101,34 +134,50 @@ class ProviderImpl(Provider):
         prompt = analyze_answer_prompt(question.text, answer.text, context)
 
         try:
-            response = self.client.messages.create(
+            with span(
+                "llm.analyze_answer",
+                component="provider",
+                operation="analyze_answer",
+                provider="anthropic",
                 model=self.model,
-                max_tokens=800,
-                system=SYSTEM_INSTRUCTIONS["questions"],
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            # Extract the text content from the response
-            content = ""
-            if response.content:
-                for block in response.content:
-                    if block.type == "text":
-                        content += block.text
-
-            if not content:
-                # Default analysis if no response
-                return AnswerAnalysis(
-                    is_complete=True,
-                    is_specific=True,
-                    is_consistent=True,
-                    follow_up_questions=[],
-                    analysis_notes="Analysis failed - defaulting to accepting answer",
+                prompt_len=len(prompt),
+            ):
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=800,
+                    system=SYSTEM_INSTRUCTIONS["questions"],
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
-            analysis_data = json.loads(content)
-            return AnswerAnalysis(**analysis_data)
+                # Extract the text content from the response
+                content = ""
+                if response.content:
+                    for block in response.content:
+                        if getattr(block, "type", None) == "text":
+                            content += getattr(block, "text", "")
+
+                if not content:
+                    # Default analysis if no response
+                    return AnswerAnalysis(
+                        is_complete=True,
+                        is_specific=True,
+                        is_consistent=True,
+                        follow_up_questions=[],
+                        analysis_notes="Analysis failed - defaulting to accepting answer",
+                    )
+
+                analysis_data = json.loads(content)
+                return AnswerAnalysis(**analysis_data)
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            print(f"Error parsing answer analysis response: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="analyze_answer",
+                provider="anthropic",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             # Default to accepting the answer if analysis fails
             return AnswerAnalysis(
                 is_complete=True,
@@ -151,33 +200,49 @@ class ProviderImpl(Provider):
         prompt = assess_completeness_prompt(session_context, len(session.questions))
 
         try:
-            response = self.client.messages.create(
+            with span(
+                "llm.assess_completeness",
+                component="provider",
+                operation="assess_completeness",
+                provider="anthropic",
                 model=self.model,
-                max_tokens=600,
-                system=SYSTEM_INSTRUCTIONS["requirements"],
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            # Extract the text content from the response
-            content = ""
-            if response.content:
-                for block in response.content:
-                    if block.type == "text":
-                        content += block.text
-
-            if not content:
-                # Default assessment
-                return CompletenessAssessment(
-                    is_complete=len(session.questions) >= 8,
-                    missing_areas=[],
-                    confidence_score=0.5,
-                    reasoning="Assessment failed - using basic heuristics",
+                prompt_len=len(prompt),
+            ):
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=600,
+                    system=SYSTEM_INSTRUCTIONS["requirements"],
+                    messages=[{"role": "user", "content": prompt}],
                 )
 
-            assessment_data = json.loads(content)
-            return CompletenessAssessment(**assessment_data)
+                # Extract the text content from the response
+                content = ""
+                if response.content:
+                    for block in response.content:
+                        if getattr(block, "type", None) == "text":
+                            content += getattr(block, "text", "")
+
+                if not content:
+                    # Default assessment
+                    return CompletenessAssessment(
+                        is_complete=len(session.questions) >= 8,
+                        missing_areas=[],
+                        confidence_score=0.5,
+                        reasoning="Assessment failed - using basic heuristics",
+                    )
+
+                assessment_data = json.loads(content)
+                return CompletenessAssessment(**assessment_data)
         except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            print(f"Error parsing completeness assessment: {e}")
+            log_event(
+                "llm.parse_error",
+                component="provider",
+                operation="assess_completeness",
+                provider="anthropic",
+                model=self.model,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
             # Fallback assessment
             return CompletenessAssessment(
                 is_complete=len(session.questions) >= 8,
