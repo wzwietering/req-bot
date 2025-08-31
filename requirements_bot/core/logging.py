@@ -233,7 +233,7 @@ def span(event: str, **fields: Any) -> Iterator[None]:
     try:
         yield
         status = "ok"
-    except Exception as e:  # noqa: BLE001 - intentional to capture and re-raise
+    except Exception as e:  # noqa: BLE001 : intentional to capture and re-raise
         status = "error"
         error_type = type(e).__name__
         error_msg = str(e)

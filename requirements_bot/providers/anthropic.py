@@ -57,8 +57,8 @@ class ProviderImpl(Provider):
                 content = ""
                 if response.content:
                     for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            content += getattr(block, "text", "")
+                        if block.type == "text":
+                            content += block.text
 
                 if not content:
                     return []
@@ -105,8 +105,8 @@ class ProviderImpl(Provider):
                 content = ""
                 if response.content:
                     for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            content += getattr(block, "text", "")
+                        if block.type == "text":
+                            content += block.text
 
                 if not content:
                     return []
@@ -153,8 +153,8 @@ class ProviderImpl(Provider):
                 content = ""
                 if response.content:
                     for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            content += getattr(block, "text", "")
+                        if block.type == "text":
+                            content += block.text
 
                 if not content:
                     # Default analysis if no response
@@ -219,8 +219,8 @@ class ProviderImpl(Provider):
                 content = ""
                 if response.content:
                     for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            content += getattr(block, "text", "")
+                        if block.type == "text":
+                            content += block.text
 
                 if not content:
                     # Default assessment

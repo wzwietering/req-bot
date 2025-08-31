@@ -190,7 +190,6 @@ def run_conversational_interview(
             rid = f"run-{random.randint(100000, 999999)}"
             set_run_id(rid)
         set_trace_id(rid)
-    logger = logging.getLogger("requirements_bot")
     provider = Provider.from_id(model_id)
 
     # Check if resuming an existing session

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean
 from typing import Optional
