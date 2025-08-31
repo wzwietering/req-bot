@@ -2,13 +2,19 @@ import re
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import joinedload, sessionmaker
 
-from .database import AnswerTable, Base, QuestionTable, RequirementTable, SessionTable
-from .models import Answer, Question, Requirement, Session
+from .database_models import Base  # SQLAlchemy ORM models
+from .database_models import (
+    AnswerTable,
+    QuestionTable,
+    RequirementTable,
+    SessionTable,
+    enable_sqlite_foreign_keys,
+)
+from .models import Answer, Question, Requirement, Session  # Pydantic models
 from .storage_interface import StorageInterface
 
 
@@ -61,6 +67,9 @@ class DatabaseManager(StorageInterface):
             pool_recycle=3600,
         )
         self.SessionLocal = sessionmaker(bind=self.engine)
+
+        # Enable foreign key constraints for SQLite
+        enable_sqlite_foreign_keys(self.engine)
 
         # Create tables
         Base.metadata.create_all(bind=self.engine)
@@ -212,7 +221,7 @@ class DatabaseManager(StorageInterface):
                         f"Failed to save session {session.id}: {str(e)}"
                     ) from e
 
-    def load_session(self, session_id: str) -> Optional[Session]:
+    def load_session(self, session_id: str) -> Session | None:
         """Load a session from the database using eager loading to avoid N+1 queries."""
         session_id = self._validate_session_id(session_id)
         with self.SessionLocal() as db_session:

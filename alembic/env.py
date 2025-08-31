@@ -15,7 +15,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from requirements_bot.core.database import Base
+from requirements_bot.core.database_models import Base
 
 target_metadata = Base.metadata
 

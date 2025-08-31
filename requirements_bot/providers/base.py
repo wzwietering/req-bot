@@ -1,5 +1,3 @@
-from typing import List
-
 from requirements_bot.core.models import (
     Answer,
     AnswerAnalysis,
@@ -26,12 +24,12 @@ class Provider:
         return impl.ProviderImpl(model)
 
     def generate_questions(
-        self, project: str, seed_questions: List[Question]
-    ) -> List[Question]: ...
+        self, project: str, seed_questions: list[Question]
+    ) -> list[Question]: ...
 
     def summarize_requirements(
-        self, project: str, questions: List[Question], answers: List[Answer]
-    ) -> List[Requirement]: ...
+        self, project: str, questions: list[Question], answers: list[Answer]
+    ) -> list[Requirement]: ...
 
     def analyze_answer(
         self, question: Question, answer: Answer, context: str = ""

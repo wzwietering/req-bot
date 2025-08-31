@@ -1,10 +1,7 @@
-# requirements_bot/core/prompts.py
-from typing import List
-
 from .models import Answer, Question
 
 
-def generate_questions_prompt(project: str, seed_questions: List[Question]) -> str:
+def generate_questions_prompt(project: str, seed_questions: list[Question]) -> str:
     """Generate a prompt for creating additional requirements questions."""
 
     # Format seed questions for the prompt
@@ -38,7 +35,7 @@ Only return the JSON array, no other text."""
 
 
 def summarize_requirements_prompt(
-    project: str, questions: List[Question], answers: List[Answer]
+    project: str, questions: list[Question], answers: list[Answer]
 ) -> str:
     """Generate a prompt for summarizing Q&A into formal requirements."""
 
@@ -46,7 +43,7 @@ def summarize_requirements_prompt(
     answer_map = {answer.question_id: answer.text for answer in answers}
 
     # Format Q&A pairs
-    qa_pairs: List[str] = []
+    qa_pairs: list[str] = []
     for question in questions:
         answer_text = answer_map.get(question.id, "No answer provided")
         qa_pairs.append(f"Q: {question.text}\nA: {answer_text}\n")
