@@ -122,10 +122,8 @@ Requirements Bot is a Python-based console application that conducts AI-powered 
 - **Features**:
   - Thread-safe operations with per-session locking
   - Upsert patterns for efficient updates
-  - Eager loading to prevent N+1 query issues
-  - Path traversal attack prevention
-  - Session ID validation for security
-  - Comprehensive error handling with custom exceptions
+  - Session ID validation
+  - Error handling
 - **Database Schema**: Four main tables (sessions, questions, answers, requirements)
 - **Migration Support**: Alembic integration for schema changes
 
@@ -139,27 +137,26 @@ Requirements Bot is a Python-based console application that conducts AI-powered 
 
 ##### Core Schema (`database_models/__init__.py`)
 
-- **Purpose**: Simplified SQLAlchemy ORM models focused on core functionality
+- **Purpose**: SQLAlchemy ORM models
 - **Tables**:
   - `SessionTable`: Core session metadata with essential fields only
   - `QuestionTable`: Interview questions with categories and ordering
   - `AnswerTable`: User responses with basic analysis flags
   - `RequirementTable`: Generated requirements with priorities
-- **Features**: 
-  - Proper foreign key relationships with CASCADE delete
-  - Essential indexes for performance
+- **Features**:
+  - Foreign key relationships with CASCADE delete
+  - Indexes for performance
   - SQLite foreign key enforcement
   - Clean separation from business logic (Pydantic models)
 
 ##### Migration Management (`migration_manager.py`)
 
-- **Purpose**: Simplified database schema evolution using Alembic's built-in capabilities
+- **Purpose**: Database schema evolution using Alembic's built-in capabilities
 - **Features**:
-  - Basic revision tracking via Alembic's standard mechanisms
-  - Simple migration and rollback operations
+  - Revision tracking via Alembic's standard mechanisms
+  - Migration and rollback operations
   - Data integrity validation for core relationships
   - Streamlined error handling
-- **Philosophy**: Leverages Alembic's proven functionality rather than duplicating it
 
 ## Architectural Patterns
 

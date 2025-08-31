@@ -2,7 +2,6 @@ import re
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import joinedload, sessionmaker
@@ -222,7 +221,7 @@ class DatabaseManager(StorageInterface):
                         f"Failed to save session {session.id}: {str(e)}"
                     ) from e
 
-    def load_session(self, session_id: str) -> Optional[Session]:
+    def load_session(self, session_id: str) -> Session | None:
         """Load a session from the database using eager loading to avoid N+1 queries."""
         session_id = self._validate_session_id(session_id)
         with self.SessionLocal() as db_session:

@@ -13,8 +13,7 @@ from alembic.script import ScriptDirectory
 
 logger = logging.getLogger(__name__)
 
-# Import unified Base from database_models
-from requirements_bot.core.database_models import Base, enable_sqlite_foreign_keys
+from requirements_bot.core.database_models import enable_sqlite_foreign_keys
 
 
 class MigrationManager:
@@ -251,7 +250,7 @@ class MigrationManager:
                         try:
                             result = session.execute(query)
                             count = result.scalar()
-                            if count > 0:
+                            if count and count > 0:
                                 issues.append(f"{check_name}: {count} records")
                         except Exception as e:
                             issues.append(f"Check '{check_name}' failed: {e}")

@@ -1,5 +1,4 @@
 import random
-from typing import Optional
 
 from requirements_bot.core.models import Answer, Question, Session
 from requirements_bot.core.storage import DatabaseManager
@@ -20,8 +19,8 @@ CANNED_SEED_QUESTIONS = [
 def run_interview(
     project: str,
     model_id: str,
-    session_id: Optional[str] = None,
-    db_manager: Optional[DatabaseManager] = None,
+    session_id: str | None = None,
+    db_manager: DatabaseManager | None = None,
 ) -> Session:
     provider = Provider.from_id(model_id)
 
@@ -98,15 +97,15 @@ def run_conversational_interview(
     project: str,
     model_id: str,
     max_questions: int = 15,
-    session_id: Optional[str] = None,
-    db_manager: Optional[DatabaseManager] = None,
+    session_id: str | None = None,
+    db_manager: DatabaseManager | None = None,
 ) -> Session:
     """Run an interactive conversational requirements interview."""
     provider = Provider.from_id(model_id)
 
     # Check if resuming an existing session
     session = None
-    question_queue = []
+    question_queue: list[Question] = []
     question_counter = 0
 
     if session_id and db_manager:

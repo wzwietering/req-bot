@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 
 from google import genai
 
@@ -29,8 +28,8 @@ class ProviderImpl(Provider):
         self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     def generate_questions(
-        self, project: str, seed_questions: List[Question]
-    ) -> List[Question]:
+        self, project: str, seed_questions: list[Question]
+    ) -> list[Question]:
         """Generate additional questions based on the project description and existing questions."""
 
         prompt = generate_questions_prompt(project, seed_questions)
@@ -55,8 +54,8 @@ class ProviderImpl(Provider):
             return []
 
     def summarize_requirements(
-        self, project: str, questions: List[Question], answers: List[Answer]
-    ) -> List[Requirement]:
+        self, project: str, questions: list[Question], answers: list[Answer]
+    ) -> list[Requirement]:
         """Summarize the questions and answers into formal requirements."""
 
         prompt = summarize_requirements_prompt(project, questions, answers)

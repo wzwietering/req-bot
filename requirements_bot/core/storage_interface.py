@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional
 
 from .models import Session
 
@@ -14,7 +13,7 @@ class StorageInterface(ABC):
         pass
 
     @abstractmethod
-    def load_session(self, session_id: str) -> Optional[Session]:
+    def load_session(self, session_id: str) -> Session | None:
         """Load a session from storage."""
         pass
 

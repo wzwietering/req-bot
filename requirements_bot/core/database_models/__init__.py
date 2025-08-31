@@ -1,5 +1,3 @@
-"""Simplified database models with core functionality only."""
-
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -7,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Engine,
     ForeignKey,
     Index,
     Integer,
@@ -21,11 +20,11 @@ Base = declarative_base()
 
 
 # Function to enable foreign key enforcement - to be called by engines
-def enable_sqlite_foreign_keys(engine):
+def enable_sqlite_foreign_keys(engine: Engine):
     """Enable foreign key enforcement for SQLite connections on an engine."""
 
     @event.listens_for(engine, "connect")
-    def _enable_foreign_keys(dbapi_connection, connection_record):
+    def _enable_foreign_keys(dbapi_connection, connection_record) -> None:
         """Enable foreign key enforcement for SQLite connections."""
         if "sqlite" in str(dbapi_connection):
             cursor = dbapi_connection.cursor()
