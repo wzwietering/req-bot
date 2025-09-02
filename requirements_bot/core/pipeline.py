@@ -1,14 +1,14 @@
 import random
 
-from requirements_bot.core.interview_conductor import InterviewConductor
-from requirements_bot.core.interview_utils import (
+from requirements_bot.core.interview.interview_conductor import InterviewConductor
+from requirements_bot.core.interview.question_queue import QuestionQueue
+from requirements_bot.core.interview.utils import (
     generate_requirements,
     print_interview_header,
     print_requirements_generation,
 )
 from requirements_bot.core.logging import span
 from requirements_bot.core.models import Answer, Session
-from requirements_bot.core.question_queue import QuestionQueue
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.core.storage_interface import StorageInterface
 from requirements_bot.providers.base import Provider

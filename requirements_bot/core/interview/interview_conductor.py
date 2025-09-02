@@ -1,3 +1,4 @@
+from requirements_bot.core.interview.question_queue import QuestionQueue
 from requirements_bot.core.io_interface import ConsoleIO, IOInterface
 from requirements_bot.core.logging import log_event, mask_text, span
 from requirements_bot.core.models import (
@@ -7,7 +8,6 @@ from requirements_bot.core.models import (
     Question,
     Session,
 )
-from requirements_bot.core.question_queue import QuestionQueue
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.providers.base import Provider
 
