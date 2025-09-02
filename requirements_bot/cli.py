@@ -220,7 +220,7 @@ def _run(
             project=project,
             model_id=model,
             session_id=session_id,
-            db_manager=db_manager,
+            storage=db_manager,
         )
         path = write_document(session, path=out)
         typer.echo(f"Requirements written to {path}")
@@ -265,7 +265,7 @@ def _run_conversational(
             model_id=model,
             max_questions=max_questions,
             session_id=session_id,
-            db_manager=db_manager,
+            storage=db_manager,
         )
         path = write_document(session, path=out)
         typer.echo(f"Requirements written to {path}")
