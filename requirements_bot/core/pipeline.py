@@ -92,7 +92,7 @@ def run_conversational_interview(
 
     session: Session | None = None
     if session_id:
-        session = session_manager.load_existing_session(session_id, "simple")
+        session = session_manager.load_existing_session(session_id, "conversational")
 
     question_counter = 0
 
