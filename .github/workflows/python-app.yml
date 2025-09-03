@@ -30,6 +30,8 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install
-    - name: Test with pytest
+    - name: Test with pytest and coverage
       run: |
-        poetry run pytest
+        poetry run coverage run -m pytest
+        poetry run coverage report
+        poetry run coverage html
