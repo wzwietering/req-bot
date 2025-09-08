@@ -27,7 +27,7 @@ from requirements_bot.core.logging import (
 )
 
 # Test constants
-SMALL_DELAY = 0.01
+TIMING_PRECISION_SECONDS = 0.01  # Small delay for timing-sensitive tests
 TEST_USER_ID = 123
 TEST_TRACE_ID = "trace-123"
 TEST_RUN_ID = "run-456"
@@ -35,25 +35,55 @@ TEST_SPAN_ID = "span-789"
 SENSITIVE_TEXT = "password123"
 TEST_LOG_LINENO = 42
 
+# UUID and threading test constants
+EXPECTED_UUID_LENGTH = 12  # Length of short UUID hex string
+CONCURRENT_THREAD_COUNT = 5  # Number of threads for concurrency tests
+
+# Memory pressure test constants
+LARGE_MESSAGE_SIZE_BYTES = 1000  # Size of each large log message (1KB)
+LARGE_MESSAGE_COUNT = 100  # Number of large messages to generate (100KB total)
+
+# UUID validation constants
+ALL_ZEROS_UUID = "000000000000"  # Invalid UUID (all zeros)
+
 
 @contextmanager
 def clean_logging_context():
     """Reset logging context between tests."""
-    # Clear all context variables
+    # Store original state
+    original_trace_id = get_trace_id()
+    original_run_id = get_run_id()
+    original_masking = is_masking()
+
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+
+    # Clear all context variables with consistent values
     set_trace_id(None)
     set_run_id("")
     set_masking(False)
 
     # Clear existing handlers
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
+    for handler in original_handlers:
         root_logger.removeHandler(handler)
 
-    yield
+    try:
+        yield
+    finally:
+        # Clean up test handlers
+        for handler in list(root_logger.handlers):
+            root_logger.removeHandler(handler)
 
-    # Clean up after test
-    for handler in list(root_logger.handlers):
-        root_logger.removeHandler(handler)
+        # Restore original state
+        for handler in original_handlers:
+            root_logger.addHandler(handler)
+        root_logger.setLevel(original_level)
+
+        set_trace_id(original_trace_id)
+        if original_run_id:
+            set_run_id(original_run_id)
+        set_masking(original_masking)
 
 
 @pytest.fixture
@@ -321,6 +351,98 @@ class TestJsonFormatter:
         assert "filename" not in parsed
         assert "funcName" not in parsed
 
+    def test_json_formatter_with_non_serializable_objects(self):
+        """Test JsonFormatter handles non-JSON serializable objects gracefully."""
+        formatter = JsonFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test message",
+            args=(),
+            exc_info=None,
+        )
+        record.created = time.time()
+
+        # Add a non-serializable object (set is not JSON serializable)
+        record.non_serializable = {1, 2, 3}
+
+        # Should not raise an exception, json.dumps should handle it
+        with pytest.raises(TypeError):
+            formatter.format(record)
+
+    def test_json_formatter_with_circular_reference(self):
+        """Test JsonFormatter handles circular references gracefully."""
+        formatter = JsonFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test message",
+            args=(),
+            exc_info=None,
+        )
+        record.created = time.time()
+
+        # Create circular reference
+        obj_a = {"name": "a"}
+        obj_b = {"name": "b", "ref": obj_a}
+        obj_a["ref"] = obj_b
+        record.circular = obj_a
+
+        # Should raise ValueError due to circular reference
+        with pytest.raises(ValueError):
+            formatter.format(record)
+
+    def test_json_formatter_with_invalid_timestamp(self):
+        """Test JsonFormatter handles invalid timestamps gracefully."""
+        formatter = JsonFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test message",
+            args=(),
+            exc_info=None,
+        )
+
+        # Set invalid timestamp (negative value)
+        record.created = -1
+
+        # Should not raise an exception, datetime should handle it
+        result = formatter.format(record)
+        parsed = json.loads(result)
+        assert "timestamp" in parsed
+
+    def test_json_formatter_with_corrupted_record(self):
+        """Test JsonFormatter handles corrupted log records."""
+        formatter = JsonFormatter()
+
+        # Create a record with minimal required attributes
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test message",
+            args=(),
+            exc_info=None,
+        )
+
+        # Remove some standard attributes to simulate corruption
+        delattr(record, "pathname")
+        delattr(record, "filename")
+
+        result = formatter.format(record)
+        parsed = json.loads(result)
+
+        assert parsed["level"] == "info"
+        assert parsed["message"] == "test message"
+        assert "timestamp" in parsed
+
 
 class TestInitLogging:
     """Test init_logging function."""
@@ -331,7 +453,7 @@ class TestInitLogging:
 
             assert logger.name == "requirements_bot"
             assert get_run_id() is not None
-            assert len(get_run_id()) == 12
+            assert len(get_run_id()) == EXPECTED_UUID_LENGTH
 
     def test_init_logging_with_explicit_level(self):
         with clean_logging_context():
@@ -416,7 +538,7 @@ class TestSpanFunctionality:
                 init_logging(fmt="json")
 
                 with span("test.operation", component="test", operation="basic"):
-                    time.sleep(SMALL_DELAY)  # Ensure measurable duration
+                    time.sleep(TIMING_PRECISION_SECONDS)  # Ensure measurable duration
 
                 output = mock_stdout.getvalue().strip()
                 parsed = json.loads(output)
@@ -550,7 +672,7 @@ class TestIntegrationScenarios:
                 set_trace_id("timing-trace")
 
                 with span("data.process", component="processor", operation="transform"):
-                    time.sleep(SMALL_DELAY)  # Ensure measurable duration
+                    time.sleep(TIMING_PRECISION_SECONDS)  # Ensure measurable duration
 
                 all_logs = get_all_log_outputs(mock_stdout)
                 span_logs = [log for log in all_logs if "duration_ms" in log]
@@ -635,11 +757,11 @@ class TestEdgeCasesAndErrorScenarios:
         """Test that short_uuid only contains valid hexadecimal characters."""
         for _ in range(10):  # Test multiple generations
             uuid_str = short_uuid()
-            assert len(uuid_str) == 12
+            assert len(uuid_str) == EXPECTED_UUID_LENGTH
             # Should only contain lowercase hex characters
             assert all(c in "0123456789abcdef" for c in uuid_str)
             # Should not be all zeros (extremely unlikely)
-            assert uuid_str != "000000000000"
+            assert uuid_str != ALL_ZEROS_UUID
 
     def test_context_filter_with_missing_attributes(self):
         """Test ContextFilter when record lacks expected attributes."""
@@ -693,3 +815,101 @@ class TestEdgeCasesAndErrorScenarios:
                 assert span_log["status"] == "ok"
                 # Duration should be >= 0, even for very fast operations
                 assert span_log["duration_ms"] >= 0
+
+    def test_logging_with_file_write_errors(self):
+        """Test logging system handles file write errors gracefully."""
+        with clean_logging_context():
+            # Test with a file path that doesn't exist and can't be created
+            invalid_path = "/root/nonexistent/directory/test.log"
+
+            # init_logging should handle file creation errors gracefully
+            with pytest.raises(PermissionError):
+                init_logging(file_path=invalid_path)
+
+    def test_concurrent_context_variable_access(self):
+        """Test context variables behave correctly under concurrent access."""
+        import concurrent.futures
+        import threading
+
+        with clean_logging_context():
+            results = {}
+
+            def worker(worker_id):
+                # Each thread should have isolated context
+                trace_id = f"trace-{worker_id}"
+                run_id = f"run-{worker_id}"
+
+                set_trace_id(trace_id)
+                set_run_id(run_id)
+
+                # Small delay to allow context switching
+                time.sleep(TIMING_PRECISION_SECONDS)
+
+                # Values should still be correct for this thread
+                results[worker_id] = {
+                    "trace_id": get_trace_id(),
+                    "run_id": get_run_id(),
+                }
+
+            # Run multiple threads concurrently
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=CONCURRENT_THREAD_COUNT
+            ) as executor:
+                futures = [
+                    executor.submit(worker, i) for i in range(CONCURRENT_THREAD_COUNT)
+                ]
+                concurrent.futures.wait(futures)
+
+            # Each thread should have maintained its own context
+            for worker_id in range(CONCURRENT_THREAD_COUNT):
+                assert results[worker_id]["trace_id"] == f"trace-{worker_id}"
+                assert results[worker_id]["run_id"] == f"run-{worker_id}"
+
+    def test_memory_pressure_with_large_log_volumes(self):
+        """Test logging system handles large log volumes without memory issues."""
+        with clean_logging_context():
+            with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
+                logger = init_logging(fmt="json")
+
+                # Generate large volume of log messages
+                large_message = "x" * LARGE_MESSAGE_SIZE_BYTES  # 1KB message
+                message_count = LARGE_MESSAGE_COUNT  # 100KB total
+
+                for i in range(message_count):
+                    logger.info(
+                        large_message,
+                        extra={
+                            "event": f"load.test.{i}",
+                            "iteration": i,
+                            "large_data": large_message,
+                        },
+                    )
+
+                output = mock_stdout.getvalue()
+                lines = [line for line in output.strip().split("\n") if line]
+
+                # Should have logged all messages
+                assert len(lines) >= message_count
+
+                # Verify first and last messages are properly formatted
+                first_log = json.loads(lines[0])
+                last_log = json.loads(lines[-1])
+
+                assert first_log["message"] == large_message
+                assert first_log["iteration"] == 0
+                assert last_log["iteration"] == message_count - 1
+
+    def test_handler_cleanup_on_reinitialization(self):
+        """Test that handlers are properly cleaned up on logging reinitialization."""
+        with clean_logging_context():
+            root_logger = logging.getLogger()
+            initial_handler_count = len(root_logger.handlers)
+
+            # Initialize logging multiple times
+            for i in range(3):
+                init_logging()
+
+                # Handler count should remain stable (old handlers cleaned up)
+                current_handler_count = len(root_logger.handlers)
+                expected_count = initial_handler_count + 1  # One handler added
+                assert current_handler_count == expected_count

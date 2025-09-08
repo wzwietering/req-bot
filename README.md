@@ -258,3 +258,56 @@ The bot organizes questions into eight key categories:
 6. **Data**: Data storage, sources, and management
 7. **Risks**: Potential risks and unknowns
 8. **Success**: Success metrics and measurement criteria
+
+## Testing and Code Quality
+
+### Code Coverage
+
+This project monitors code coverage to ensure reliability and maintainability. The coverage badge on top shows current test coverage percentage.
+
+**Viewing Coverage Reports:**
+
+- **Online**: Click the coverage badge above to view detailed coverage reports on Codecov
+- **Local HTML Report**: `coverage run -m pytest && coverage html` then open `htmlcov/index.html`
+- **Terminal Report**: `coverage run -m pytest && coverage report`
+
+### Testing Strategy
+
+The project uses a testing approach with multiple test categories:
+
+**Test Categories:**
+
+- **Unit Tests**: Individual component testing with mocked dependencies
+- **Integration Tests**: End-to-end workflow testing with real database interactions
+- **Error Condition Tests**: Error handling and edge case coverage
+- **Concurrency Tests**: Thread safety validation for context variables
+- **Migration Tests**: Database schema evolution validation
+
+**Running Tests:**
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+coverage run -m pytest && coverage report
+
+# Run specific test categories
+pytest tests/test_storage.py
+pytest tests/test_logging.py
+pytest tests/test_migrations.py
+
+# Run tests with verbose output
+pytest -v
+
+# Run tests matching a pattern
+pytest -k "test_conversational"
+```
+
+**Test Quality Standards:**
+
+- All critical error conditions must be tested
+- Concurrent access patterns must be validated
+- Database operations must be tested with real SQLite
+- AI provider integrations tested with mocked responses
+- Test intention and expected output
