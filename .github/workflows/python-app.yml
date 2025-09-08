@@ -34,4 +34,12 @@ jobs:
       run: |
         poetry run coverage run -m pytest
         poetry run coverage report
+        poetry run coverage xml
         poetry run coverage html
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

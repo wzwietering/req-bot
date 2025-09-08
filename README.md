@@ -1,5 +1,7 @@
 # Requirements Bot
 
+[![codecov](https://codecov.io/gh/wzwietering/req-bot/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/req-bot)
+
 A console assistant for gathering software requirements through interactive interviews with AI-powered analysis.
 
 ## Overview
