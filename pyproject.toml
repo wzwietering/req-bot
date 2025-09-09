@@ -16,6 +16,31 @@ anthropic = "0.64.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "8.4.1"
+coverage = "7.10.6"
+
+[tool.coverage.run]
+source = ["requirements_bot"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/alembic/*",
+    "*/migrations/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:"
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

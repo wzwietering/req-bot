@@ -26,10 +26,20 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: latest
+        version: "2.1.4"
     - name: Install dependencies
       run: |
         poetry install
-    - name: Test with pytest
+    - name: Test with pytest and coverage
       run: |
-        poetry run pytest
+        poetry run coverage run -m pytest
+        poetry run coverage report
+        poetry run coverage xml
+        poetry run coverage html
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: true
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
