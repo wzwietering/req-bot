@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+from requirements_bot.core.conversation_state import ConversationState, StateContext
 
 
 class Question(BaseModel):
@@ -59,6 +61,11 @@ class Session(BaseModel):
     conversation_complete: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    # Conversation state tracking
+    conversation_state: ConversationState = ConversationState.INITIALIZING
+    state_context: StateContext = Field(default_factory=StateContext)
+    last_state_change: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def get_qa_history(self) -> list[tuple[Question, Answer | None]]:
         """Get Q&A pairs in order."""

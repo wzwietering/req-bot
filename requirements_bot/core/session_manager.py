@@ -1,5 +1,7 @@
+import logging
 import random
 
+from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.logging import (
     get_run_id,
     get_trace_id,
@@ -9,12 +11,14 @@ from requirements_bot.core.logging import (
     span,
 )
 from requirements_bot.core.models import Question, Session
+from requirements_bot.core.state_manager import ConversationStateManager
 from requirements_bot.core.storage_interface import StorageInterface
 
 
 class SessionManager:
     def __init__(self, storage: StorageInterface | None = None):
         self.storage = storage
+        self.state_manager = ConversationStateManager(storage)
 
     def setup_logging_context(self) -> None:
         if not get_trace_id():
@@ -31,6 +35,13 @@ class SessionManager:
         session = self.storage.load_session(session_id)
         if session:
             print(f"\n=== Resuming {mode} interview for '{session.project}' ===")
+            print(f"   → Current state: {session.conversation_state.value}")
+
+            # Check if recovery is needed
+            if self.state_manager.can_recover_from_interruption(session):
+                recovery_action = self.state_manager.determine_recovery_action(session)
+                print(f"   → Recovery strategy: {recovery_action}")
+
             set_trace_id(session.id)
             log_event(
                 "interview.resume",
@@ -39,6 +50,7 @@ class SessionManager:
                 session_id=session.id,
                 project=session.project,
                 mode=mode,
+                conversation_state=session.conversation_state.value,
             )
         return session
 
@@ -52,6 +64,12 @@ class SessionManager:
             requirements=[],
             conversation_complete=mode == "interview",
         )
+
+        # Transition to generating questions state
+        self.state_manager.transition_to(
+            session, ConversationState.GENERATING_QUESTIONS
+        )
+
         set_trace_id(session.id)
         log_event(
             "interview.start",
@@ -82,8 +100,17 @@ class SessionManager:
                 self.storage.save_session(session)
         except Exception as e:
             warning_type = "final session" if is_final else "session"
-            print(f"⚠ Warning: Failed to save {warning_type}: {e}")
+            log_event(
+                "session.save_failed",
+                component="session_manager",
+                operation="save_session",
+                session_id=session.id,
+                session_type=warning_type,
+                error=str(e),
+                level=logging.WARNING,
+            )
 
     def mark_session_complete(self, session: Session) -> None:
         session.conversation_complete = True
+        self.state_manager.transition_to(session, ConversationState.COMPLETED)
         self.save_with_error_handling(session, is_final=True)
