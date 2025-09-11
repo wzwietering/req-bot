@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set
 
 from pydantic import BaseModel
 
@@ -23,13 +22,13 @@ class StateContext(BaseModel):
     """Context needed to recover from interruptions."""
 
     current_question_index: int = 0
-    pending_followups: List[str] = []
-    analysis_in_progress: Optional[str] = None
-    llm_operation_id: Optional[str] = None
+    pending_followups: list[str] = []
+    analysis_in_progress: str | None = None
+    llm_operation_id: str | None = None
 
 
 # Valid state transitions - keeps the state machine simple and predictable
-VALID_TRANSITIONS: Dict[ConversationState, Set[ConversationState]] = {
+VALID_TRANSITIONS: dict[ConversationState, set[ConversationState]] = {
     ConversationState.INITIALIZING: {
         ConversationState.GENERATING_QUESTIONS,
         ConversationState.FAILED,

@@ -1,6 +1,5 @@
 import logging
 import threading
-from typing import Optional
 
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.logging import log_event

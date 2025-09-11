@@ -1,6 +1,5 @@
 import logging
 from datetime import UTC, datetime
-from typing import Optional
 
 from requirements_bot.core.conversation_state import (
     ConversationState,
@@ -17,14 +16,14 @@ from requirements_bot.core.storage_interface import StorageInterface
 class ConversationStateManager:
     """Manages conversation state transitions and recovery."""
 
-    def __init__(self, storage: Optional[StorageInterface] = None):
+    def __init__(self, storage: StorageInterface | None = None):
         self.storage = storage
 
     def transition_to(
         self,
         session: Session,
         new_state: ConversationState,
-        context_updates: Optional[dict] = None,
+        context_updates: dict | None = None,
     ) -> None:
         """Safely transition to a new state with validation."""
         if not isinstance(session, Session):

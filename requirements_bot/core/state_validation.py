@@ -1,5 +1,3 @@
-"""State machine validation utilities for conversation state tracking."""
-
 import logging
 
 from requirements_bot.core.conversation_state import (
