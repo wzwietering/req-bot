@@ -272,6 +272,9 @@ class ConversationalInterviewPipeline:
             answer_text = self.conductor.collect_user_input()
 
             if answer_text:
+                self.session_manager.state_manager.transition_to(
+                    session, ConversationState.PROCESSING_ANSWER
+                )
                 question_queue = self._process_answer(
                     session, current_question, answer_text, question_queue
                 )
@@ -289,9 +292,7 @@ class ConversationalInterviewPipeline:
         self, session: Session, current_question, answer_text: str, question_queue: list
     ) -> list:
         """Process a user's answer and handle follow-ups."""
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.PROCESSING_ANSWER
-        )
+        # State transition handled by caller - we're already in PROCESSING_ANSWER state
         answer = Answer(question_id=current_question.id, text=answer_text)
         session.answers.append(answer)
         self.conductor.log_answer_received(session, current_question, answer_text)
@@ -310,12 +311,25 @@ class ConversationalInterviewPipeline:
                 session, "generate_followups"
             )
 
-        question_queue = self.conductor.process_followups(
-            analysis, current_question, session, question_queue
-        )
+            question_queue = self.conductor.process_followups(
+                analysis, current_question, session, question_queue
+            )
 
-        if analysis.follow_up_questions:
             self.session_manager.save_with_error_handling(session)
+
+            # Transition back to waiting for input after generating follow-ups
+            self.session_manager.state_manager.transition_to(
+                session, ConversationState.WAITING_FOR_INPUT
+            )
+        else:
+            # No follow-ups, process normally and continue to waiting
+            question_queue = self.conductor.process_followups(
+                analysis, current_question, session, question_queue
+            )
+
+            self.session_manager.state_manager.transition_to(
+                session, ConversationState.WAITING_FOR_INPUT
+            )
 
         return question_queue
 

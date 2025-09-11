@@ -87,28 +87,48 @@ class SessionManager:
         if not self.storage:
             return
 
-        try:
-            with span(
-                "db.save_session",
-                component="db",
-                operation="save_session",
-                session_id=session.id,
-                answers=len(session.answers),
-                questions=len(session.questions),
-                final=is_final,
-            ):
-                self.storage.save_session(session)
-        except Exception as e:
-            warning_type = "final session" if is_final else "session"
-            log_event(
-                "session.save_failed",
-                component="session_manager",
-                operation="save_session",
-                session_id=session.id,
-                session_type=warning_type,
-                error=str(e),
-                level=logging.WARNING,
-            )
+        self._save_with_retry(session, is_final)
+
+    def _save_with_retry(
+        self, session: Session, is_final: bool, max_retries: int = 3
+    ) -> None:
+        """Save session with retry logic for better reliability."""
+        import time
+
+        for attempt in range(max_retries):
+            try:
+                with span(
+                    "db.save_session",
+                    component="db",
+                    operation="save_session",
+                    session_id=session.id,
+                    answers=len(session.answers),
+                    questions=len(session.questions),
+                    final=is_final,
+                    attempt=attempt + 1,
+                ):
+                    self.storage.save_session(session)
+                return  # Success, exit early
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    # Wait before retry with exponential backoff
+                    wait_time = 0.1 * (2**attempt)
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Final attempt failed, log the error
+                    warning_type = "final session" if is_final else "session"
+                    log_event(
+                        "session.save_failed",
+                        component="session_manager",
+                        operation="save_session",
+                        session_id=session.id,
+                        session_type=warning_type,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                        attempts=max_retries,
+                        level=logging.WARNING,
+                    )
 
     def mark_session_complete(self, session: Session) -> None:
         session.conversation_complete = True

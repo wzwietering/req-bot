@@ -78,24 +78,7 @@ class ConversationStateManager:
 
         # Persist if storage available
         if self.storage:
-            try:
-                with span(
-                    "db.save_state",
-                    component="state_manager",
-                    operation="save_state",
-                    session_id=session.id,
-                    state=new_state.value,
-                ):
-                    self.storage.save_session(session)
-            except Exception as e:
-                log_event(
-                    "conversation.state_save_failed",
-                    component="state_manager",
-                    operation="save_state",
-                    session_id=session.id,
-                    error=str(e),
-                    level=logging.WARNING,
-                )
+            self._save_with_retry(session, new_state)
 
     def create_checkpoint(self, session: Session, operation_id: str) -> None:
         """Create a recovery checkpoint before risky operations."""
@@ -144,3 +127,40 @@ class ConversationStateManager:
         }
 
         return recovery_actions.get(state, "restart_from_beginning")
+
+    def _save_with_retry(
+        self, session: Session, state: ConversationState, max_retries: int = 3
+    ) -> None:
+        """Save session state with retry logic for better reliability."""
+        import time
+
+        for attempt in range(max_retries):
+            try:
+                with span(
+                    "db.save_state",
+                    component="state_manager",
+                    operation="save_state",
+                    session_id=session.id,
+                    state=state.value,
+                    attempt=attempt + 1,
+                ):
+                    self.storage.save_session(session)
+                return  # Success, exit early
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    # Wait before retry with exponential backoff
+                    wait_time = 0.1 * (2**attempt)
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Final attempt failed, log the error
+                    log_event(
+                        "conversation.state_save_failed",
+                        component="state_manager",
+                        operation="save_state",
+                        session_id=session.id,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                        attempts=max_retries,
+                        level=logging.WARNING,
+                    )

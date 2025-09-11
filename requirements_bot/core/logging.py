@@ -26,6 +26,9 @@ class ContextFilter(logging.Filter):
         record.run_id = _ctx_run_id.get()
         record.component = getattr(record, "component", None)
         record.operation = getattr(record, "operation", None)
+        # Provide default event field if not present
+        if not hasattr(record, "event"):
+            record.event = record.name
         return True
 
 
