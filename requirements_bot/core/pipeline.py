@@ -2,11 +2,11 @@ import logging
 import random
 
 from requirements_bot.core.conversation_state import ConversationState
-
-# Configuration constants
-MAX_ADDITIONAL_QUESTIONS = 5
-MAX_INITIAL_QUESTIONS = 3
-MAX_MISSING_AREA_QUESTIONS = 3
+from requirements_bot.core.constants import (
+    MAX_ADDITIONAL_QUESTIONS,
+    MAX_INITIAL_QUESTIONS,
+    MAX_MISSING_AREA_QUESTIONS,
+)
 
 from requirements_bot.core.interview.interview_conductor import InterviewConductor
 from requirements_bot.core.interview.question_queue import QuestionQueue
@@ -17,6 +17,13 @@ from requirements_bot.core.interview.utils import (
 )
 from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.models import Answer, Session
+from requirements_bot.core.services import (
+    CompletenessAssessmentService,
+    InterviewLoopManager,
+    QuestionGenerationService,
+    SessionFinalizationService,
+    SessionSetupManager,
+)
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.core.storage_interface import StorageInterface
 from requirements_bot.providers.base import Provider
@@ -161,66 +168,37 @@ class ConversationalInterviewPipeline:
         self.conductor = InterviewConductor(
             self.provider, self.session_manager, self.question_queue_manager
         )
+
+        # Initialize specialized services
+        self.session_setup = SessionSetupManager(self.session_manager)
+        self.question_generation = QuestionGenerationService(
+            self.provider, self.session_manager, self.question_queue_manager, model_id
+        )
+        self.completeness_assessment = CompletenessAssessmentService(
+            self.conductor, self.session_manager, self.question_generation, model_id
+        )
+        self.interview_loop = InterviewLoopManager(
+            self.conductor, self.session_manager, self.completeness_assessment, model_id
+        )
+        self.session_finalization = SessionFinalizationService(
+            self.provider, self.session_manager, model_id, project
+        )
+
         self.session_manager.setup_logging_context()
 
     def setup_session(self, session_id: str | None) -> tuple[Session, int]:
         """Set up session for interview, either loading existing or creating new."""
-        session = None
-        if session_id:
-            session = self.session_manager.load_existing_session(
-                session_id, "conversational"
+        session, question_counter = self.session_setup.setup_session(
+            self.project, session_id, "conversational"
+        )
+
+        # If it's a new session, set up initial questions
+        if question_counter == 0 and not session.questions:
+            self.question_generation.setup_initial_session_questions(
+                session, self.project
             )
 
-        if session:
-            return session, len(session.answers)
-        else:
-            if session_id:
-                print(f"\n⚠ Session {session_id} not found, starting new interview")
-            return self._create_new_session(), 0
-
-    def _create_new_session(self) -> Session:
-        """Create new session with initial questions."""
-        session = self.session_manager.create_new_session(
-            self.project, [], "conversational"
-        )
-        self.session_manager.state_manager.create_checkpoint(
-            session, "generate_initial_questions"
-        )
-
-        seed_questions = self.question_queue_manager.initialize_from_seeds(
-            shuffled=True
-        )
-        try:
-            with span(
-                "llm.generate_questions",
-                component="pipeline",
-                operation="generate_questions",
-                provider_model=self.model_id,
-                seed_count=len(seed_questions),
-            ):
-                llm_questions = self.provider.generate_questions(
-                    self.project, seed_questions=seed_questions
-                )
-        except Exception as e:
-            # If LLM question generation fails, log the error and continue with just seed questions
-            log_event(
-                "llm.generate_questions_failed",
-                component="pipeline",
-                operation="generate_questions",
-                provider_model=self.model_id,
-                error=str(e),
-                error_type=type(e).__name__,
-                level=logging.WARNING,
-            )
-            print(f"⚠ LLM question generation failed: {e}")
-            print("⚠ Continuing with seed questions only")
-            llm_questions = []
-
-        session.questions = seed_questions + llm_questions[:MAX_INITIAL_QUESTIONS]
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.WAITING_FOR_INPUT
-        )
-        return session
+        return session, question_counter
 
     def prepare_initial_question_queue(
         self, session: Session, question_counter: int
@@ -238,7 +216,9 @@ class ConversationalInterviewPipeline:
             self._reopen_completed_session(session)
 
         if not question_queue:
-            question_queue = self._generate_additional_questions(session)
+            question_queue = self.question_generation.generate_additional_questions(
+                session
+            )
 
         return question_queue
 
@@ -250,54 +230,6 @@ class ConversationalInterviewPipeline:
             session, ConversationState.WAITING_FOR_INPUT
         )
 
-    def _generate_additional_questions(self, session: Session) -> list:
-        """Generate additional questions when queue is empty."""
-        print("   → Generating new questions to continue the conversation")
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.GENERATING_QUESTIONS
-        )
-        self.session_manager.state_manager.create_checkpoint(
-            session, "generate_additional_questions"
-        )
-
-        seed_questions = self.question_queue_manager.initialize_from_seeds(
-            shuffled=False
-        )
-        try:
-            with span(
-                "llm.generate_questions",
-                component="pipeline",
-                operation="generate_questions",
-                provider_model=self.model_id,
-                seed_count=len(seed_questions),
-            ):
-                additional_questions = self.provider.generate_questions(
-                    session.project, seed_questions=seed_questions
-                )
-        except Exception as e:
-            # If LLM question generation fails, log the error and return empty question queue
-            log_event(
-                "llm.generate_questions_failed",
-                component="pipeline",
-                operation="generate_additional_questions",
-                provider_model=self.model_id,
-                error=str(e),
-                error_type=type(e).__name__,
-                level=logging.WARNING,
-            )
-            print(f"⚠ LLM question generation failed: {e}")
-            print("⚠ Unable to generate additional questions")
-            additional_questions = []
-
-        new_questions = self.question_queue_manager.filter_asked_questions(
-            additional_questions, session
-        )
-        question_queue = new_questions[:MAX_ADDITIONAL_QUESTIONS]
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.WAITING_FOR_INPUT
-        )
-        return question_queue
-
     def run_interview_loop(
         self,
         session: Session,
@@ -306,193 +238,10 @@ class ConversationalInterviewPipeline:
         max_questions: int,
     ) -> Session:
         """Run the main interview loop handling questions and answers."""
-        while (
-            question_queue
-            and question_counter < max_questions
-            and not session.conversation_complete
-        ):
-            current_question = question_queue.pop(0)
-            question_counter += 1
-            session.questions.append(current_question)
-
-            self.conductor.present_question(
-                current_question, question_counter, max_questions
-            )
-            answer_text = self.conductor.collect_user_input()
-
-            if answer_text:
-                self.session_manager.state_manager.transition_to(
-                    session, ConversationState.PROCESSING_ANSWER
-                )
-                question_queue, should_check_completeness = self._process_answer(
-                    session, current_question, answer_text, question_queue
-                )
-
-                # Check completeness while still in PROCESSING_ANSWER state (if appropriate)
-                if should_check_completeness and self._should_check_completeness(
-                    question_counter, len(question_queue)
-                ):
-                    question_queue = self._assess_and_handle_completeness(
-                        session, question_queue
-                    )
-                    if session.conversation_complete:
-                        break
-                elif should_check_completeness:
-                    # No completeness check needed, transition to waiting state
-                    self.session_manager.state_manager.transition_to(
-                        session, ConversationState.WAITING_FOR_INPUT
-                    )
-
-        return session
-
-    def _process_answer(
-        self, session: Session, current_question, answer_text: str, question_queue: list
-    ) -> tuple[list, bool]:
-        """Process a user's answer and handle follow-ups.
-
-        Returns tuple of (question_queue, should_check_completeness).
-        """
-        # State transition handled by caller - we're already in PROCESSING_ANSWER state
-        answer = Answer(question_id=current_question.id, text=answer_text)
-        session.answers.append(answer)
-        self.conductor.log_answer_received(session, current_question, answer_text)
-        self.session_manager.save_with_error_handling(session)
-
-        analysis = self.conductor.analyze_response(
-            current_question, answer, session, self.model_id
+        return self.interview_loop.run_interview_loop(
+            session, question_queue, question_counter, max_questions
         )
-        self.conductor.update_answer_metadata(answer, analysis)
-
-        if analysis.follow_up_questions:
-            self.session_manager.state_manager.transition_to(
-                session, ConversationState.GENERATING_FOLLOWUPS
-            )
-            self.session_manager.state_manager.create_checkpoint(
-                session, "generate_followups"
-            )
-
-            question_queue = self.conductor.process_followups(
-                analysis, current_question, session, question_queue
-            )
-
-            self.session_manager.save_with_error_handling(session)
-
-            # Transition back to waiting for input after generating follow-ups
-            self.session_manager.state_manager.transition_to(
-                session, ConversationState.WAITING_FOR_INPUT
-            )
-            # Don't check completeness when we just generated follow-ups
-            return question_queue, False
-        else:
-            # No follow-ups, process normally but don't transition yet
-            question_queue = self.conductor.process_followups(
-                analysis, current_question, session, question_queue
-            )
-
-            # Stay in PROCESSING_ANSWER state so we can potentially transition to ASSESSING_COMPLETENESS
-            # The caller will handle the final state transition
-            return question_queue, True
-
-    def _should_check_completeness(
-        self, question_counter: int, queue_length: int
-    ) -> bool:
-        """Determine if we should check interview completeness."""
-        return self.conductor.should_check_completeness(question_counter, queue_length)
-
-    def _assess_and_handle_completeness(
-        self, session: Session, question_queue: list
-    ) -> list:
-        """Assess interview completeness and handle the result.
-
-        Note: This method assumes we're currently in PROCESSING_ANSWER state,
-        which allows transition to ASSESSING_COMPLETENESS.
-        """
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.ASSESSING_COMPLETENESS
-        )
-        self.session_manager.state_manager.create_checkpoint(
-            session, "assess_completeness"
-        )
-
-        completeness = self.conductor.assess_interview_status(session, self.model_id)
-
-        if completeness.is_complete:
-            self.conductor.handle_completion(completeness)
-            session.conversation_complete = True
-            # Don't transition back to WAITING_FOR_INPUT if complete - caller will handle final state
-        else:
-            self.conductor.handle_missing_areas(completeness)
-            if len(question_queue) == 0:
-                question_queue = self._generate_missing_area_questions(session)
-            # Transition back to waiting for input to continue interview
-            self.session_manager.state_manager.transition_to(
-                session, ConversationState.WAITING_FOR_INPUT
-            )
-
-        return question_queue
-
-    def _generate_missing_area_questions(self, session: Session) -> list:
-        """Generate questions for missing areas identified during completeness assessment."""
-        print("   → Generating additional questions for missing areas")
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.GENERATING_QUESTIONS
-        )
-        self.session_manager.state_manager.create_checkpoint(
-            session, "generate_missing_area_questions"
-        )
-
-        seed_questions = self.question_queue_manager.initialize_from_seeds(
-            shuffled=False
-        )
-        try:
-            with span(
-                "llm.generate_questions",
-                component="pipeline",
-                operation="generate_questions",
-                provider_model=self.model_id,
-                seed_count=len(seed_questions),
-            ):
-                additional_questions = self.provider.generate_questions(
-                    session.project, seed_questions=seed_questions
-                )
-        except Exception as e:
-            # If LLM question generation fails, log the error and return empty question list
-            log_event(
-                "llm.generate_questions_failed",
-                component="pipeline",
-                operation="generate_missing_area_questions",
-                provider_model=self.model_id,
-                error=str(e),
-                error_type=type(e).__name__,
-                level=logging.WARNING,
-            )
-            print(f"⚠ LLM question generation failed: {e}")
-            print("⚠ Unable to generate questions for missing areas")
-            additional_questions = []
-
-        new_questions = self.question_queue_manager.filter_asked_questions(
-            additional_questions, session
-        )
-        return new_questions[:MAX_MISSING_AREA_QUESTIONS]
 
     def finalize_session(self, session: Session) -> Session:
         """Generate requirements and finalize the session."""
-        print_requirements_generation(len(session.answers))
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.GENERATING_REQUIREMENTS
-        )
-        self.session_manager.state_manager.create_checkpoint(
-            session, "generate_final_requirements"
-        )
-
-        requirements = generate_requirements(
-            self.provider,
-            self.project,
-            session.questions,
-            session.answers,
-            session.id,
-            self.model_id,
-        )
-        session.requirements = requirements
-        self.session_manager.mark_session_complete(session)
-        return session
+        return self.session_finalization.finalize_session(session)
