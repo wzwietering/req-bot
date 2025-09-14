@@ -65,7 +65,9 @@ def run_interview(
                 llm_questions = provider.generate_questions(
                     project, seed_questions=seed_questions
                 )
-            filtered_questions = question_queue.add_questions(llm_questions, seed_questions)
+            filtered_questions = question_queue.add_questions(
+                llm_questions, seed_questions
+            )
         except Exception as e:
             # If LLM question generation fails, log the error and continue with just seed questions
             log_event(
@@ -322,23 +324,34 @@ class ConversationalInterviewPipeline:
                 self.session_manager.state_manager.transition_to(
                     session, ConversationState.PROCESSING_ANSWER
                 )
-                question_queue = self._process_answer(
+                question_queue, should_check_completeness = self._process_answer(
                     session, current_question, answer_text, question_queue
                 )
 
-            if self._should_check_completeness(question_counter, len(question_queue)):
-                question_queue = self._assess_and_handle_completeness(
-                    session, question_queue
-                )
-                if session.conversation_complete:
-                    break
+                # Check completeness while still in PROCESSING_ANSWER state (if appropriate)
+                if should_check_completeness and self._should_check_completeness(
+                    question_counter, len(question_queue)
+                ):
+                    question_queue = self._assess_and_handle_completeness(
+                        session, question_queue
+                    )
+                    if session.conversation_complete:
+                        break
+                elif should_check_completeness:
+                    # No completeness check needed, transition to waiting state
+                    self.session_manager.state_manager.transition_to(
+                        session, ConversationState.WAITING_FOR_INPUT
+                    )
 
         return session
 
     def _process_answer(
         self, session: Session, current_question, answer_text: str, question_queue: list
-    ) -> list:
-        """Process a user's answer and handle follow-ups."""
+    ) -> tuple[list, bool]:
+        """Process a user's answer and handle follow-ups.
+
+        Returns tuple of (question_queue, should_check_completeness).
+        """
         # State transition handled by caller - we're already in PROCESSING_ANSWER state
         answer = Answer(question_id=current_question.id, text=answer_text)
         session.answers.append(answer)
@@ -368,17 +381,17 @@ class ConversationalInterviewPipeline:
             self.session_manager.state_manager.transition_to(
                 session, ConversationState.WAITING_FOR_INPUT
             )
+            # Don't check completeness when we just generated follow-ups
+            return question_queue, False
         else:
-            # No follow-ups, process normally and continue to waiting
+            # No follow-ups, process normally but don't transition yet
             question_queue = self.conductor.process_followups(
                 analysis, current_question, session, question_queue
             )
 
-            self.session_manager.state_manager.transition_to(
-                session, ConversationState.WAITING_FOR_INPUT
-            )
-
-        return question_queue
+            # Stay in PROCESSING_ANSWER state so we can potentially transition to ASSESSING_COMPLETENESS
+            # The caller will handle the final state transition
+            return question_queue, True
 
     def _should_check_completeness(
         self, question_counter: int, queue_length: int
@@ -389,7 +402,11 @@ class ConversationalInterviewPipeline:
     def _assess_and_handle_completeness(
         self, session: Session, question_queue: list
     ) -> list:
-        """Assess interview completeness and handle the result."""
+        """Assess interview completeness and handle the result.
+
+        Note: This method assumes we're currently in PROCESSING_ANSWER state,
+        which allows transition to ASSESSING_COMPLETENESS.
+        """
         self.session_manager.state_manager.transition_to(
             session, ConversationState.ASSESSING_COMPLETENESS
         )
@@ -402,10 +419,12 @@ class ConversationalInterviewPipeline:
         if completeness.is_complete:
             self.conductor.handle_completion(completeness)
             session.conversation_complete = True
+            # Don't transition back to WAITING_FOR_INPUT if complete - caller will handle final state
         else:
             self.conductor.handle_missing_areas(completeness)
             if len(question_queue) == 0:
                 question_queue = self._generate_missing_area_questions(session)
+            # Transition back to waiting for input to continue interview
             self.session_manager.state_manager.transition_to(
                 session, ConversationState.WAITING_FOR_INPUT
             )
