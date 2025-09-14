@@ -1,9 +1,8 @@
-import json
 import os
 
 from openai import OpenAI
 
-from requirements_bot.core.logging import log_event, span
+from requirements_bot.core.logging import span
 from requirements_bot.core.models import (
     Answer,
     AnswerAnalysis,
@@ -21,6 +20,12 @@ from requirements_bot.core.prompts import (
 )
 
 from .base import Provider
+from .exceptions import (
+    FallbackFactory,
+    extract_content_from_response,
+    handle_provider_operation,
+    parse_json_response,
+)
 
 
 class ProviderImpl(Provider):
@@ -35,37 +40,41 @@ class ProviderImpl(Provider):
     ) -> list[Question]:
         """Generate additional questions based on the project description and existing questions."""
         prompt = generate_questions_prompt(project, seed_questions)
-        with span(
-            "llm.generate_questions",
-            component="provider",
+
+        def _do_operation():
+            with span(
+                "llm.generate_questions",
+                component="provider",
+                operation="generate_questions",
+                provider="openai",
+                model=self.model,
+                prompt_len=len(prompt),
+            ):
+                response = self.client.responses.create(
+                    model=self.model,
+                    input=prompt,
+                    instructions=SYSTEM_INSTRUCTIONS["questions"],
+                    temperature=0.7,
+                )
+
+                content = extract_content_from_response(response, "openai")
+                questions_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "generate_questions",
+                        "provider": "openai",
+                        "model": self.model,
+                    },
+                )
+                return [Question(**q) for q in questions_data]
+
+        return handle_provider_operation(
             operation="generate_questions",
             provider="openai",
             model=self.model,
-            prompt_len=len(prompt),
-        ):
-            response = self.client.responses.create(
-                model=self.model,
-                input=prompt,
-                instructions=SYSTEM_INSTRUCTIONS["questions"],
-                temperature=0.7,
-            )
-
-            try:
-                content = response.output_text
-                questions_data = json.loads(content)
-                return [Question(**q) for q in questions_data]
-            except (json.JSONDecodeError, KeyError, TypeError) as e:
-                # Fallback to empty list if parsing fails
-                log_event(
-                    "llm.parse_error",
-                    component="provider",
-                    operation="generate_questions",
-                    provider="openai",
-                    model=self.model,
-                    error_type=type(e).__name__,
-                    error_msg=str(e),
-                )
-                return []
+            operation_func=_do_operation,
+            fallback_factory=FallbackFactory.empty_questions_list,
+        )
 
     def summarize_requirements(
         self, project: str, questions: list[Question], answers: list[Answer]
@@ -73,37 +82,41 @@ class ProviderImpl(Provider):
         """Summarize the questions and answers into formal requirements."""
 
         prompt = summarize_requirements_prompt(project, questions, answers)
-        with span(
-            "llm.summarize_requirements",
-            component="provider",
+
+        def _do_operation():
+            with span(
+                "llm.summarize_requirements",
+                component="provider",
+                operation="summarize_requirements",
+                provider="openai",
+                model=self.model,
+                prompt_len=len(prompt),
+            ):
+                response = self.client.responses.create(
+                    model=self.model,
+                    input=prompt,
+                    instructions=SYSTEM_INSTRUCTIONS["requirements"],
+                    temperature=0.3,  # Lower temperature for more consistent output
+                )
+
+                content = extract_content_from_response(response, "openai")
+                requirements_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "summarize_requirements",
+                        "provider": "openai",
+                        "model": self.model,
+                    },
+                )
+                return [Requirement(**req) for req in requirements_data]
+
+        return handle_provider_operation(
             operation="summarize_requirements",
             provider="openai",
             model=self.model,
-            prompt_len=len(prompt),
-        ):
-            response = self.client.responses.create(
-                model=self.model,
-                input=prompt,
-                instructions=SYSTEM_INSTRUCTIONS["requirements"],
-                temperature=0.3,  # Lower temperature for more consistent output
-            )
-
-            try:
-                content = response.output_text
-                requirements_data = json.loads(content)
-                return [Requirement(**req) for req in requirements_data]
-            except (json.JSONDecodeError, KeyError, TypeError) as e:
-                # Fallback to empty list if parsing fails
-                log_event(
-                    "llm.parse_error",
-                    component="provider",
-                    operation="summarize_requirements",
-                    provider="openai",
-                    model=self.model,
-                    error_type=type(e).__name__,
-                    error_msg=str(e),
-                )
-                return []
+            operation_func=_do_operation,
+            fallback_factory=FallbackFactory.empty_requirements_list,
+        )
 
     def analyze_answer(
         self, question: Question, answer: Answer, context: str = ""
@@ -112,7 +125,7 @@ class ProviderImpl(Provider):
 
         prompt = analyze_answer_prompt(question.text, answer.text, context)
 
-        try:
+        def _do_operation():
             with span(
                 "llm.analyze_answer",
                 component="provider",
@@ -128,37 +141,24 @@ class ProviderImpl(Provider):
                     temperature=0.3,
                 )
 
-                content = response.output_text
-                if not content:
-                    # Default analysis if no response
-                    return AnswerAnalysis(
-                        is_complete=True,
-                        is_specific=True,
-                        is_consistent=True,
-                        follow_up_questions=[],
-                        analysis_notes="Analysis failed - defaulting to accepting answer",
-                    )
-
-                analysis_data = json.loads(content)
+                content = extract_content_from_response(response, "openai")
+                analysis_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "analyze_answer",
+                        "provider": "openai",
+                        "model": self.model,
+                    },
+                )
                 return AnswerAnalysis(**analysis_data)
-        except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            log_event(
-                "llm.parse_error",
-                component="provider",
-                operation="analyze_answer",
-                provider="openai",
-                model=self.model,
-                error_type=type(e).__name__,
-                error_msg=str(e),
-            )
-            # Default to accepting the answer if analysis fails
-            return AnswerAnalysis(
-                is_complete=True,
-                is_specific=True,
-                is_consistent=True,
-                follow_up_questions=[],
-                analysis_notes=f"Analysis error: {e}",
-            )
+
+        return handle_provider_operation(
+            operation="analyze_answer",
+            provider="openai",
+            model=self.model,
+            operation_func=_do_operation,
+            fallback_factory=FallbackFactory.default_answer_analysis,
+        )
 
     def assess_completeness(self, session: Session) -> CompletenessAssessment:
         """Assess if enough information has been gathered."""
@@ -172,7 +172,7 @@ class ProviderImpl(Provider):
         session_context = "\n\n".join(qa_history)
         prompt = assess_completeness_prompt(session_context, len(session.questions))
 
-        try:
+        def _do_operation():
             with span(
                 "llm.assess_completeness",
                 component="provider",
@@ -188,32 +188,23 @@ class ProviderImpl(Provider):
                     temperature=0.2,
                 )
 
-                content = response.output_text
-                if not content:
-                    # Default assessment
-                    return CompletenessAssessment(
-                        is_complete=len(session.questions) >= 8,
-                        missing_areas=[],
-                        confidence_score=0.5,
-                        reasoning="Assessment failed - using basic heuristics",
-                    )
-
-                assessment_data = json.loads(content)
+                content = extract_content_from_response(response, "openai")
+                assessment_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "assess_completeness",
+                        "provider": "openai",
+                        "model": self.model,
+                    },
+                )
                 return CompletenessAssessment(**assessment_data)
-        except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            log_event(
-                "llm.parse_error",
-                component="provider",
-                operation="assess_completeness",
-                provider="openai",
-                model=self.model,
-                error_type=type(e).__name__,
-                error_msg=str(e),
-            )
-            # Fallback assessment
-            return CompletenessAssessment(
-                is_complete=len(session.questions) >= 8,
-                missing_areas=[],
-                confidence_score=0.5,
-                reasoning=f"Assessment error: {e}",
-            )
+
+        return handle_provider_operation(
+            operation="assess_completeness",
+            provider="openai",
+            model=self.model,
+            operation_func=_do_operation,
+            fallback_factory=lambda: FallbackFactory.default_completeness_assessment(
+                len(session.questions)
+            ),
+        )
