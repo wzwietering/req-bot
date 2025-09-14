@@ -45,6 +45,11 @@ class SessionTable(Base):
         DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
 
+    # Conversation state tracking
+    conversation_state = Column(String, nullable=False, default="initializing")
+    state_context = Column(Text, nullable=True)  # JSON serialized StateContext
+    last_state_change = Column(DateTime, default=lambda: datetime.now(UTC))
+
     # Relationships
     questions = relationship(
         "QuestionTable", back_populates="session", cascade="all, delete-orphan"
