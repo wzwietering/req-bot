@@ -12,6 +12,9 @@ class Provider:
     @staticmethod
     def from_id(model_id: str) -> "Provider":
         # parse like "openai:gpt-5" / "anthropic:claude-4" / "google:gemini-2.5-pro"
+        if ":" not in model_id:
+            raise ValueError(f"Model ID must be in format 'vendor:model', got: '{model_id}'. Use 'anthropic:claude-3-haiku-20240307' or similar.")
+
         vendor, model = model_id.split(":", 1)
         if vendor == "openai":
             from . import openai as impl

@@ -1,3 +1,4 @@
+import logging
 import random
 
 from requirements_bot.core.conversation_state import ConversationState
@@ -14,7 +15,7 @@ from requirements_bot.core.interview.utils import (
     print_interview_header,
     print_requirements_generation,
 )
-from requirements_bot.core.logging import span
+from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.models import Answer, Session
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.core.storage_interface import StorageInterface
@@ -53,17 +54,33 @@ def run_interview(
         session = session_manager.create_new_session(project, [], "simple")
 
         session_manager.state_manager.create_checkpoint(session, "generate_questions")
-        with span(
-            "llm.generate_questions",
-            component="pipeline",
-            operation="generate_questions",
-            provider_model=model_id,
-            seed_count=len(seed_questions),
-        ):
-            llm_questions = provider.generate_questions(
-                project, seed_questions=seed_questions
+        try:
+            with span(
+                "llm.generate_questions",
+                component="pipeline",
+                operation="generate_questions",
+                provider_model=model_id,
+                seed_count=len(seed_questions),
+            ):
+                llm_questions = provider.generate_questions(
+                    project, seed_questions=seed_questions
+                )
+            filtered_questions = question_queue.add_questions(llm_questions, seed_questions)
+        except Exception as e:
+            # If LLM question generation fails, log the error and continue with just seed questions
+            log_event(
+                "llm.generate_questions_failed",
+                component="pipeline",
+                operation="generate_questions",
+                provider_model=model_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                level=logging.WARNING,
             )
-        filtered_questions = question_queue.add_questions(llm_questions, seed_questions)
+            print(f"⚠ LLM question generation failed: {e}")
+            print("⚠ Continuing with seed questions only")
+            filtered_questions = []
+
         all_qs = seed_questions + filtered_questions
         random.shuffle(all_qs)
 
@@ -171,16 +188,31 @@ class ConversationalInterviewPipeline:
         seed_questions = self.question_queue_manager.initialize_from_seeds(
             shuffled=True
         )
-        with span(
-            "llm.generate_questions",
-            component="pipeline",
-            operation="generate_questions",
-            provider_model=self.model_id,
-            seed_count=len(seed_questions),
-        ):
-            llm_questions = self.provider.generate_questions(
-                self.project, seed_questions=seed_questions
+        try:
+            with span(
+                "llm.generate_questions",
+                component="pipeline",
+                operation="generate_questions",
+                provider_model=self.model_id,
+                seed_count=len(seed_questions),
+            ):
+                llm_questions = self.provider.generate_questions(
+                    self.project, seed_questions=seed_questions
+                )
+        except Exception as e:
+            # If LLM question generation fails, log the error and continue with just seed questions
+            log_event(
+                "llm.generate_questions_failed",
+                component="pipeline",
+                operation="generate_questions",
+                provider_model=self.model_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                level=logging.WARNING,
             )
+            print(f"⚠ LLM question generation failed: {e}")
+            print("⚠ Continuing with seed questions only")
+            llm_questions = []
 
         session.questions = seed_questions + llm_questions[:MAX_INITIAL_QUESTIONS]
         self.session_manager.state_manager.transition_to(
@@ -229,16 +261,31 @@ class ConversationalInterviewPipeline:
         seed_questions = self.question_queue_manager.initialize_from_seeds(
             shuffled=False
         )
-        with span(
-            "llm.generate_questions",
-            component="pipeline",
-            operation="generate_questions",
-            provider_model=self.model_id,
-            seed_count=len(seed_questions),
-        ):
-            additional_questions = self.provider.generate_questions(
-                session.project, seed_questions=seed_questions
+        try:
+            with span(
+                "llm.generate_questions",
+                component="pipeline",
+                operation="generate_questions",
+                provider_model=self.model_id,
+                seed_count=len(seed_questions),
+            ):
+                additional_questions = self.provider.generate_questions(
+                    session.project, seed_questions=seed_questions
+                )
+        except Exception as e:
+            # If LLM question generation fails, log the error and return empty question queue
+            log_event(
+                "llm.generate_questions_failed",
+                component="pipeline",
+                operation="generate_additional_questions",
+                provider_model=self.model_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                level=logging.WARNING,
             )
+            print(f"⚠ LLM question generation failed: {e}")
+            print("⚠ Unable to generate additional questions")
+            additional_questions = []
 
         new_questions = self.question_queue_manager.filter_asked_questions(
             additional_questions, session
@@ -378,16 +425,31 @@ class ConversationalInterviewPipeline:
         seed_questions = self.question_queue_manager.initialize_from_seeds(
             shuffled=False
         )
-        with span(
-            "llm.generate_questions",
-            component="pipeline",
-            operation="generate_questions",
-            provider_model=self.model_id,
-            seed_count=len(seed_questions),
-        ):
-            additional_questions = self.provider.generate_questions(
-                session.project, seed_questions=seed_questions
+        try:
+            with span(
+                "llm.generate_questions",
+                component="pipeline",
+                operation="generate_questions",
+                provider_model=self.model_id,
+                seed_count=len(seed_questions),
+            ):
+                additional_questions = self.provider.generate_questions(
+                    session.project, seed_questions=seed_questions
+                )
+        except Exception as e:
+            # If LLM question generation fails, log the error and return empty question list
+            log_event(
+                "llm.generate_questions_failed",
+                component="pipeline",
+                operation="generate_missing_area_questions",
+                provider_model=self.model_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                level=logging.WARNING,
             )
+            print(f"⚠ LLM question generation failed: {e}")
+            print("⚠ Unable to generate questions for missing areas")
+            additional_questions = []
 
         new_questions = self.question_queue_manager.filter_asked_questions(
             additional_questions, session
