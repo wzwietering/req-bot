@@ -42,85 +42,102 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
             return await self._handle_exception(request, exc)
 
     async def _handle_exception(self, request: Request, exc: Exception) -> JSONResponse:
-        """Handle exception and return consistent JSON response.
-
-        This centralizes all exception handling logic that was previously
-        duplicated across route handlers.
-        """
-        # Log the exception for debugging (but don't expose details to client)
+        """Handle exception and return consistent JSON response."""
         logger.exception(f"Exception in {request.method} {request.url}: {exc}")
 
-        # Handle core domain exceptions
-        if isinstance(exc, SessionNotFoundError):
-            return self._create_error_response(
-                status_code=HTTP_404_NOT_FOUND, error="SessionNotFound", message=str(exc), details=None
-            )
+        if self._is_core_domain_exception(exc):
+            return self._handle_core_domain_exception(exc)
+        elif self._is_storage_exception(exc):
+            return self._handle_storage_exception(exc)
+        elif self._is_api_exception(exc):
+            return self._handle_api_exception(exc)
+        elif self._is_validation_exception(exc):
+            return self._handle_validation_exception(exc)
+        else:
+            return self._handle_unknown_exception()
 
-        # Handle storage exceptions
-        elif isinstance(exc, (SessionSaveError, SessionLoadError, SessionDeleteError)):
-            return self._create_error_response(
-                status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                error="StorageError",
-                message="Database operation failed",
-                details=None,  # Don't expose internal error details
-            )
+    def _is_core_domain_exception(self, exc: Exception) -> bool:
+        """Check if exception is from core domain layer."""
+        return isinstance(exc, SessionNotFoundError)
 
-        elif isinstance(exc, StorageError):
-            return self._create_error_response(
-                status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                error="StorageError",
-                message="Storage operation failed",
-                details=None,
-            )
+    def _is_storage_exception(self, exc: Exception) -> bool:
+        """Check if exception is from storage layer."""
+        return isinstance(exc, (SessionSaveError, SessionLoadError, SessionDeleteError, StorageError))
 
-        # Handle API-specific exceptions
-        elif isinstance(exc, SessionNotFoundAPIException):
+    def _is_api_exception(self, exc: Exception) -> bool:
+        """Check if exception is API-specific."""
+        return isinstance(
+            exc, (SessionNotFoundAPIException, SessionInvalidStateException, ValidationException, APIException)
+        )
+
+    def _is_validation_exception(self, exc: Exception) -> bool:
+        """Check if exception is validation-related."""
+        return (hasattr(exc, "errors") and callable(exc.errors)) or isinstance(exc, ValueError)
+
+    def _handle_core_domain_exception(self, exc: Exception) -> JSONResponse:
+        """Handle core domain exceptions."""
+        return self._create_error_response(
+            status_code=HTTP_404_NOT_FOUND, error="SessionNotFound", message=str(exc), details=None
+        )
+
+    def _handle_storage_exception(self, exc: Exception) -> JSONResponse:
+        """Handle storage-related exceptions."""
+        if isinstance(exc, (SessionSaveError, SessionLoadError, SessionDeleteError)):
+            message = "Database operation failed"
+        else:
+            message = "Storage operation failed"
+
+        return self._create_error_response(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            error="StorageError",
+            message=message,
+            details=None,
+        )
+
+    def _handle_api_exception(self, exc: Exception) -> JSONResponse:
+        """Handle API-specific exceptions."""
+        if isinstance(exc, SessionNotFoundAPIException):
             return self._create_error_response(
                 status_code=HTTP_404_NOT_FOUND, error="SessionNotFound", message=exc.detail, details=None
             )
-
         elif isinstance(exc, SessionInvalidStateException):
             return self._create_error_response(
                 status_code=HTTP_422_UNPROCESSABLE_ENTITY, error="InvalidSessionState", message=exc.detail, details=None
             )
-
         elif isinstance(exc, ValidationException):
             return self._create_error_response(
                 status_code=HTTP_400_BAD_REQUEST, error="ValidationError", message=exc.detail, details=None
             )
-
-        elif isinstance(exc, APIException):
+        else:  # APIException
             return self._create_error_response(
                 status_code=exc.status_code, error="APIError", message=exc.detail, details=None
             )
 
-        # Handle validation errors from Pydantic
-        elif hasattr(exc, "errors") and callable(exc.errors):
-            # This is likely a Pydantic ValidationError
+    def _handle_validation_exception(self, exc: Exception) -> JSONResponse:
+        """Handle validation-related exceptions."""
+        if hasattr(exc, "errors") and callable(exc.errors):
             return self._create_error_response(
                 status_code=HTTP_422_UNPROCESSABLE_ENTITY,
                 error="ValidationError",
                 message="Request validation failed",
                 details=str(exc),
             )
-
-        # Handle generic ValueError (but don't treat as "not found")
-        elif isinstance(exc, ValueError):
+        else:  # ValueError
             return self._create_error_response(
                 status_code=HTTP_400_BAD_REQUEST,
                 error="ValueError",
                 message="Invalid request parameters",
-                details=None,  # Don't expose internal details
+                details=None,
             )
 
-        # Handle all other unexpected exceptions
-        else:
-            return self._create_error_response(
-                status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                error="InternalServerError",
-                message="An unexpected error occurred",
-                details=None,  # Never expose internal error details in production
-            )
+    def _handle_unknown_exception(self) -> JSONResponse:
+        """Handle unexpected exceptions."""
+        return self._create_error_response(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            error="InternalServerError",
+            message="An unexpected error occurred",
+            details=None,
+        )
 
     def _create_error_response(
         self, status_code: int, error: str, message: str, details: str | None = None

@@ -2,21 +2,7 @@ import re
 import uuid
 
 from requirements_bot.api.exceptions import InvalidSessionIdException
-from requirements_bot.core.models import Question, Session
-
-
-def get_current_question(session: Session) -> Question | None:
-    """Get the current unanswered question for a session."""
-    answered_question_ids = {answer.question_id for answer in session.answers}
-    for question in session.questions:
-        if question.id not in answered_question_ids:
-            return question
-    return None
-
-
-def get_next_question(session: Session) -> Question | None:
-    """Get the next unanswered question for a session."""
-    return get_current_question(session)
+from requirements_bot.core.models import Session
 
 
 def calculate_session_progress(session: Session) -> tuple[int, int, int, float]:
