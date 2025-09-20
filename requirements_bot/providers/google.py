@@ -1,9 +1,8 @@
-import json
 import os
 
 from google import genai
 
-from requirements_bot.core.logging import log_event, span
+from requirements_bot.core.logging import span
 from requirements_bot.core.models import (
     Answer,
     AnswerAnalysis,
@@ -21,6 +20,12 @@ from requirements_bot.core.prompts import (
 )
 
 from .base import Provider
+from .exceptions import (
+    FallbackFactory,
+    extract_content_from_response,
+    handle_provider_operation,
+    parse_json_response,
+)
 
 
 class ProviderImpl(Provider):
@@ -34,11 +39,10 @@ class ProviderImpl(Provider):
         """Generate additional questions based on the project description and existing questions."""
 
         prompt = generate_questions_prompt(project, seed_questions)
-
         # Create the full prompt with system instructions
         full_prompt = f"{SYSTEM_INSTRUCTIONS['questions']}\n\n{prompt}"
 
-        try:
+        def _do_operation():
             with span(
                 "llm.generate_questions",
                 component="provider",
@@ -51,24 +55,24 @@ class ProviderImpl(Provider):
                     model=self.model, contents=full_prompt
                 )
 
-                content = response.text
-                if not content:
-                    return []
-
-                questions_data = json.loads(content)
+                content = extract_content_from_response(response, "google")
+                questions_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "generate_questions",
+                        "provider": "google",
+                        "model": self.model,
+                    },
+                )
                 return [Question(**q) for q in questions_data]
-        except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            # Fallback to empty list if parsing fails
-            log_event(
-                "llm.parse_error",
-                component="provider",
-                operation="generate_questions",
-                provider="google",
-                model=self.model,
-                error_type=type(e).__name__,
-                error_msg=str(e),
-            )
-            return []
+
+        return handle_provider_operation(
+            operation="generate_questions",
+            provider="google",
+            model=self.model,
+            operation_func=_do_operation,
+            fallback_factory=FallbackFactory.empty_questions_list,
+        )
 
     def summarize_requirements(
         self, project: str, questions: list[Question], answers: list[Answer]
@@ -76,11 +80,10 @@ class ProviderImpl(Provider):
         """Summarize the questions and answers into formal requirements."""
 
         prompt = summarize_requirements_prompt(project, questions, answers)
-
         # Create the full prompt with system instructions
         full_prompt = f"{SYSTEM_INSTRUCTIONS['requirements']}\n\n{prompt}"
 
-        try:
+        def _do_operation():
             with span(
                 "llm.summarize_requirements",
                 component="provider",
@@ -93,24 +96,24 @@ class ProviderImpl(Provider):
                     model=self.model, contents=full_prompt
                 )
 
-                content = response.text
-                if not content:
-                    return []
-
-                requirements_data = json.loads(content)
+                content = extract_content_from_response(response, "google")
+                requirements_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "summarize_requirements",
+                        "provider": "google",
+                        "model": self.model,
+                    },
+                )
                 return [Requirement(**req) for req in requirements_data]
-        except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            # Fallback to empty list if parsing fails
-            log_event(
-                "llm.parse_error",
-                component="provider",
-                operation="summarize_requirements",
-                provider="google",
-                model=self.model,
-                error_type=type(e).__name__,
-                error_msg=str(e),
-            )
-            return []
+
+        return handle_provider_operation(
+            operation="summarize_requirements",
+            provider="google",
+            model=self.model,
+            operation_func=_do_operation,
+            fallback_factory=FallbackFactory.empty_requirements_list,
+        )
 
     def analyze_answer(
         self, question: Question, answer: Answer, context: str = ""
@@ -120,7 +123,7 @@ class ProviderImpl(Provider):
         prompt = analyze_answer_prompt(question.text, answer.text, context)
         full_prompt = f"{SYSTEM_INSTRUCTIONS['questions']}\n\n{prompt}"
 
-        try:
+        def _do_operation():
             with span(
                 "llm.analyze_answer",
                 component="provider",
@@ -133,37 +136,24 @@ class ProviderImpl(Provider):
                     model=self.model, contents=full_prompt
                 )
 
-                content = response.text
-                if not content:
-                    # Default analysis if no response
-                    return AnswerAnalysis(
-                        is_complete=True,
-                        is_specific=True,
-                        is_consistent=True,
-                        follow_up_questions=[],
-                        analysis_notes="Analysis failed - defaulting to accepting answer",
-                    )
-
-                analysis_data = json.loads(content)
+                content = extract_content_from_response(response, "google")
+                analysis_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "analyze_answer",
+                        "provider": "google",
+                        "model": self.model,
+                    },
+                )
                 return AnswerAnalysis(**analysis_data)
-        except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            log_event(
-                "llm.parse_error",
-                component="provider",
-                operation="analyze_answer",
-                provider="google",
-                model=self.model,
-                error_type=type(e).__name__,
-                error_msg=str(e),
-            )
-            # Default to accepting the answer if analysis fails
-            return AnswerAnalysis(
-                is_complete=True,
-                is_specific=True,
-                is_consistent=True,
-                follow_up_questions=[],
-                analysis_notes=f"Analysis error: {e}",
-            )
+
+        return handle_provider_operation(
+            operation="analyze_answer",
+            provider="google",
+            model=self.model,
+            operation_func=_do_operation,
+            fallback_factory=FallbackFactory.default_answer_analysis,
+        )
 
     def assess_completeness(self, session: Session) -> CompletenessAssessment:
         """Assess if enough information has been gathered."""
@@ -178,7 +168,7 @@ class ProviderImpl(Provider):
         prompt = assess_completeness_prompt(session_context, len(session.questions))
         full_prompt = f"{SYSTEM_INSTRUCTIONS['requirements']}\n\n{prompt}"
 
-        try:
+        def _do_operation():
             with span(
                 "llm.assess_completeness",
                 component="provider",
@@ -191,32 +181,23 @@ class ProviderImpl(Provider):
                     model=self.model, contents=full_prompt
                 )
 
-                content = response.text
-                if not content:
-                    # Default assessment
-                    return CompletenessAssessment(
-                        is_complete=len(session.questions) >= 8,
-                        missing_areas=[],
-                        confidence_score=0.5,
-                        reasoning="Assessment failed - using basic heuristics",
-                    )
-
-                assessment_data = json.loads(content)
+                content = extract_content_from_response(response, "google")
+                assessment_data = parse_json_response(
+                    content,
+                    {
+                        "operation": "assess_completeness",
+                        "provider": "google",
+                        "model": self.model,
+                    },
+                )
                 return CompletenessAssessment(**assessment_data)
-        except (json.JSONDecodeError, KeyError, TypeError, Exception) as e:
-            log_event(
-                "llm.parse_error",
-                component="provider",
-                operation="assess_completeness",
-                provider="google",
-                model=self.model,
-                error_type=type(e).__name__,
-                error_msg=str(e),
-            )
-            # Fallback assessment
-            return CompletenessAssessment(
-                is_complete=len(session.questions) >= 8,
-                missing_areas=[],
-                confidence_score=0.5,
-                reasoning=f"Assessment error: {e}",
-            )
+
+        return handle_provider_operation(
+            operation="assess_completeness",
+            provider="google",
+            model=self.model,
+            operation_func=_do_operation,
+            fallback_factory=lambda: FallbackFactory.default_completeness_assessment(
+                len(session.questions)
+            ),
+        )

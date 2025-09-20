@@ -13,8 +13,10 @@ from requirements_bot.core.logging import (
     set_run_id,
     set_trace_id,
 )
+from requirements_bot.core.constants import DEFAULT_DB_PATH
 from requirements_bot.core.pipeline import run_conversational_interview, run_interview
 from requirements_bot.core.storage import DatabaseManager
+from requirements_bot.cli_helpers import InterviewRunner
 
 app = typer.Typer(
     help="Requirements Bot - console assistant for gathering software requirements."
@@ -53,7 +55,7 @@ def interview(
     session_id: str | None = typer.Option(
         None, "--session-id", help="Resume existing session by ID"
     ),
-    db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
+    db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
     log_format: str = typer.Option("text", help="Log format: json|text"),
@@ -77,7 +79,7 @@ def conversational(
     session_id: str | None = typer.Option(
         None, "--session-id", help="Resume existing session by ID"
     ),
-    db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
+    db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
     log_format: str = typer.Option("text", help="Log format: json|text"),
@@ -92,7 +94,7 @@ def conversational(
 
 @app.command("list-sessions")
 def list_sessions(
-    db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
+    db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
     log_format: str = typer.Option("text", help="Log format: json|text"),
@@ -126,7 +128,7 @@ def list_sessions(
 @app.command("delete-session")
 def delete_session(
     session_id: str = typer.Argument(..., help="Session ID to delete"),
-    db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
+    db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
     log_format: str = typer.Option("text", help="Log format: json|text"),
@@ -153,7 +155,7 @@ def delete_session(
 @app.command("show-session")
 def show_session(
     session_id: str = typer.Argument(..., help="Session ID to display"),
-    db_path: str = typer.Option("requirements_bot.db", help="Database file path"),
+    db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
     log_format: str = typer.Option("text", help="Log format: json|text"),
@@ -198,42 +200,10 @@ def _run(
     out: str,
     model: str,
     session_id: str | None = None,
-    db_path: str = "requirements_bot.db",
+    db_path: str = DEFAULT_DB_PATH,
 ):
-    try:
-        db_manager = DatabaseManager(db_path)
-
-        # If resuming a session, get project from the session
-        if session_id and not project:
-            existing_session = db_manager.load_session(session_id)
-            if existing_session:
-                project = existing_session.project
-            else:
-                typer.echo(f"Session {session_id} not found.", err=True)
-                raise typer.Exit(1)
-
-        # If no project provided and not resuming, prompt for it
-        if not project:
-            project = typer.prompt("Project name/title")
-
-        session = run_interview(
-            project=project,
-            model_id=model,
-            session_id=session_id,
-            storage=db_manager,
-        )
-        path = write_document(session, path=out)
-        typer.echo(f"Requirements written to {path}")
-        typer.echo(f"Session saved as {session.id}")
-    except Exception as e:
-        typer.echo(f"Error during interview: {e}", err=True)
-        # Fall back to non-persistent mode
-        typer.echo("Falling back to non-persistent mode...")
-        if not project:
-            project = typer.prompt("Project name/title")
-        session = run_interview(project=project, model_id=model)
-        path = write_document(session, path=out)
-        typer.echo(f"Requirements written to {path}")
+    runner = InterviewRunner(db_path)
+    runner.run_simple_interview(project, out, model, session_id)
 
 
 def _run_conversational(
@@ -242,45 +212,12 @@ def _run_conversational(
     model: str,
     max_questions: int,
     session_id: str | None = None,
-    db_path: str = "requirements_bot.db",
+    db_path: str = DEFAULT_DB_PATH,
 ):
-    try:
-        db_manager = DatabaseManager(db_path)
-
-        # If resuming a session, get project from the session
-        if session_id and not project:
-            existing_session = db_manager.load_session(session_id)
-            if existing_session:
-                project = existing_session.project
-            else:
-                typer.echo(f"Session {session_id} not found.", err=True)
-                raise typer.Exit(1)
-
-        # If no project provided and not resuming, prompt for it
-        if not project:
-            project = typer.prompt("Project name/title")
-
-        session = run_conversational_interview(
-            project=project,
-            model_id=model,
-            max_questions=max_questions,
-            session_id=session_id,
-            storage=db_manager,
-        )
-        path = write_document(session, path=out)
-        typer.echo(f"Requirements written to {path}")
-        typer.echo(f"Session saved as {session.id}")
-    except Exception as e:
-        typer.echo(f"Error during conversational interview: {e}", err=True)
-        # Fall back to non-persistent mode
-        typer.echo("Falling back to non-persistent mode...")
-        if not project:
-            project = typer.prompt("Project name/title")
-        session = run_conversational_interview(
-            project=project, model_id=model, max_questions=max_questions
-        )
-        path = write_document(session, path=out)
-        typer.echo(f"Requirements written to {path}")
+    runner = InterviewRunner(db_path)
+    runner.run_conversational_interview_with_fallback(
+        project, out, model, max_questions, session_id
+    )
 
 
 @app.command("logs-report")

@@ -1,0 +1,67 @@
+from requirements_bot.core.conversation_state import ConversationState
+from requirements_bot.core.interview.interview_conductor import InterviewConductor
+from requirements_bot.core.models import Session
+from requirements_bot.core.session_manager import SessionManager
+from requirements_bot.core.services.question_generation_service import (
+    QuestionGenerationService,
+)
+
+
+class CompletenessAssessmentService:
+    """Handles interview completeness assessment and related logic."""
+
+    def __init__(
+        self,
+        conductor: InterviewConductor,
+        session_manager: SessionManager,
+        question_generation_service: QuestionGenerationService,
+        model_id: str,
+    ):
+        self.conductor = conductor
+        self.session_manager = session_manager
+        self.question_generation_service = question_generation_service
+        self.model_id = model_id
+
+    def should_check_completeness(
+        self, question_counter: int, queue_length: int
+    ) -> bool:
+        """Determine if we should check interview completeness."""
+        return self.conductor.should_check_completeness(question_counter, queue_length)
+
+    def assess_and_handle_completeness(
+        self, session: Session, question_queue: list
+    ) -> list:
+        """Assess interview completeness and handle the result.
+
+        Note: This method assumes we're currently in PROCESSING_ANSWER state,
+        which allows transition to ASSESSING_COMPLETENESS.
+
+        Returns:
+            list: Updated question queue
+        """
+        self.session_manager.state_manager.transition_to(
+            session, ConversationState.ASSESSING_COMPLETENESS
+        )
+        self.session_manager.state_manager.create_checkpoint(
+            session, "assess_completeness"
+        )
+
+        completeness = self.conductor.assess_interview_status(session, self.model_id)
+
+        if completeness.is_complete:
+            self.conductor.handle_completion(completeness)
+            session.conversation_complete = True
+        else:
+            self.conductor.handle_missing_areas(completeness)
+            if len(question_queue) == 0:
+                question_queue = (
+                    self.question_generation_service.generate_missing_area_questions(
+                        session
+                    )
+                )
+            # Transition back to waiting for input to continue interview
+            self.session_manager.state_manager.transition_to(
+                session, ConversationState.WAITING_FOR_INPUT
+            )
+
+        return question_queue
