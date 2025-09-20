@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from requirements_bot.api.dependencies import get_database_manager, get_session_answer_service
-from requirements_bot.api.exceptions import SessionInvalidStateException
+from requirements_bot.api.dependencies import get_database_manager, get_session_answer_service, get_validated_session_id
+from requirements_bot.api.exceptions import SessionInvalidStateException, SessionNotFoundAPIException
 from requirements_bot.api.schemas import (
     AnswerSubmissionResponse,
     QuestionAnswerRequest,
@@ -20,12 +20,13 @@ router = APIRouter()
 
 @router.post("/sessions/{session_id}/continue", response_model=SessionContinueResponse)
 async def continue_session(
-    session_id: str, db: Annotated[DatabaseManager, Depends(get_database_manager)]
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    db: Annotated[DatabaseManager, Depends(get_database_manager)],
 ) -> SessionContinueResponse:
     """Continue or resume a session to get the next question."""
     session = db.load_session(session_id)
     if not session:
-        raise ValueError(f"Session {session_id} not found")
+        raise SessionNotFoundAPIException(session_id)
 
     if session.conversation_complete:
         return SessionContinueResponse(
@@ -45,32 +46,36 @@ async def continue_session(
     )
 
 
+def _validate_session_for_answer(session, session_id: str):
+    """Validate that a session exists and can accept answers."""
+    if not session:
+        raise SessionNotFoundAPIException(session_id)
+
+    if session.conversation_complete:
+        raise SessionInvalidStateException("Session is already complete")
+
+
+def _get_and_validate_current_question(session):
+    """Get current question and validate it exists."""
+    current_question = get_current_question(session)
+    if not current_question:
+        raise SessionInvalidStateException("No current question to answer")
+    return current_question
+
+
 @router.post("/sessions/{session_id}/answers", response_model=AnswerSubmissionResponse)
 async def submit_answer(
-    session_id: str,
+    session_id: Annotated[str, Depends(get_validated_session_id)],
     request: QuestionAnswerRequest,
     answer_service: Annotated[SessionAnswerService, Depends(get_session_answer_service)],
 ) -> AnswerSubmissionResponse:
     """Submit an answer to the current question."""
     session = answer_service.storage.load_session(session_id)
-    if not session:
-        raise ValueError(f"Session {session_id} not found")
+    _validate_session_for_answer(session, session_id)
 
-    if session.conversation_complete:
-        raise SessionInvalidStateException("Session is already complete")
-
-    # Get the current question
-    current_question = get_current_question(session)
-    if not current_question:
-        raise SessionInvalidStateException("No current question to answer")
-
-    # Process the answer
+    current_question = _get_and_validate_current_question(session)
     updated_session, is_complete = answer_service.process_answer(session, current_question, request.answer_text)
-
-    # Get the answer that was just added
     new_answer = updated_session.answers[-1]
-
-    # Check if requirements were generated (only relevant when conversation is complete)
     requirements_generated = is_complete and len(updated_session.requirements) > 0
 
     return AnswerSubmissionResponse(
@@ -84,11 +89,14 @@ async def submit_answer(
 
 
 @router.get("/sessions/{session_id}/questions/current")
-async def get_current_question_endpoint(session_id: str, db: Annotated[DatabaseManager, Depends(get_database_manager)]):
+async def get_current_question_endpoint(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    db: Annotated[DatabaseManager, Depends(get_database_manager)],
+):
     """Get the current question for a session."""
     session = db.load_session(session_id)
     if not session:
-        raise ValueError(f"Session {session_id} not found")
+        raise SessionNotFoundAPIException(session_id)
 
     if session.conversation_complete:
         return {"current_question": None, "conversation_complete": True}
@@ -101,31 +109,39 @@ async def get_current_question_endpoint(session_id: str, db: Annotated[DatabaseM
     }
 
 
-@router.get("/sessions/{session_id}/status", response_model=SessionStatusResponse)
-async def get_session_status(
-    session_id: str, db: Annotated[DatabaseManager, Depends(get_database_manager)]
-) -> SessionStatusResponse:
-    """Get the current status and progress of a session."""
-    session = db.load_session(session_id)
-    if not session:
-        raise ValueError(f"Session {session_id} not found")
-
-    # Calculate progress
+def _calculate_session_progress_data(session) -> SessionProgress:
+    """Calculate and return session progress data."""
     total_questions, answered_questions, remaining_questions, completion_percentage = calculate_session_progress(
         session
     )
 
-    progress = SessionProgress(
+    return SessionProgress(
         total_questions=total_questions,
         answered_questions=answered_questions,
         remaining_questions=remaining_questions,
         completion_percentage=completion_percentage,
     )
 
-    # Get current question if any
-    current_question = None
-    if not session.conversation_complete:
-        current_question = get_current_question(session)
+
+def _get_current_question_if_active(session):
+    """Get current question if session is not complete."""
+    if session.conversation_complete:
+        return None
+    return get_current_question(session)
+
+
+@router.get("/sessions/{session_id}/status", response_model=SessionStatusResponse)
+async def get_session_status(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    db: Annotated[DatabaseManager, Depends(get_database_manager)],
+) -> SessionStatusResponse:
+    """Get the current status and progress of a session."""
+    session = db.load_session(session_id)
+    if not session:
+        raise SessionNotFoundAPIException(session_id)
+
+    progress = _calculate_session_progress_data(session)
+    current_question = _get_current_question_if_active(session)
 
     return SessionStatusResponse(
         session_id=session.id,

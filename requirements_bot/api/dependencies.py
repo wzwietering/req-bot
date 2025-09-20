@@ -1,6 +1,10 @@
 import os
 from functools import lru_cache
+from typing import Annotated
 
+from fastapi import Path
+
+from requirements_bot.api.utils import validate_session_id
 from requirements_bot.core.services import SessionAnswerService, SessionSetupManager
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.core.storage import DatabaseManager, StorageInterface
@@ -37,3 +41,8 @@ def get_session_answer_service() -> SessionAnswerService:
     """Get session answer service instance."""
     storage = get_storage()
     return SessionAnswerService(storage)
+
+
+def get_validated_session_id(session_id: Annotated[str, Path()]) -> str:
+    """Validate and return session ID from path parameter."""
+    return validate_session_id(session_id)

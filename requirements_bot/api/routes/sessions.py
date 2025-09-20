@@ -6,7 +6,9 @@ from starlette.status import HTTP_201_CREATED
 from requirements_bot.api.dependencies import (
     get_database_manager,
     get_session_setup_manager,
+    get_validated_session_id,
 )
+from requirements_bot.api.exceptions import SessionNotFoundAPIException
 from requirements_bot.api.schemas import (
     SessionCreateRequest,
     SessionCreateResponse,
@@ -38,13 +40,9 @@ async def create_session(
     )
 
 
-@router.get("/sessions", response_model=SessionListResponse)
-async def list_sessions(db: Annotated[DatabaseManager, Depends(get_database_manager)]) -> SessionListResponse:
-    """List all requirements gathering sessions."""
-    summary_data = db.get_session_summaries()
-
-    session_summaries = []
-    for (
+def _create_session_summary(summary_data_row) -> SessionSummary:
+    """Create a SessionSummary from database row data."""
+    (
         session_id,
         project,
         conversation_state,
@@ -54,32 +52,38 @@ async def list_sessions(db: Annotated[DatabaseManager, Depends(get_database_mana
         requirements_count,
         created_at,
         updated_at,
-    ) in summary_data:
-        session_summaries.append(
-            SessionSummary(
-                id=session_id,
-                project=project,
-                conversation_state=conversation_state,
-                conversation_complete=conversation_complete,
-                questions_count=questions_count,
-                answers_count=answers_count,
-                requirements_count=requirements_count,
-                created_at=created_at,
-                updated_at=updated_at,
-            )
-        )
+    ) = summary_data_row
 
+    return SessionSummary(
+        id=session_id,
+        project=project,
+        conversation_state=conversation_state,
+        conversation_complete=conversation_complete,
+        questions_count=questions_count,
+        answers_count=answers_count,
+        requirements_count=requirements_count,
+        created_at=created_at,
+        updated_at=updated_at,
+    )
+
+
+@router.get("/sessions", response_model=SessionListResponse)
+async def list_sessions(db: Annotated[DatabaseManager, Depends(get_database_manager)]) -> SessionListResponse:
+    """List all requirements gathering sessions."""
+    summary_data = db.get_session_summaries()
+    session_summaries = [_create_session_summary(row) for row in summary_data]
     return SessionListResponse(sessions=session_summaries)
 
 
 @router.get("/sessions/{session_id}", response_model=SessionDetailResponse)
 async def get_session(
-    session_id: str, db: Annotated[DatabaseManager, Depends(get_database_manager)]
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    db: Annotated[DatabaseManager, Depends(get_database_manager)],
 ) -> SessionDetailResponse:
     """Get detailed information about a specific session."""
     session = db.load_session(session_id)
     if not session:
-        raise ValueError(f"Session {session_id} not found")
+        raise SessionNotFoundAPIException(session_id)
 
     return SessionDetailResponse(
         id=session.id,
@@ -96,7 +100,8 @@ async def get_session(
 
 @router.delete("/sessions/{session_id}")
 async def delete_session(
-    session_id: str, db: Annotated[DatabaseManager, Depends(get_database_manager)]
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    db: Annotated[DatabaseManager, Depends(get_database_manager)],
 ) -> dict[str, str]:
     """Delete a specific session."""
     db.delete_session(session_id)

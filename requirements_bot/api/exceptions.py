@@ -37,6 +37,11 @@ class ValidationException(APIException):
         super().__init__(status_code=HTTP_400_BAD_REQUEST, detail=message)
 
 
+class InvalidSessionIdException(ValidationException):
+    def __init__(self, session_id: str):
+        super().__init__(f"Invalid session ID format: {session_id}")
+
+
 async def storage_exception_handler(request: Request, exc: StorageError) -> JSONResponse:
     """Handle storage-related exceptions."""
     if isinstance(exc, SessionNotFoundError):
