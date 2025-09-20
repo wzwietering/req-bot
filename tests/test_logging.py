@@ -738,12 +738,22 @@ class TestEdgeCasesAndErrorScenarios:
         assert parsed["message"] == "test message"
 
     def test_init_logging_with_invalid_file_permissions(self):
-        """Test init_logging handles file permission scenarios."""
+        """Test init_logging handles file permission scenarios gracefully."""
         with clean_logging_context():
-            # Test with a directory path (should fail gracefully)
+            # Test with a directory path (should fail gracefully and fallback to stderr)
             with tempfile.TemporaryDirectory() as temp_dir:
-                with pytest.raises(IsADirectoryError):
-                    init_logging(file_path=temp_dir)
+                # Should not raise exception, but should fallback to stderr logging
+                logger = init_logging(file_path=temp_dir)
+                assert logger is not None
+
+                # Verify that a handler was created (stderr fallback)
+                root_logger = logging.getLogger()
+                assert len(root_logger.handlers) > 0
+
+                # The handler should be StreamHandler (fallback from failed file creation)
+                handler = root_logger.handlers[0]
+                assert isinstance(handler, logging.StreamHandler)
+                # In test environments, stderr might be redirected, so just verify it's a stream handler
 
     def test_coerce_level_with_edge_cases(self):
         """Test level coercion with various edge case inputs."""
@@ -822,9 +832,18 @@ class TestEdgeCasesAndErrorScenarios:
             # Test with a file path that doesn't exist and can't be created
             invalid_path = "/root/nonexistent/directory/test.log"
 
-            # init_logging should handle file creation errors gracefully
-            with pytest.raises(PermissionError):
-                init_logging(file_path=invalid_path)
+            # init_logging should handle file creation errors gracefully without raising
+            logger = init_logging(file_path=invalid_path)
+            assert logger is not None
+
+            # Verify that it fell back to stderr logging
+            root_logger = logging.getLogger()
+            assert len(root_logger.handlers) > 0
+
+            # The handler should be StreamHandler (fallback from failed file creation)
+            handler = root_logger.handlers[0]
+            assert isinstance(handler, logging.StreamHandler)
+            # In test environments, stderr might be redirected, so just verify it's a stream handler
 
     def test_concurrent_context_variable_access(self):
         """Test context variables behave correctly under concurrent access."""

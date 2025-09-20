@@ -134,13 +134,13 @@ def init_logging(
     resolved_level = _coerce_level(level or env_level or logging.INFO)
     resolved_format = (fmt or env_format or "json").lower()
 
-    # Generate session-based filename if not provided
+    # Generate session-based filename only if session_id is provided
     if not (file_path or env_file):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if session_id:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             resolved_file = f"conversation_{session_id}_{timestamp}.json"
         else:
-            resolved_file = f"conversation_{timestamp}.json"
+            resolved_file = None  # No session_id means use stream output
     else:
         resolved_file = file_path or env_file
 
@@ -150,11 +150,12 @@ def init_logging(
         else (env_mask or "").lower() in {"1", "true", "yes", "on"}
     )
 
-    # Default to stderr for better UX separation (logs don't mix with user conversation)
-    resolved_stderr = True  # Changed from False to True for better UX
+    # Default behavior: stdout for backward compatibility
+    # Can be overridden to stderr for better UX separation via use_stderr parameter or env var
+    resolved_stderr = False  # Default to stdout for backward compatibility
     if use_stderr is not None:
         resolved_stderr = use_stderr
-    elif env_stderr:
+    elif env_stderr is not None:
         resolved_stderr = (env_stderr or "").lower() in {"1", "true", "yes", "on"}
 
     root = logging.getLogger()
@@ -169,7 +170,7 @@ def init_logging(
         try:
             handler = logging.FileHandler(resolved_file)
         except (OSError, PermissionError) as e:
-            # Fall back to stderr if file creation fails
+            # Fall back to stderr if file creation fails (safer than stdout for errors)
             print(f"Warning: Could not create log file '{resolved_file}': {e}", file=sys.stderr)
             print("Falling back to stderr logging.", file=sys.stderr)
             handler = logging.StreamHandler(sys.stderr)
