@@ -46,6 +46,9 @@ class TestConversationState:
         assert not validate_transition(
             ConversationState.WAITING_FOR_INPUT, ConversationState.GENERATING_QUESTIONS
         )
+        assert not validate_transition(
+            ConversationState.ASSESSING_COMPLETENESS, ConversationState.GENERATING_QUESTIONS
+        )
 
     def test_terminal_states(self):
         """Test terminal state detection."""
