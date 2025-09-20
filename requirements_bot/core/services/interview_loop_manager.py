@@ -1,6 +1,7 @@
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.interview.interview_conductor import InterviewConductor
-from requirements_bot.core.models import Answer, Session
+from requirements_bot.core.interview_constants import EXIT_SIGNAL
+from requirements_bot.core.models import Answer, Question, Session
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.core.services.completeness_assessment_service import (
     CompletenessAssessmentService,
@@ -25,7 +26,7 @@ class InterviewLoopManager:
     def run_interview_loop(
         self,
         session: Session,
-        question_queue: list,
+        question_queue: list[Question],
         question_counter: int,
         max_questions: int,
     ) -> Session:
@@ -41,6 +42,11 @@ class InterviewLoopManager:
                 current_question, question_counter, max_questions
             )
             answer_text = self.conductor.collect_user_input()
+
+            # Check for exit signal
+            if answer_text == EXIT_SIGNAL:
+                print("Exiting interview. Session has been saved.")
+                return session
 
             if answer_text:
                 self.session_manager.state_manager.transition_to(

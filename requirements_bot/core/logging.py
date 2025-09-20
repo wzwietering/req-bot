@@ -111,28 +111,51 @@ def init_logging(
     fmt: str | None = None,
     file_path: str | None = None,
     mask: bool | None = None,
+    session_id: str | None = None,
+    use_stderr: bool | None = None,
 ) -> logging.Logger:
     """Initialize application-wide logging.
 
     - level: log level or env `REQBOT_LOG_LEVEL` (default INFO)
-    - fmt: 'json' or 'text' or env `REQBOT_LOG_FORMAT` (default 'text')
-    - file_path: file path or env `REQBOT_LOG_FILE` (default stdout)
+    - fmt: 'json' or 'text' or env `REQBOT_LOG_FORMAT` (default 'json')
+    - file_path: file path or env `REQBOT_LOG_FILE` (default session-based file)
     - mask: whether to mask sensitive text or env `REQBOT_LOG_MASK` (default False)
+    - session_id: session ID for generating unique log filenames
+    - use_stderr: log to stderr instead of stdout for better UX separation (default True)
+                 Can be overridden by env `REQBOT_LOG_STDERR` (1/true/yes/on for True)
     """
 
     env_level = os.getenv("REQBOT_LOG_LEVEL")
     env_format = os.getenv("REQBOT_LOG_FORMAT")
     env_file = os.getenv("REQBOT_LOG_FILE")
     env_mask = os.getenv("REQBOT_LOG_MASK")
+    env_stderr = os.getenv("REQBOT_LOG_STDERR")
 
     resolved_level = _coerce_level(level or env_level or logging.INFO)
-    resolved_format = (fmt or env_format or "text").lower()
-    resolved_file = file_path or env_file
+    resolved_format = (fmt or env_format or "json").lower()
+
+    # Generate session-based filename if not provided
+    if not (file_path or env_file):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if session_id:
+            resolved_file = f"conversation_{session_id}_{timestamp}.json"
+        else:
+            resolved_file = f"conversation_{timestamp}.json"
+    else:
+        resolved_file = file_path or env_file
+
     resolved_mask = bool(
         mask
         if mask is not None
         else (env_mask or "").lower() in {"1", "true", "yes", "on"}
     )
+
+    # Default to stderr for better UX separation (logs don't mix with user conversation)
+    resolved_stderr = True  # Changed from False to True for better UX
+    if use_stderr is not None:
+        resolved_stderr = use_stderr
+    elif env_stderr:
+        resolved_stderr = (env_stderr or "").lower() in {"1", "true", "yes", "on"}
 
     root = logging.getLogger()
     root.setLevel(resolved_level)
@@ -143,9 +166,18 @@ def init_logging(
 
     handler: logging.Handler
     if resolved_file:
-        handler = logging.FileHandler(resolved_file)
+        try:
+            handler = logging.FileHandler(resolved_file)
+        except (OSError, PermissionError) as e:
+            # Fall back to stderr if file creation fails
+            print(f"Warning: Could not create log file '{resolved_file}': {e}", file=sys.stderr)
+            print("Falling back to stderr logging.", file=sys.stderr)
+            handler = logging.StreamHandler(sys.stderr)
+            resolved_file = None  # Update resolved_file to reflect actual output
     else:
-        handler = logging.StreamHandler(sys.stdout)
+        # Use stderr or stdout based on configuration
+        stream = sys.stderr if resolved_stderr else sys.stdout
+        handler = logging.StreamHandler(stream)
 
     if resolved_format == "json":
         formatter = JsonFormatter()
@@ -175,7 +207,7 @@ def init_logging(
             "operation": "init",
             "level": resolved_level,
             "format": resolved_format,
-            "file": resolved_file or "stdout",
+            "file": resolved_file or "stderr",
             "mask": resolved_mask,
         },
     )

@@ -1,5 +1,5 @@
 from requirements_bot.core.interview.question_queue import QuestionQueue
-from requirements_bot.core.io_interface import ConsoleIO, IOInterface
+from requirements_bot.core.io_interface import RichConsoleIO, IOInterface
 from requirements_bot.core.logging import log_event, mask_text, span
 from requirements_bot.core.models import (
     Answer,
@@ -23,7 +23,7 @@ class InterviewConductor:
         self.provider = provider
         self.session_manager = session_manager
         self.question_queue = question_queue
-        self.io = io or ConsoleIO()
+        self.io = io or RichConsoleIO()
 
     def present_question(
         self, question: Question, question_number: int, total_questions: int
