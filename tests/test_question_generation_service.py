@@ -58,12 +58,12 @@ class TestQuestionGenerationService:
         self, question_service, sample_session_assessing_completeness, mock_session_manager
     ):
         """
-        Test that the bug has been fixed: method no longer attempts invalid transition.
+        Test that the issue has been fixed: method no longer attempts invalid transition.
 
         This test verifies that the bug fix works correctly:
         1. Session is in ASSESSING_COMPLETENESS state
         2. generate_missing_area_questions() is called
-        3. Method does NOT attempt any state transition (bug is fixed)
+        3. Method does not attempt any state transition
         4. Questions are generated successfully
         """
         # Configure the state manager for successful operation

@@ -46,7 +46,6 @@ class TestConversationState:
         assert not validate_transition(
             ConversationState.WAITING_FOR_INPUT, ConversationState.GENERATING_QUESTIONS
         )
-        # Test the specific invalid transition that caused the bug
         assert not validate_transition(
             ConversationState.ASSESSING_COMPLETENESS, ConversationState.GENERATING_QUESTIONS
         )
