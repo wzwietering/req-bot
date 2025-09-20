@@ -47,10 +47,17 @@ class RichConsoleIO(IOInterface):
             self.history_file = str(history_dir / f"{sanitized_id}.txt")
 
     def _sanitize_session_id(self, session_id: str) -> str:
-        """Sanitize session ID to prevent path traversal attacks."""
+        """Sanitize session ID to prevent path traversal attacks.
+
+        Args:
+            session_id: Raw session ID from user input
+
+        Returns:
+            Sanitized session ID (max 50 characters) safe for use in filenames
+        """
         # Remove path separators and dangerous characters, keep only alphanumeric, dash, underscore
         sanitized = "".join(c for c in session_id if c.isalnum() or c in '-_')
-        # Limit length to prevent extremely long filenames
+        # Limit length to 50 characters to prevent extremely long filenames
         return sanitized[:50] if sanitized else "unknown_session"
 
     def print(self, message: str) -> None:
@@ -126,7 +133,7 @@ class RichConsoleIO(IOInterface):
     def _display_exit_tip(self) -> None:
         """Display helpful exit tip when user interrupts input."""
         if self.console:
-            self.console.print("\n[yellow]💡 Tip: Type 'exit' or 'quit' to save and exit gracefully[/yellow]")
+            self.console.print("\n[yellow]💡 Tip: Type 'exit' or 'quit' to save and exit gracefully[/yellow]\n")
 
     def _log_rich_input_error(self, error: Exception) -> None:
         """Log error when rich input fails."""
