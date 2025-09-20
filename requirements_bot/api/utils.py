@@ -1,4 +1,3 @@
-import re
 import uuid
 
 from requirements_bot.api.exceptions import InvalidSessionIdException
@@ -37,19 +36,10 @@ def validate_session_id(session_id: str) -> str:
     # Remove whitespace
     session_id = session_id.strip()
 
-    # Check length (reasonable limits)
-    if len(session_id) < 8 or len(session_id) > 128:
+    # Validate as proper UUID (comprehensive validation)
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
         raise InvalidSessionIdException(session_id)
-
-    # Check for basic alphanumeric pattern with hyphens/underscores
-    if not re.match(r"^[a-zA-Z0-9_-]+$", session_id):
-        raise InvalidSessionIdException(session_id)
-
-    # Try to parse as UUID if it looks like one
-    if "-" in session_id and len(session_id) == 36:
-        try:
-            uuid.UUID(session_id)
-        except ValueError:
-            raise InvalidSessionIdException(session_id)
 
     return session_id

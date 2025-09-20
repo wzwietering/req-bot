@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.status import (
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
-    HTTP_422_UNPROCESSABLE_ENTITY,
+    HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
@@ -67,12 +67,18 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
     def _is_api_exception(self, exc: Exception) -> bool:
         """Check if exception is API-specific."""
         return isinstance(
-            exc, (SessionNotFoundAPIException, SessionInvalidStateException, ValidationException, APIException)
+            exc,
+            (
+                SessionNotFoundAPIException,
+                SessionInvalidStateException,
+                ValidationException,
+                APIException,
+            ),
         )
 
     def _is_validation_exception(self, exc: Exception) -> bool:
         """Check if exception is validation-related."""
-        return (hasattr(exc, "errors") and callable(exc.errors)) or isinstance(exc, ValueError)
+        return (hasattr(exc, "errors") and callable(exc.errors)) or isinstance(exc, (ValueError, ValidationException))
 
     def _handle_core_domain_exception(self, exc: Exception) -> JSONResponse:
         """Handle core domain exceptions."""
@@ -102,7 +108,10 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
             )
         elif isinstance(exc, SessionInvalidStateException):
             return self._create_error_response(
-                status_code=HTTP_422_UNPROCESSABLE_ENTITY, error="InvalidSessionState", message=exc.detail, details=None
+                status_code=HTTP_422_UNPROCESSABLE_CONTENT,
+                error="InvalidSessionState",
+                message=exc.detail,
+                details=None,
             )
         elif isinstance(exc, ValidationException):
             return self._create_error_response(
@@ -117,7 +126,7 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
         """Handle validation-related exceptions."""
         if hasattr(exc, "errors") and callable(exc.errors):
             return self._create_error_response(
-                status_code=HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=HTTP_422_UNPROCESSABLE_CONTENT,
                 error="ValidationError",
                 message="Request validation failed",
                 details=str(exc),

@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.status import (
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
-    HTTP_422_UNPROCESSABLE_ENTITY,
+    HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
@@ -29,7 +29,7 @@ class SessionNotFoundAPIException(APIException):
 
 class SessionInvalidStateException(APIException):
     def __init__(self, message: str):
-        super().__init__(status_code=HTTP_422_UNPROCESSABLE_ENTITY, detail=message)
+        super().__init__(status_code=HTTP_422_UNPROCESSABLE_CONTENT, detail=message)
 
 
 class ValidationException(APIException):

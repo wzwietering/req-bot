@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.models import Answer, Question, Requirement
@@ -11,15 +11,18 @@ class SessionCreateRequest(BaseModel):
         ..., min_length=1, max_length=200, description="Project name for the requirements gathering session"
     )
 
-    @validator("project")
+    @field_validator("project")
+    @classmethod
     def validate_project_name(cls, v):
-        if not v.strip():
+        # First trim whitespace including tabs
+        trimmed = v.strip()
+        if not trimmed:
             raise ValueError("Project name cannot be empty or only whitespace")
-        # Remove any potentially harmful characters
+        # Check for forbidden characters in the trimmed value (prevent XSS/injection)
         forbidden_chars = ["<", ">", '"', "'", "&", "\n", "\r", "\t"]
-        if any(char in v for char in forbidden_chars):
+        if any(char in trimmed for char in forbidden_chars):
             raise ValueError("Project name contains invalid characters")
-        return v.strip()
+        return trimmed
 
 
 class SessionCreateResponse(BaseModel):
@@ -67,14 +70,17 @@ class SessionContinueResponse(BaseModel):
 class QuestionAnswerRequest(BaseModel):
     answer_text: str = Field(..., min_length=1, max_length=5000, description="Answer text for the current question")
 
-    @validator("answer_text")
+    @field_validator("answer_text")
+    @classmethod
     def validate_answer_text(cls, v):
-        if not v.strip():
+        # First trim whitespace
+        trimmed = v.strip()
+        if not trimmed:
             raise ValueError("Answer cannot be empty or only whitespace")
         # Check for excessively long answers that might indicate spam
-        if len(v.strip()) > 5000:
+        if len(trimmed) > 5000:
             raise ValueError("Answer exceeds maximum length of 5000 characters")
-        return v.strip()
+        return trimmed
 
 
 class AnswerSubmissionResponse(BaseModel):

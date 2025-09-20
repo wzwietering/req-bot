@@ -16,7 +16,9 @@ from requirements_bot.api.schemas import (
     SessionListResponse,
     SessionSummary,
 )
+from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.services import SessionSetupManager
+from requirements_bot.core.services.question_service import QuestionService
 from requirements_bot.core.storage import DatabaseManager
 
 router = APIRouter()
@@ -30,6 +32,12 @@ async def create_session(
 ) -> SessionCreateResponse:
     """Create a new requirements gathering session."""
     session, _ = setup_manager.setup_session(request.project, None, "conversational")
+
+    # Add basic questions for API sessions
+    if not session.questions:
+        session.questions = QuestionService.generate_basic_questions(request.project)
+        session.conversation_state = ConversationState.WAITING_FOR_INPUT
+
     db.save_session(session)
 
     return SessionCreateResponse(
@@ -42,29 +50,18 @@ async def create_session(
 
 def _create_session_summary(summary_data_row) -> SessionSummary:
     """Create a SessionSummary from database row data."""
-    (
-        session_id,
-        project,
-        conversation_state,
-        conversation_complete,
-        questions_count,
-        answers_count,
-        requirements_count,
-        created_at,
-        updated_at,
-    ) = summary_data_row
-
-    return SessionSummary(
-        id=session_id,
-        project=project,
-        conversation_state=conversation_state,
-        conversation_complete=conversation_complete,
-        questions_count=questions_count,
-        answers_count=answers_count,
-        requirements_count=requirements_count,
-        created_at=created_at,
-        updated_at=updated_at,
-    )
+    fields = [
+        "id",
+        "project",
+        "conversation_state",
+        "conversation_complete",
+        "questions_count",
+        "answers_count",
+        "requirements_count",
+        "created_at",
+        "updated_at",
+    ]
+    return SessionSummary(**dict(zip(fields, summary_data_row, strict=False)))
 
 
 @router.get("/sessions", response_model=SessionListResponse)
