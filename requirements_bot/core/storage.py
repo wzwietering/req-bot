@@ -1,26 +1,20 @@
-import json
-import logging
 import re
 import threading
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import joinedload, sessionmaker
 
-from .database_models import Base  # SQLAlchemy ORM models
 from .database_models import (
-    AnswerTable,
-    QuestionTable,
-    RequirementTable,
+    Base,  # SQLAlchemy ORM models
     SessionTable,
     enable_sqlite_foreign_keys,
 )
 from .logging import span
-from .conversation_state import ConversationState, StateContext
-from .models import Answer, Question, Requirement, Session  # Pydantic models
-from .storage_interface import StorageInterface
+from .models import Session  # Pydantic models
 from .persistence.session_persistence_service import SessionPersistenceService
+from .storage_interface import StorageInterface
 
 
 class StorageError(Exception):
@@ -142,17 +136,13 @@ class DatabaseManager(StorageInterface):
             with session_lock:
                 with self.SessionLocal() as db_session:
                     try:
-                        result = self.persistence_service.save_session_data(
-                            session, db_session
-                        )
+                        result = self.persistence_service.save_session_data(session, db_session)
                         db_session.commit()
                         return result
 
                     except Exception as e:
                         db_session.rollback()
-                        raise SessionSaveError(
-                            f"Failed to save session {session.id}: {str(e)}"
-                        ) from e
+                        raise SessionSaveError(f"Failed to save session {session.id}: {str(e)}") from e
 
     def load_session(self, session_id: str) -> Session | None:
         """Load a session from the database using eager loading to avoid N+1 queries."""
@@ -167,16 +157,12 @@ class DatabaseManager(StorageInterface):
         ):
             with self.SessionLocal() as db_session:
                 try:
-                    session_table = self._fetch_session_with_relations(
-                        db_session, session_id
-                    )
+                    session_table = self._fetch_session_with_relations(db_session, session_id)
                     if not session_table:
                         return None
                     return self._build_session_from_table(session_table)
                 except Exception as e:
-                    raise SessionLoadError(
-                        f"Failed to load session {session_id}: {str(e)}"
-                    ) from e
+                    raise SessionLoadError(f"Failed to load session {session_id}: {str(e)}") from e
 
     def list_sessions(self) -> list[tuple[str, str, datetime, bool]]:
         """List all sessions. Returns (id, project, updated_at, conversation_complete)."""
@@ -189,15 +175,10 @@ class DatabaseManager(StorageInterface):
         ):
             with self.SessionLocal() as db_session:
                 try:
-                    sessions_query = select(SessionTable).order_by(
-                        SessionTable.updated_at.desc()
-                    )
+                    sessions_query = select(SessionTable).order_by(SessionTable.updated_at.desc())
                     sessions = db_session.execute(sessions_query).scalars().all()
 
-                    return [
-                        (s.id, s.project, s.updated_at, s.conversation_complete)
-                        for s in sessions
-                    ]
+                    return [(s.id, s.project, s.updated_at, s.conversation_complete) for s in sessions]
 
                 except Exception as e:
                     raise StorageError(f"Failed to list sessions: {str(e)}") from e
@@ -225,6 +206,4 @@ class DatabaseManager(StorageInterface):
 
                 except Exception as e:
                     db_session.rollback()
-                    raise SessionDeleteError(
-                        f"Failed to delete session {session_id}: {str(e)}"
-                    ) from e
+                    raise SessionDeleteError(f"Failed to delete session {session_id}: {str(e)}") from e

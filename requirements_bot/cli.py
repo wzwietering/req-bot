@@ -2,10 +2,11 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean
-from typing import Optional
 
 import typer
 
+from requirements_bot.cli_helpers import InterviewRunner
+from requirements_bot.core.constants import DEFAULT_DB_PATH
 from requirements_bot.core.document import write_document
 from requirements_bot.core.logging import (
     init_logging,
@@ -13,26 +14,28 @@ from requirements_bot.core.logging import (
     set_run_id,
     set_trace_id,
 )
-from requirements_bot.core.constants import DEFAULT_DB_PATH
-from requirements_bot.core.pipeline import run_conversational_interview, run_interview
 from requirements_bot.core.storage import DatabaseManager
-from requirements_bot.cli_helpers import InterviewRunner
 
-app = typer.Typer(
-    help="Requirements Bot - console assistant for gathering software requirements."
-)
+app = typer.Typer(help="Requirements Bot - console assistant for gathering software requirements.")
 
 
 def _init_logging_from_cli(
-    log_level: Optional[str] = None,
-    log_file: Optional[str] = None,
+    log_level: str | None = None,
+    log_file: str | None = None,
     log_format: str = "json",
     log_mask: bool = False,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
 ) -> None:
     # Use stderr by default for better UX (separates logs from user conversation)
     # Can be overridden with REQBOT_LOG_STDERR=0 environment variable
-    init_logging(level=log_level, fmt=log_format, file_path=log_file, mask=log_mask, session_id=session_id, use_stderr=True)
+    init_logging(
+        level=log_level,
+        fmt=log_format,
+        file_path=log_file,
+        mask=log_mask,
+        session_id=session_id,
+        use_stderr=True,
+    )
     # Fresh run id for each CLI invocation; also set as initial trace id
     _rid = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")[-12:]
     set_run_id(_rid)
@@ -52,12 +55,8 @@ def _init_logging_from_cli(
 def interview(
     project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
-    model: str = typer.Option(
-        "anthropic:claude-3-haiku-20240307", help="Provider:model identifier"
-    ),
-    session_id: str | None = typer.Option(
-        None, "--session-id", help="Resume existing session by ID"
-    ),
+    model: str = typer.Option("anthropic:claude-3-haiku-20240307", help="Provider:model identifier"),
+    session_id: str | None = typer.Option(None, "--session-id", help="Resume existing session by ID"),
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
@@ -75,13 +74,9 @@ def interview(
 def conversational(
     project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
-    model: str = typer.Option(
-        "anthropic:claude-3-haiku-20240307", help="Provider:model identifier"
-    ),
+    model: str = typer.Option("anthropic:claude-3-haiku-20240307", help="Provider:model identifier"),
     max_questions: int = typer.Option(25, help="Maximum number of questions to ask"),
-    session_id: str | None = typer.Option(
-        None, "--session-id", help="Resume existing session by ID"
-    ),
+    session_id: str | None = typer.Option(None, "--session-id", help="Resume existing session by ID"),
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
@@ -187,9 +182,7 @@ def show_session(
 
         export = typer.confirm("Export to markdown file?")
         if export:
-            filename = (
-                f"{session.project.replace(' ', '_').lower()}_{session_id[:8]}.md"
-            )
+            filename = f"{session.project.replace(' ', '_').lower()}_{session_id[:8]}.md"
             path = write_document(session, path=filename)
             typer.echo(f"Exported to {path}")
 
@@ -218,9 +211,7 @@ def _run_conversational(
     db_path: str = DEFAULT_DB_PATH,
 ):
     runner = InterviewRunner(db_path)
-    runner.run_conversational_interview_with_fallback(
-        project, out, model, max_questions, session_id
-    )
+    runner.run_conversational_interview_with_fallback(project, out, model, max_questions, session_id)
 
 
 @app.command("logs-report")

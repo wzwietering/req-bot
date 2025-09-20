@@ -1,5 +1,5 @@
 from requirements_bot.core.interview.question_queue import QuestionQueue
-from requirements_bot.core.io_interface import RichConsoleIO, IOInterface
+from requirements_bot.core.io_interface import IOInterface, RichConsoleIO
 from requirements_bot.core.logging import log_event, mask_text, span
 from requirements_bot.core.models import (
     Answer,
@@ -25,19 +25,13 @@ class InterviewConductor:
         self.question_queue = question_queue
         self.io = io or RichConsoleIO()
 
-    def present_question(
-        self, question: Question, question_number: int, total_questions: int
-    ) -> None:
-        self.io.print(
-            f"\n[{question_number}/{total_questions}] [{question.category.upper()}] {question.text}"
-        )
+    def present_question(self, question: Question, question_number: int, total_questions: int) -> None:
+        self.io.print(f"\n[{question_number}/{total_questions}] [{question.category.upper()}] {question.text}")
 
     def collect_user_input(self) -> str:
         return self.io.input("> ")
 
-    def analyze_response(
-        self, question: Question, answer: Answer, session: Session, model_id: str
-    ):
+    def analyze_response(self, question: Question, answer: Answer, session: Session, model_id: str):
         context = session.get_context_for_question(question.id)
         with span(
             "llm.analyze_answer",
@@ -55,9 +49,7 @@ class InterviewConductor:
         answer.is_vague = not (analysis.is_complete and analysis.is_specific)
         answer.needs_followup = bool(analysis.follow_up_questions)
 
-    def log_answer_received(
-        self, session: Session, question: Question, answer_text: str
-    ) -> None:
+    def log_answer_received(self, session: Session, question: Question, answer_text: str) -> None:
         log_event(
             "answer.received",
             component="pipeline",
@@ -69,12 +61,8 @@ class InterviewConductor:
             preview=mask_text(answer_text)[:80],
         )
 
-    def should_check_completeness(
-        self, question_counter: int, queue_length: int
-    ) -> bool:
-        return (question_counter % 5 == 0 and question_counter >= 5) or (
-            queue_length == 0 and question_counter >= 5
-        )
+    def should_check_completeness(self, question_counter: int, queue_length: int) -> bool:
+        return (question_counter % 5 == 0 and question_counter >= 5) or (queue_length == 0 and question_counter >= 5)
 
     def assess_interview_status(self, session: Session, model_id: str):
         with span(
@@ -93,9 +81,7 @@ class InterviewConductor:
 
     def handle_missing_areas(self, completeness: CompletenessAssessment) -> None:
         if completeness.missing_areas:
-            self.io.print(
-                f"\n⚠ Still need info on: {', '.join(completeness.missing_areas)}"
-            )
+            self.io.print(f"\n⚠ Still need info on: {', '.join(completeness.missing_areas)}")
 
     def process_followups(
         self,
@@ -107,9 +93,7 @@ class InterviewConductor:
         if not analysis.follow_up_questions:
             return question_queue
 
-        follow_ups = self.question_queue.insert_followups(
-            analysis.follow_up_questions, question, session
-        )
+        follow_ups = self.question_queue.insert_followups(analysis.follow_up_questions, question, session)
 
         if analysis.analysis_notes:
             self.io.print(f"   → I need to ask a follow-up: {analysis.analysis_notes}")

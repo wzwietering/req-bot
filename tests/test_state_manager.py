@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from requirements_bot.core.conversation_state import (
     ConversationState,
@@ -32,29 +33,21 @@ class TestConversationStateManager:
 
     def test_valid_state_transition(self, state_manager, sample_session, mock_storage):
         """Test that valid state transitions work."""
-        state_manager.transition_to(
-            sample_session, ConversationState.GENERATING_QUESTIONS
-        )
+        state_manager.transition_to(sample_session, ConversationState.GENERATING_QUESTIONS)
 
-        assert (
-            sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
-        )
+        assert sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
         assert mock_storage.save_session.called
 
     def test_invalid_state_transition(self, state_manager, sample_session):
         """Test that invalid state transitions raise errors."""
         with pytest.raises(StateTransitionError):
-            state_manager.transition_to(
-                sample_session, ConversationState.PROCESSING_ANSWER
-            )
+            state_manager.transition_to(sample_session, ConversationState.PROCESSING_ANSWER)
 
     def test_context_updates(self, state_manager, sample_session, mock_storage):
         """Test that context updates work during transitions."""
         context_updates = {"current_question_index": 5, "llm_operation_id": "test_op"}
 
-        state_manager.transition_to(
-            sample_session, ConversationState.GENERATING_QUESTIONS, context_updates
-        )
+        state_manager.transition_to(sample_session, ConversationState.GENERATING_QUESTIONS, context_updates)
 
         assert sample_session.state_context.current_question_index == 5
         assert sample_session.state_context.llm_operation_id == "test_op"
@@ -102,20 +95,12 @@ class TestConversationStateManager:
         state_manager = ConversationStateManager(mock_storage)
 
         # Should not raise exception, just print warning
-        state_manager.transition_to(
-            sample_session, ConversationState.GENERATING_QUESTIONS
-        )
-        assert (
-            sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
-        )
+        state_manager.transition_to(sample_session, ConversationState.GENERATING_QUESTIONS)
+        assert sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
 
     def test_no_storage_manager(self, sample_session):
         """Test state manager works without storage."""
         state_manager = ConversationStateManager(None)
 
-        state_manager.transition_to(
-            sample_session, ConversationState.GENERATING_QUESTIONS
-        )
-        assert (
-            sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
-        )
+        state_manager.transition_to(sample_session, ConversationState.GENERATING_QUESTIONS)
+        assert sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS

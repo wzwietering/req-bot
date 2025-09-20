@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 
 from requirements_bot.core.conversation_state import (
     ConversationState,
-    StateContext,
     StateTransitionError,
     validate_context_for_state,
     validate_transition,
@@ -31,16 +30,12 @@ class ConversationStateManager:
         if not isinstance(new_state, ConversationState):
             raise ValueError(f"Invalid new_state type: {type(new_state)}")
         if context_updates is not None and not isinstance(context_updates, dict):
-            raise ValueError(
-                f"context_updates must be dict or None, got: {type(context_updates)}"
-            )
+            raise ValueError(f"context_updates must be dict or None, got: {type(context_updates)}")
 
         current_state = session.conversation_state
 
         if not validate_transition(current_state, new_state):
-            raise StateTransitionError(
-                f"Invalid transition from {current_state.value} to {new_state.value}"
-            )
+            raise StateTransitionError(f"Invalid transition from {current_state.value} to {new_state.value}")
 
         # Update state context if provided
         if context_updates:
@@ -49,9 +44,7 @@ class ConversationStateManager:
                     setattr(session.state_context, key, value)
 
             # Validate context is appropriate for target state
-            validation_issues = validate_context_for_state(
-                new_state, session.state_context
-            )
+            validation_issues = validate_context_for_state(new_state, session.state_context)
             if validation_issues:
                 log_event(
                     "conversation.context_validation_warning",
@@ -128,9 +121,7 @@ class ConversationStateManager:
 
         return recovery_actions.get(state, "restart_from_beginning")
 
-    def _save_with_retry(
-        self, session: Session, state: ConversationState, max_retries: int = 3
-    ) -> None:
+    def _save_with_retry(self, session: Session, state: ConversationState, max_retries: int = 3) -> None:
         """Save session state with retry logic for better reliability."""
         import time
 

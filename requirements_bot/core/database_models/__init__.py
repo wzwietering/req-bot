@@ -41,9 +41,7 @@ class SessionTable(Base):
     project = Column(String, nullable=False)
     conversation_complete = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
-    )
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Conversation state tracking
     conversation_state = Column(String, nullable=False, default="initializing")
@@ -51,12 +49,8 @@ class SessionTable(Base):
     last_state_change = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
-    questions = relationship(
-        "QuestionTable", back_populates="session", cascade="all, delete-orphan"
-    )
-    answers = relationship(
-        "AnswerTable", back_populates="session", cascade="all, delete-orphan"
-    )
+    questions = relationship("QuestionTable", back_populates="session", cascade="all, delete-orphan")
+    answers = relationship("AnswerTable", back_populates="session", cascade="all, delete-orphan")
     requirements = relationship(
         "RequirementTable",
         back_populates="session",
@@ -70,9 +64,7 @@ class QuestionTable(Base):
     __tablename__ = "questions"
 
     id = Column(String, primary_key=True)
-    session_id = Column(
-        String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
-    )
+    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     text = Column(Text, nullable=False)
     category = Column(String, nullable=False)
     required = Column(Boolean, default=True)
@@ -92,9 +84,7 @@ class AnswerTable(Base):
     __tablename__ = "answers"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    session_id = Column(
-        String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
-    )
+    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     question_id = Column(
         String,
         ForeignKey("questions.id", ondelete="CASCADE"),
@@ -123,9 +113,7 @@ class RequirementTable(Base):
     __tablename__ = "requirements"
 
     id = Column(String, primary_key=True)
-    session_id = Column(
-        String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
-    )
+    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
     rationale = Column(Text)
     priority = Column(String, nullable=False, default="MUST")

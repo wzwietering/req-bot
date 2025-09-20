@@ -4,17 +4,16 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
-from alembic.config import Config
-from alembic.migration import MigrationContext
-from alembic.script import ScriptDirectory
 from requirements_bot.core.database_models import (
     AnswerTable,
     Base,
@@ -57,9 +56,7 @@ class MigrationTestFramework:
                     context.configure(conn)
                 except Exception as e:
                     # Log the error but don't fail initialization
-                    print(
-                        f"Warning: Could not initialize Alembic version tracking: {e}"
-                    )
+                    print(f"Warning: Could not initialize Alembic version tracking: {e}")
 
     def cleanup(self):
         """Clean up test database and temporary directory."""
@@ -129,11 +126,13 @@ class MigrationTestFramework:
                 integrity_checks = [
                     (
                         "Orphaned questions",
-                        "SELECT COUNT(*) FROM questions q LEFT JOIN sessions s ON q.session_id = s.id WHERE s.id IS NULL",
+                        "SELECT COUNT(*) FROM questions q LEFT JOIN sessions s "
+                        "ON q.session_id = s.id WHERE s.id IS NULL",
                     ),
                     (
                         "Orphaned answers from questions",
-                        "SELECT COUNT(*) FROM answers a LEFT JOIN questions q ON a.question_id = q.id WHERE q.id IS NULL",
+                        "SELECT COUNT(*) FROM answers a LEFT JOIN questions q "
+                        "ON a.question_id = q.id WHERE q.id IS NULL",
                     ),
                     (
                         "Orphaned answers from sessions",
@@ -141,7 +140,8 @@ class MigrationTestFramework:
                     ),
                     (
                         "Orphaned requirements",
-                        "SELECT COUNT(*) FROM requirements r LEFT JOIN sessions s ON r.session_id = s.id WHERE s.id IS NULL",
+                        "SELECT COUNT(*) FROM requirements r LEFT JOIN sessions s "
+                        "ON r.session_id = s.id WHERE s.id IS NULL",
                     ),
                 ]
 
@@ -244,12 +244,9 @@ class MigrationTestFramework:
     def verify_test_data(self, session_id: str) -> bool:
         """Verify test data integrity using direct SQLAlchemy operations."""
         try:
-
             with self.SessionLocal() as session:
                 # Verify session exists
-                test_session = (
-                    session.query(SessionTable).filter_by(id=session_id).first()
-                )
+                test_session = session.query(SessionTable).filter_by(id=session_id).first()
                 if not test_session or test_session.project != "Test Migration Project":
                     return False
 
@@ -263,22 +260,14 @@ class MigrationTestFramework:
                 if len(questions) != 2:
                     return False
 
-                if (
-                    questions[0].text != "What is the main goal?"
-                    or questions[0].category != "scope"
-                ):
+                if questions[0].text != "What is the main goal?" or questions[0].category != "scope":
                     return False
 
-                if (
-                    questions[1].text != "Who are the users?"
-                    or questions[1].category != "users"
-                ):
+                if questions[1].text != "Who are the users?" or questions[1].category != "users":
                     return False
 
                 # Verify answers
-                answers = (
-                    session.query(AnswerTable).filter_by(session_id=session_id).all()
-                )
+                answers = session.query(AnswerTable).filter_by(session_id=session_id).all()
                 if len(answers) != 2:
                     return False
 
@@ -290,18 +279,11 @@ class MigrationTestFramework:
                     return False
 
                 # Verify requirements
-                requirements = (
-                    session.query(RequirementTable)
-                    .filter_by(session_id=session_id)
-                    .all()
-                )
+                requirements = session.query(RequirementTable).filter_by(session_id=session_id).all()
                 if len(requirements) != 1:
                     return False
 
-                if (
-                    requirements[0].title != "System must be testable"
-                    or requirements[0].priority != "MUST"
-                ):
+                if requirements[0].title != "System must be testable" or requirements[0].priority != "MUST":
                     return False
 
                 return True

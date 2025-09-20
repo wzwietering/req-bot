@@ -99,9 +99,7 @@ def parse_log_output(mock_stdout, line_index=0):
     """Helper to parse JSON log output."""
     lines = [line for line in mock_stdout.getvalue().strip().split("\n") if line]
     if line_index >= len(lines):
-        raise IndexError(
-            f"Requested line {line_index} but only {len(lines)} lines available"
-        )
+        raise IndexError(f"Requested line {line_index} but only {len(lines)} lines available")
     return json.loads(lines[line_index])
 
 
@@ -489,7 +487,7 @@ class TestInitLogging:
                 logger = init_logging(file_path=tmp_path, fmt="json")
                 logger.info("file test", extra={"event": "file.test"})
 
-                with open(tmp_path, "r") as f:
+                with open(tmp_path) as f:
                     content = f.read().strip()
                     parsed = json.loads(content)
                     assert parsed["message"] == "file test"
@@ -614,9 +612,7 @@ class TestLogEvent:
 
                 log_event("debug.info", level=logging.DEBUG, details="debug info")
 
-                output_lines = [
-                    line for line in mock_stdout.getvalue().strip().split("\n") if line
-                ]
+                output_lines = [line for line in mock_stdout.getvalue().strip().split("\n") if line]
                 # Get the last line (the debug event, not the init log)
                 debug_output = output_lines[-1]
                 parsed = json.loads(debug_output)
@@ -639,9 +635,7 @@ class TestIntegrationScenarios:
                 log_event("workflow.start", step="initialization")
 
                 all_logs = get_all_log_outputs(mock_stdout)
-                event_logs = [
-                    log for log in all_logs if log.get("event") == "workflow.start"
-                ]
+                event_logs = [log for log in all_logs if log.get("event") == "workflow.start"]
 
                 assert len(event_logs) == 1
                 assert event_logs[0]["trace_id"] == integration_trace_id
@@ -656,9 +650,7 @@ class TestIntegrationScenarios:
                 log_event("data.masked", masked_value=masked_value)
 
                 all_logs = get_all_log_outputs(mock_stdout)
-                mask_logs = [
-                    log for log in all_logs if log.get("event") == "data.masked"
-                ]
+                mask_logs = [log for log in all_logs if log.get("event") == "data.masked"]
 
                 assert len(mask_logs) == 1
                 expected_length = len(SENSITIVE_TEXT)
@@ -848,7 +840,6 @@ class TestEdgeCasesAndErrorScenarios:
     def test_concurrent_context_variable_access(self):
         """Test context variables behave correctly under concurrent access."""
         import concurrent.futures
-        import threading
 
         with clean_logging_context():
             results = {}
@@ -871,12 +862,8 @@ class TestEdgeCasesAndErrorScenarios:
                 }
 
             # Run multiple threads concurrently
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=CONCURRENT_THREAD_COUNT
-            ) as executor:
-                futures = [
-                    executor.submit(worker, i) for i in range(CONCURRENT_THREAD_COUNT)
-                ]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENT_THREAD_COUNT) as executor:
+                futures = [executor.submit(worker, i) for i in range(CONCURRENT_THREAD_COUNT)]
                 concurrent.futures.wait(futures)
 
             # Each thread should have maintained its own context
@@ -925,7 +912,7 @@ class TestEdgeCasesAndErrorScenarios:
             initial_handler_count = len(root_logger.handlers)
 
             # Initialize logging multiple times
-            for i in range(3):
+            for _i in range(3):
                 init_logging()
 
                 # Handler count should remain stable (old handlers cleaned up)

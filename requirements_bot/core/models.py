@@ -95,9 +95,7 @@ class Session(BaseModel):
         lines.append("")
 
         # Create a mapping of question ID to answer for easy lookup
-        answer_map: dict[str, Answer] = {
-            answer.question_id: answer for answer in self.answers
-        }
+        answer_map: dict[str, Answer] = {answer.question_id: answer for answer in self.answers}
 
         # Questions and Answers section
         if self.questions:

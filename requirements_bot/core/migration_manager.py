@@ -3,17 +3,16 @@
 import logging
 from typing import Any
 
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
-from alembic.config import Config
-from alembic.migration import MigrationContext
-from alembic.script import ScriptDirectory
+from requirements_bot.core.database_models import enable_sqlite_foreign_keys
 
 logger = logging.getLogger(__name__)
-
-from requirements_bot.core.database_models import enable_sqlite_foreign_keys
 
 
 class MigrationManager:
@@ -44,9 +43,7 @@ class MigrationManager:
             with self.engine.connect() as conn:
                 context = MigrationContext.configure(conn)
                 current = context.get_current_revision()
-                logger.debug(
-                    f"Current database revision: {current or 'None (fresh database)'}"
-                )
+                logger.debug(f"Current database revision: {current or 'None (fresh database)'}")
                 return current
         except Exception as e:
             logger.error(f"Failed to get current revision: {e}")
@@ -87,13 +84,9 @@ class MigrationManager:
 
             new_revision = self.get_current_revision()
             if new_revision != current_revision:
-                logger.info(
-                    f"Successfully migrated from {current_revision} to {new_revision}"
-                )
+                logger.info(f"Successfully migrated from {current_revision} to {new_revision}")
             else:
-                logger.info(
-                    f"No migration needed - already at revision {current_revision}"
-                )
+                logger.info(f"No migration needed - already at revision {current_revision}")
 
             return True
 
@@ -108,15 +101,11 @@ class MigrationManager:
             current_revision = self.get_current_revision()
 
             if not current_revision:
-                logger.warning(
-                    "No current revision to rollback from - database may be uninitialized"
-                )
+                logger.warning("No current revision to rollback from - database may be uninitialized")
                 return False
 
             if current_revision == revision:
-                logger.info(
-                    f"Already at target revision {revision} - no rollback needed"
-                )
+                logger.info(f"Already at target revision {revision} - no rollback needed")
                 return True
 
             # Perform rollback
@@ -124,14 +113,10 @@ class MigrationManager:
 
             new_revision = self.get_current_revision()
             if new_revision == revision:
-                logger.info(
-                    f"Rollback successful: {current_revision} -> {new_revision}"
-                )
+                logger.info(f"Rollback successful: {current_revision} -> {new_revision}")
                 return True
             else:
-                logger.error(
-                    f"Rollback verification failed - expected {revision}, got {new_revision}"
-                )
+                logger.error(f"Rollback verification failed - expected {revision}, got {new_revision}")
                 return False
 
         except Exception as e:
@@ -176,9 +161,7 @@ class MigrationManager:
                         .scalar()
                     )
                     if orphaned_questions > 0:
-                        issues.append(
-                            f"Orphaned questions: {orphaned_questions} records"
-                        )
+                        issues.append(f"Orphaned questions: {orphaned_questions} records")
 
                     # Check for orphaned answers (from questions perspective)
                     orphaned_answers_q = (
@@ -198,23 +181,17 @@ class MigrationManager:
                         .scalar()
                     )
                     if orphaned_answers_s > 0:
-                        issues.append(
-                            f"Answer-session mismatch: {orphaned_answers_s} records"
-                        )
+                        issues.append(f"Answer-session mismatch: {orphaned_answers_s} records")
 
                     # Check for orphaned requirements
                     orphaned_requirements = (
                         session.query(func.count(Requirement.id))
-                        .outerjoin(
-                            SessionModel, Requirement.session_id == SessionModel.id
-                        )
+                        .outerjoin(SessionModel, Requirement.session_id == SessionModel.id)
                         .filter(SessionModel.id.is_(None))
                         .scalar()
                     )
                     if orphaned_requirements > 0:
-                        issues.append(
-                            f"Orphaned requirements: {orphaned_requirements} records"
-                        )
+                        issues.append(f"Orphaned requirements: {orphaned_requirements} records")
 
                 except ImportError:
                     # Fallback to safe parameterized queries if models aren't available
@@ -223,25 +200,33 @@ class MigrationManager:
                         (
                             "Orphaned questions",
                             text(
-                                "SELECT COUNT(*) FROM questions q LEFT JOIN sessions s ON q.session_id = s.id WHERE s.id IS NULL"
+                                "SELECT COUNT(*) FROM questions q "
+                                "LEFT JOIN sessions s ON q.session_id = s.id "
+                                "WHERE s.id IS NULL"
                             ),
                         ),
                         (
                             "Orphaned answers",
                             text(
-                                "SELECT COUNT(*) FROM answers a LEFT JOIN questions q ON a.question_id = q.id WHERE q.id IS NULL"
+                                "SELECT COUNT(*) FROM answers a "
+                                "LEFT JOIN questions q ON a.question_id = q.id "
+                                "WHERE q.id IS NULL"
                             ),
                         ),
                         (
                             "Answer-session mismatch",
                             text(
-                                "SELECT COUNT(*) FROM answers a LEFT JOIN sessions s ON a.session_id = s.id WHERE s.id IS NULL"
+                                "SELECT COUNT(*) FROM answers a "
+                                "LEFT JOIN sessions s ON a.session_id = s.id "
+                                "WHERE s.id IS NULL"
                             ),
                         ),
                         (
                             "Orphaned requirements",
                             text(
-                                "SELECT COUNT(*) FROM requirements r LEFT JOIN sessions s ON r.session_id = s.id WHERE s.id IS NULL"
+                                "SELECT COUNT(*) FROM requirements r "
+                                "LEFT JOIN sessions s ON r.session_id = s.id "
+                                "WHERE s.id IS NULL"
                             ),
                         ),
                     ]

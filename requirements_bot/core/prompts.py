@@ -8,20 +8,20 @@ def generate_questions_prompt(project: str, seed_questions: list[Question]) -> s
     seed_questions_text = ""
     if seed_questions:
         seed_questions_text = "\n".join(
-            [
-                f"- {q.text} (Category: {q.category}, Required: {q.required})"
-                for q in seed_questions
-            ]
+            [f"- {q.text} (Category: {q.category}, Required: {q.required})" for q in seed_questions]
         )
 
-    return f"""You are a requirements engineering expert. Given a software project description and some existing questions, generate additional relevant questions to help gather comprehensive requirements.
+    return (
+        f"""You are a requirements engineering expert. Given a software project description and existing questions, """
+        f"""generate additional relevant questions to help gather comprehensive requirements.
 
 Project: {project}
 
 Existing questions:
 {seed_questions_text}
 
-Generate 5-8 additional questions that would help understand the requirements better. Focus on areas not covered by existing questions.
+Generate 5-8 additional questions that would help understand the requirements better.
+Focus on areas not covered by existing questions.
 
 Return your response as a JSON array of objects with this structure:
 {{
@@ -32,11 +32,10 @@ Return your response as a JSON array of objects with this structure:
 }}
 
 Only return the JSON array, no other text."""
+    )
 
 
-def summarize_requirements_prompt(
-    project: str, questions: list[Question], answers: list[Answer]
-) -> str:
+def summarize_requirements_prompt(project: str, questions: list[Question], answers: list[Answer]) -> str:
     """Generate a prompt for summarizing Q&A into formal requirements."""
 
     # Create a mapping of question ID to answer
@@ -50,14 +49,17 @@ def summarize_requirements_prompt(
 
     qa_text = "\n".join(qa_pairs)
 
-    return f"""You are a requirements engineering expert. Based on the project description and the questions/answers provided, create a comprehensive list of formal requirements.
+    return (
+        f"""You are a requirements engineering expert. Based on the project description and questions/answers, """
+        f"""create a comprehensive list of formal requirements.
 
 Project: {project}
 
 Questions and Answers:
 {qa_text}
 
-Generate formal requirements that capture the essential needs identified through the Q&A process. Each requirement should be:
+Generate formal requirements that capture the essential needs identified through the Q&A process.
+Each requirement should be:
 - Clear and unambiguous
 - Testable/verifiable
 - Appropriately prioritized
@@ -71,6 +73,7 @@ Return your response as a JSON array of objects with this structure:
 }}
 
 Only return the JSON array, no other text."""
+    )
 
 
 def analyze_answer_prompt(question: str, answer: str, context: str = "") -> str:
@@ -84,7 +87,9 @@ Previous conversation context:
 
 """
 
-    return f"""You are a requirements engineering expert. Analyze this Q&A pair for completeness and clarity from a HIGH-LEVEL REQUIREMENTS perspective.
+    return (
+        f"""You are a requirements engineering expert. Analyze this Q&A pair for completeness and clarity """
+        f"""from a HIGH-LEVEL REQUIREMENTS perspective.
 
 {context_section}Current Q&A:
 Q: {question}
@@ -101,28 +106,32 @@ ONLY generate follow-up questions if the answer is:
 - Contradicts previous answers
 - Completely avoids answering the question
 
-DO NOT ask for follow-ups when answers provide reasonable business-level information, even if not highly detailed. Examples of ACCEPTABLE answers that need NO follow-up:
+DO NOT ask for follow-ups when answers provide reasonable business-level information, even if not highly detailed.
+Examples of ACCEPTABLE answers that need NO follow-up:
 - "Tool reuse indicates success" (valid success metric)
-- "Python packages with API keys" (sufficient for integration requirements)  
+- "Python packages with API keys" (sufficient for integration requirements)
 - "Web-based application" (adequate platform specification)
 - "Small team of 5 developers" (sufficient user description)
 
 Return your analysis as JSON with this structure:
 {{
   "is_complete": true/false,
-  "is_specific": true/false, 
+  "is_specific": true/false,
   "is_consistent": true/false,
   "follow_up_questions": ["question1", "question2", ...],
   "analysis_notes": "brief explanation of issues found"
 }}
 
 Only return the JSON, no other text."""
+    )
 
 
 def assess_completeness_prompt(session_context: str, total_questions: int) -> str:
     """Generate a prompt for assessing if enough information has been gathered."""
 
-    return f"""You are a requirements engineering expert. Review this Q&A session to determine if enough information has been gathered to write comprehensive requirements.
+    return (
+        f"""You are a requirements engineering expert. Review this Q&A session to determine """
+        f"""if enough information has been gathered to write comprehensive requirements.
 
 Session overview:
 - Total questions asked: {total_questions}
@@ -146,6 +155,7 @@ Return your assessment as JSON:
 }}
 
 Only return the JSON, no other text."""
+    )
 
 
 # System instructions for different providers

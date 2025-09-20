@@ -54,9 +54,7 @@ class SessionManager:
             )
         return session
 
-    def create_new_session(
-        self, project: str, questions: list[Question], mode: str
-    ) -> Session:
+    def create_new_session(self, project: str, questions: list[Question], mode: str) -> Session:
         session = Session(
             project=project,
             questions=questions,
@@ -66,9 +64,7 @@ class SessionManager:
         )
 
         # Transition to generating questions state
-        self.state_manager.transition_to(
-            session, ConversationState.GENERATING_QUESTIONS
-        )
+        self.state_manager.transition_to(session, ConversationState.GENERATING_QUESTIONS)
 
         set_trace_id(session.id)
         log_event(
@@ -81,17 +77,13 @@ class SessionManager:
         )
         return session
 
-    def save_with_error_handling(
-        self, session: Session, is_final: bool = False
-    ) -> None:
+    def save_with_error_handling(self, session: Session, is_final: bool = False) -> None:
         if not self.storage:
             return
 
         self._save_with_retry(session, is_final)
 
-    def _save_with_retry(
-        self, session: Session, is_final: bool, max_retries: int = 3
-    ) -> None:
+    def _save_with_retry(self, session: Session, is_final: bool, max_retries: int = 3) -> None:
         """Save session with retry logic for better reliability."""
         import time
 

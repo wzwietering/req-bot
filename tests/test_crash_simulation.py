@@ -1,12 +1,13 @@
-import pytest
 import threading
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
+
+import pytest
 
 from requirements_bot.core.conversation_state import ConversationState
-from requirements_bot.core.models import Session, Question, Answer
-from requirements_bot.core.state_manager import ConversationStateManager
+from requirements_bot.core.models import Answer, Question, Session
 from requirements_bot.core.recovery import StateRecoveryManager
+from requirements_bot.core.state_manager import ConversationStateManager
 
 
 class CrashSimulator:
@@ -24,11 +25,7 @@ class CrashSimulator:
 
     def maybe_crash(self, session: Session):
         """Check if we should simulate a crash at current state."""
-        if (
-            self.crash_at_state
-            and session.conversation_state == self.crash_at_state
-            and not self.crashed
-        ):
+        if self.crash_at_state and session.conversation_state == self.crash_at_state and not self.crashed:
             self.crashed = True
             raise Exception(f"Simulated crash at state: {self.crash_at_state.value}")
 
@@ -69,25 +66,19 @@ class TestCrashSimulation:
             conversation_state=ConversationState.INITIALIZING,
         )
 
-    def test_crash_during_question_generation(
-        self, state_manager, sample_session, mock_storage
-    ):
+    def test_crash_during_question_generation(self, state_manager, sample_session, mock_storage):
         """Test crash during question generation phase."""
         crash_sim = CrashSimulator(state_manager)
         crash_sim.set_crash_point(ConversationState.GENERATING_QUESTIONS)
 
         # Transition to generating questions - should crash
-        state_manager.transition_to(
-            sample_session, ConversationState.GENERATING_QUESTIONS
-        )
+        state_manager.transition_to(sample_session, ConversationState.GENERATING_QUESTIONS)
 
         with pytest.raises(Exception, match="Simulated crash"):
             crash_sim.maybe_crash(sample_session)
 
         # Verify state was set before crash
-        assert (
-            sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
-        )
+        assert sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
 
     def test_crash_during_answer_processing(self, state_manager, sample_session):
         """Test crash during answer processing."""
@@ -142,9 +133,7 @@ class TestCrashSimulation:
         result = recovery_manager.attempt_recovery(sample_session)
         assert result is True
 
-    def test_recovery_from_completeness_assessment(
-        self, recovery_manager, sample_session
-    ):
+    def test_recovery_from_completeness_assessment(self, recovery_manager, sample_session):
         """Test recovery from interrupted completeness assessment."""
         sample_session.conversation_state = ConversationState.ASSESSING_COMPLETENESS
 
@@ -155,9 +144,7 @@ class TestCrashSimulation:
         assert result is True
         assert not sample_session.conversation_complete
 
-    def test_recovery_from_requirements_generation(
-        self, recovery_manager, sample_session
-    ):
+    def test_recovery_from_requirements_generation(self, recovery_manager, sample_session):
         """Test recovery from interrupted requirements generation."""
         sample_session.conversation_state = ConversationState.GENERATING_REQUIREMENTS
 
@@ -173,12 +160,8 @@ class TestCrashSimulation:
         sample_session.questions = []  # No existing questions to fall back to
 
         # Make question generation fail
-        recovery_manager.provider.generate_questions.side_effect = Exception(
-            "Generation failed"
-        )
-        recovery_manager.question_queue_manager.initialize_from_seeds.side_effect = (
-            Exception("Seed generation failed")
-        )
+        recovery_manager.provider.generate_questions.side_effect = Exception("Generation failed")
+        recovery_manager.question_queue_manager.initialize_from_seeds.side_effect = Exception("Seed generation failed")
 
         result = recovery_manager.attempt_recovery(sample_session)
         assert result is False  # Recovery failed
@@ -221,14 +204,10 @@ class TestCrashSimulation:
         state_manager = ConversationStateManager(mock_storage)
 
         # Should not raise exception, just handle gracefully
-        state_manager.transition_to(
-            sample_session, ConversationState.GENERATING_QUESTIONS
-        )
+        state_manager.transition_to(sample_session, ConversationState.GENERATING_QUESTIONS)
 
         # State should still be updated in memory
-        assert (
-            sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
-        )
+        assert sample_session.conversation_state == ConversationState.GENERATING_QUESTIONS
 
     def test_network_failure_during_llm_call(self, recovery_manager, sample_session):
         """Test recovery when LLM calls fail due to network issues."""
@@ -237,20 +216,14 @@ class TestCrashSimulation:
         sample_session.questions = []  # No existing questions to fall back to
 
         # Simulate network failure in provider call
-        recovery_manager.provider.generate_questions.side_effect = Exception(
-            "Network timeout"
-        )
-        recovery_manager.question_queue_manager.initialize_from_seeds.side_effect = (
-            Exception("Network timeout")
-        )
+        recovery_manager.provider.generate_questions.side_effect = Exception("Network timeout")
+        recovery_manager.question_queue_manager.initialize_from_seeds.side_effect = Exception("Network timeout")
 
         # Recovery should handle this gracefully
         result = recovery_manager.attempt_recovery(sample_session)
         assert result is False  # This specific recovery fails, but doesn't crash
 
-    def test_complete_crash_recovery_flow(
-        self, recovery_manager, sample_session, mock_storage
-    ):
+    def test_complete_crash_recovery_flow(self, recovery_manager, sample_session, mock_storage):
         """Test complete flow from crash to successful recovery."""
         # Set up session as if it crashed during answer processing
         sample_session.conversation_state = ConversationState.PROCESSING_ANSWER
@@ -260,16 +233,10 @@ class TestCrashSimulation:
         recovery_manager.question_queue_manager.initialize_from_seeds.return_value = []
 
         # Step 1: Detect crash state
-        assert recovery_manager.session_manager.state_manager.can_recover_from_interruption(
-            sample_session
-        )
+        assert recovery_manager.session_manager.state_manager.can_recover_from_interruption(sample_session)
 
         # Step 2: Determine recovery strategy
-        recovery_action = (
-            recovery_manager.session_manager.state_manager.determine_recovery_action(
-                sample_session
-            )
-        )
+        recovery_action = recovery_manager.session_manager.state_manager.determine_recovery_action(sample_session)
         assert recovery_action == "reprocess_last_answer"
 
         # Step 3: Execute recovery

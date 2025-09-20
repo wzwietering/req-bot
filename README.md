@@ -261,6 +261,47 @@ The bot organizes questions into eight key categories:
 
 ## Testing and Code Quality
 
+### Code Formatting and Linting
+
+This project uses [ruff](https://docs.astral.sh/ruff/) for code formatting and linting to maintain consistent code quality.
+
+**Pre-commit Hooks:**
+
+The project includes pre-commit hooks that automatically format and lint code before each commit:
+
+```bash
+# Install pre-commit hooks (one-time setup)
+poetry run pre-commit install
+
+# Pre-commit hooks will now run automatically on git commit
+git add .
+git commit -m "Your commit message"
+```
+
+**Manual Code Formatting:**
+
+```bash
+# Format all Python files
+poetry run ruff format .
+
+# Run linting with auto-fixes
+poetry run ruff check . --fix
+
+# Check formatting without making changes
+poetry run ruff format --check .
+
+# Run linting without making changes
+poetry run ruff check .
+```
+
+**Configuration:**
+
+Ruff is configured in `pyproject.toml` with:
+- Line length: 120 characters
+- Target Python version: 3.11+
+- Enabled rules: pycodestyle, pyflakes, isort, flake8-bugbear, comprehensions, pyupgrade
+- Automatic import sorting with `requirements_bot` as first-party package
+
 ### Code Coverage
 
 This project monitors code coverage to ensure reliability and maintainability. The coverage badge on top shows current test coverage percentage.

@@ -1,8 +1,8 @@
 import logging
 
 from requirements_bot.core.conversation_state import (
-    ConversationState,
     VALID_TRANSITIONS,
+    ConversationState,
     validate_state_machine_completeness,
 )
 from requirements_bot.core.logging import log_event
@@ -28,9 +28,7 @@ def validate_state_machine_on_startup() -> bool:
         component="state_validation",
         operation="startup_validation",
         total_states=len(ConversationState),
-        total_transitions=sum(
-            len(transitions) for transitions in VALID_TRANSITIONS.values()
-        ),
+        total_transitions=sum(len(transitions) for transitions in VALID_TRANSITIONS.values()),
         level=logging.INFO,
     )
     return True
@@ -42,13 +40,11 @@ def get_state_machine_stats() -> dict:
     terminal_states = {ConversationState.COMPLETED, ConversationState.FAILED}
     non_terminal_states = all_states - terminal_states
 
-    total_transitions = sum(
-        len(transitions) for transitions in VALID_TRANSITIONS.values()
-    )
+    total_transitions = sum(len(transitions) for transitions in VALID_TRANSITIONS.values())
 
     # Calculate state connectivity
     reachable = {ConversationState.INITIALIZING}
-    for state, transitions in VALID_TRANSITIONS.items():
+    for _state, transitions in VALID_TRANSITIONS.items():
         reachable.update(transitions)
 
     return {
@@ -58,9 +54,7 @@ def get_state_machine_stats() -> dict:
         "total_transitions": total_transitions,
         "reachable_states": len(reachable),
         "unreachable_states": len(all_states - reachable),
-        "average_transitions_per_state": (
-            total_transitions / len(VALID_TRANSITIONS) if VALID_TRANSITIONS else 0
-        ),
+        "average_transitions_per_state": (total_transitions / len(VALID_TRANSITIONS) if VALID_TRANSITIONS else 0),
     }
 
 

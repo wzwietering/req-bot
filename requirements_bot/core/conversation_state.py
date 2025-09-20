@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from enum import Enum
 
 from pydantic import BaseModel
@@ -75,9 +74,7 @@ class StateTransitionError(Exception):
     pass
 
 
-def validate_transition(
-    from_state: ConversationState, to_state: ConversationState
-) -> bool:
+def validate_transition(from_state: ConversationState, to_state: ConversationState) -> bool:
     """Check if a state transition is valid."""
     if not isinstance(from_state, ConversationState):
         raise ValueError(f"Invalid from_state type: {type(from_state)}")
@@ -118,9 +115,7 @@ def can_recover_from_state(state: ConversationState) -> bool:
     return state in recoverable_states
 
 
-def validate_context_for_state(
-    state: ConversationState, context: StateContext
-) -> list[str]:
+def validate_context_for_state(state: ConversationState, context: StateContext) -> list[str]:
     """Validate that context is appropriate for the given state."""
     if not isinstance(state, ConversationState):
         raise ValueError(f"Invalid state type: {type(state)}")
@@ -166,9 +161,7 @@ def _validate_followups_context(context: StateContext) -> list[str]:
 def _validate_questions_generation_context(context: StateContext) -> list[str]:
     """Validate context for GENERATING_QUESTIONS state."""
     issues = []
-    if context.llm_operation_id and not context.llm_operation_id.startswith(
-        ("generate_", "retry_")
-    ):
+    if context.llm_operation_id and not context.llm_operation_id.startswith(("generate_", "retry_")):
         issues.append("LLM operation ID should indicate question generation operation")
     return issues
 
@@ -176,12 +169,8 @@ def _validate_questions_generation_context(context: StateContext) -> list[str]:
 def _validate_requirements_generation_context(context: StateContext) -> list[str]:
     """Validate context for GENERATING_REQUIREMENTS state."""
     issues = []
-    if context.llm_operation_id and not context.llm_operation_id.startswith(
-        ("generate_", "retry_")
-    ):
-        issues.append(
-            "LLM operation ID should indicate requirements generation operation"
-        )
+    if context.llm_operation_id and not context.llm_operation_id.startswith(("generate_", "retry_")):
+        issues.append("LLM operation ID should indicate requirements generation operation")
     return issues
 
 
@@ -198,7 +187,7 @@ def validate_state_machine_completeness() -> list[str]:
 
     # Check for unreachable states
     reachable = {ConversationState.INITIALIZING}
-    for state, transitions in VALID_TRANSITIONS.items():
+    for _state, transitions in VALID_TRANSITIONS.items():
         reachable.update(transitions)
 
     unreachable = all_states - reachable

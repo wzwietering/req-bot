@@ -26,12 +26,8 @@ class SessionFinalizationService:
     def finalize_session(self, session: Session) -> Session:
         """Generate requirements and finalize the session."""
         print_requirements_generation(len(session.answers))
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.GENERATING_REQUIREMENTS
-        )
-        self.session_manager.state_manager.create_checkpoint(
-            session, "generate_final_requirements"
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_REQUIREMENTS)
+        self.session_manager.state_manager.create_checkpoint(session, "generate_final_requirements")
 
         requirements = generate_requirements(
             self.provider,

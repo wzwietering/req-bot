@@ -1,6 +1,5 @@
 import threading
 from datetime import UTC, datetime
-from typing import Optional
 
 from .models import Session
 from .storage_interface import StorageInterface
@@ -24,7 +23,7 @@ class MemoryStorage(StorageInterface):
             self._sessions[session.id] = copy.deepcopy(session)
             return session.id
 
-    def load_session(self, session_id: str) -> Optional[Session]:
+    def load_session(self, session_id: str) -> Session | None:
         """Load a session from memory."""
         with self._lock:
             session = self._sessions.get(session_id)
@@ -40,9 +39,7 @@ class MemoryStorage(StorageInterface):
         with self._lock:
             return [
                 (s.id, s.project, s.updated_at, s.conversation_complete)
-                for s in sorted(
-                    self._sessions.values(), key=lambda x: x.updated_at, reverse=True
-                )
+                for s in sorted(self._sessions.values(), key=lambda x: x.updated_at, reverse=True)
             ]
 
     def delete_session(self, session_id: str) -> bool:
