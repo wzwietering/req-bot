@@ -26,10 +26,13 @@ app = typer.Typer(
 def _init_logging_from_cli(
     log_level: Optional[str] = None,
     log_file: Optional[str] = None,
-    log_format: str = "text",
+    log_format: str = "json",
     log_mask: bool = False,
+    session_id: Optional[str] = None,
 ) -> None:
-    init_logging(level=log_level, fmt=log_format, file_path=log_file, mask=log_mask)
+    # Use stderr by default for better UX (separates logs from user conversation)
+    # Can be overridden with REQBOT_LOG_STDERR=0 environment variable
+    init_logging(level=log_level, fmt=log_format, file_path=log_file, mask=log_mask, session_id=session_id, use_stderr=True)
     # Fresh run id for each CLI invocation; also set as initial trace id
     _rid = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")[-12:]
     set_run_id(_rid)
@@ -58,13 +61,13 @@ def interview(
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
-    log_format: str = typer.Option("text", help="Log format: json|text"),
+    log_format: str = typer.Option("json", help="Log format: json|text"),
     log_mask: bool = typer.Option(False, help="Mask sensitive text in logs"),
 ):
     """
     Runs an interactive interview in the console and writes a requirements document when done.
     """
-    _init_logging_from_cli(log_level, log_file, log_format, log_mask)
+    _init_logging_from_cli(log_level, log_file, log_format, log_mask, session_id)
     _run(project, out, model, session_id, db_path)
 
 
@@ -82,13 +85,13 @@ def conversational(
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
-    log_format: str = typer.Option("text", help="Log format: json|text"),
+    log_format: str = typer.Option("json", help="Log format: json|text"),
     log_mask: bool = typer.Option(False, help="Mask sensitive text in logs"),
 ):
     """
     Runs a conversational interview with follow-up questions and intelligent stopping.
     """
-    _init_logging_from_cli(log_level, log_file, log_format, log_mask)
+    _init_logging_from_cli(log_level, log_file, log_format, log_mask, session_id)
     _run_conversational(project, out, model, max_questions, session_id, db_path)
 
 
@@ -97,7 +100,7 @@ def list_sessions(
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
-    log_format: str = typer.Option("text", help="Log format: json|text"),
+    log_format: str = typer.Option("json", help="Log format: json|text"),
     log_mask: bool = typer.Option(False, help="Mask sensitive text in logs"),
 ):
     """
@@ -131,7 +134,7 @@ def delete_session(
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
-    log_format: str = typer.Option("text", help="Log format: json|text"),
+    log_format: str = typer.Option("json", help="Log format: json|text"),
     log_mask: bool = typer.Option(False, help="Mask sensitive text in logs"),
 ):
     """
@@ -158,7 +161,7 @@ def show_session(
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
     log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
-    log_format: str = typer.Option("text", help="Log format: json|text"),
+    log_format: str = typer.Option("json", help="Log format: json|text"),
     log_mask: bool = typer.Option(False, help="Mask sensitive text in logs"),
 ):
     """

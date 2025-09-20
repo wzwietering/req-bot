@@ -10,6 +10,8 @@ from requirements_bot.core.constants import (
 
 from requirements_bot.core.interview.interview_conductor import InterviewConductor
 from requirements_bot.core.interview.question_queue import QuestionQueue
+from requirements_bot.core.interview_constants import EXIT_SIGNAL
+from requirements_bot.core.io_interface import RichConsoleIO
 from requirements_bot.core.interview.utils import (
     generate_requirements,
     print_interview_header,
@@ -38,7 +40,8 @@ def run_interview(
     provider = Provider.from_id(model_id)
     session_manager = SessionManager(storage)
     question_queue = QuestionQueue()
-    conductor = InterviewConductor(provider, session_manager, question_queue)
+    io = RichConsoleIO(session_id=session_id)
+    conductor = InterviewConductor(provider, session_manager, question_queue, io)
 
     session_manager.setup_logging_context()
 
@@ -111,6 +114,11 @@ def run_interview(
         conductor.present_question(q, i, len(all_qs))
         answer_text = conductor.collect_user_input()
 
+        # Check for exit signal
+        if answer_text == EXIT_SIGNAL:
+            print("Exiting interview. Session has been saved.")
+            break
+
         if answer_text:
             session_manager.state_manager.transition_to(
                 session, ConversationState.PROCESSING_ANSWER
@@ -142,7 +150,7 @@ def run_conversational_interview(
     storage: StorageInterface | None = None,
 ) -> Session:
     """Run a conversational interview, orchestrating session setup and main interview loop."""
-    pipeline = ConversationalInterviewPipeline(project, model_id, storage)
+    pipeline = ConversationalInterviewPipeline(project, model_id, storage, session_id)
     session, question_counter = pipeline.setup_session(session_id)
     question_queue = pipeline.prepare_initial_question_queue(session, question_counter)
 
@@ -158,15 +166,16 @@ class ConversationalInterviewPipeline:
     """Encapsulates the conversational interview pipeline workflow."""
 
     def __init__(
-        self, project: str, model_id: str, storage: StorageInterface | None = None
+        self, project: str, model_id: str, storage: StorageInterface | None = None, session_id: str | None = None
     ):
         self.project = project
         self.model_id = model_id
         self.provider = Provider.from_id(model_id)
         self.session_manager = SessionManager(storage)
         self.question_queue_manager = QuestionQueue()
+        io = RichConsoleIO(session_id=session_id)
         self.conductor = InterviewConductor(
-            self.provider, self.session_manager, self.question_queue_manager
+            self.provider, self.session_manager, self.question_queue_manager, io
         )
 
         # Initialize specialized services
