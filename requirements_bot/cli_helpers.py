@@ -1,9 +1,10 @@
 import typer
+
 from requirements_bot.core.constants import DEFAULT_DB_PATH
-from requirements_bot.core.storage import DatabaseManager
 from requirements_bot.core.document import write_document
-from requirements_bot.core.pipeline import run_interview, run_conversational_interview
 from requirements_bot.core.models import Session
+from requirements_bot.core.pipeline import run_conversational_interview, run_interview
+from requirements_bot.core.storage import DatabaseManager
 
 
 class InterviewRunner:
@@ -12,9 +13,7 @@ class InterviewRunner:
     def __init__(self, db_path: str = DEFAULT_DB_PATH):
         self.db_path = db_path
 
-    def setup_project_and_session(
-        self, project: str | None, session_id: str | None
-    ) -> tuple[str, DatabaseManager]:
+    def setup_project_and_session(self, project: str | None, session_id: str | None) -> tuple[str, DatabaseManager]:
         """Set up project name and database manager for interview."""
         db_manager = DatabaseManager(self.db_path)
 
@@ -81,9 +80,7 @@ class InterviewRunner:
             )
             self.finalize_session(session, out)
         except Exception as e:
-            self._handle_fallback(
-                e, project, out, model, "conversational interview", max_questions
-            )
+            self._handle_fallback(e, project, out, model, "conversational interview", max_questions)
 
     def _handle_fallback(
         self,
@@ -102,9 +99,7 @@ class InterviewRunner:
             project = typer.prompt("Project name/title")
 
         if interview_type == "conversational interview":
-            session = run_conversational_interview(
-                project=project, model_id=model, max_questions=max_questions
-            )
+            session = run_conversational_interview(project=project, model_id=model, max_questions=max_questions)
         else:
             session = run_interview(project=project, model_id=model)
 

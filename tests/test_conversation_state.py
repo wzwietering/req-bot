@@ -1,13 +1,9 @@
-import pytest
-from datetime import UTC, datetime
-
 from requirements_bot.core.conversation_state import (
     ConversationState,
     StateContext,
-    StateTransitionError,
-    validate_transition,
-    is_terminal_state,
     can_recover_from_state,
+    is_terminal_state,
+    validate_transition,
 )
 
 
@@ -16,38 +12,21 @@ class TestConversationState:
 
     def test_valid_transitions(self):
         """Test that valid transitions work correctly."""
-        assert validate_transition(
-            ConversationState.INITIALIZING, ConversationState.GENERATING_QUESTIONS
-        )
-        assert validate_transition(
-            ConversationState.GENERATING_QUESTIONS, ConversationState.WAITING_FOR_INPUT
-        )
-        assert validate_transition(
-            ConversationState.WAITING_FOR_INPUT, ConversationState.PROCESSING_ANSWER
-        )
-        assert validate_transition(
-            ConversationState.PROCESSING_ANSWER, ConversationState.GENERATING_FOLLOWUPS
-        )
-        assert validate_transition(
-            ConversationState.GENERATING_REQUIREMENTS, ConversationState.COMPLETED
-        )
+        assert validate_transition(ConversationState.INITIALIZING, ConversationState.GENERATING_QUESTIONS)
+        assert validate_transition(ConversationState.GENERATING_QUESTIONS, ConversationState.WAITING_FOR_INPUT)
+        assert validate_transition(ConversationState.WAITING_FOR_INPUT, ConversationState.PROCESSING_ANSWER)
+        assert validate_transition(ConversationState.PROCESSING_ANSWER, ConversationState.GENERATING_FOLLOWUPS)
+        assert validate_transition(ConversationState.GENERATING_REQUIREMENTS, ConversationState.COMPLETED)
 
     def test_invalid_transitions(self):
         """Test that invalid transitions are rejected."""
+        assert not validate_transition(ConversationState.COMPLETED, ConversationState.WAITING_FOR_INPUT)
+        assert not validate_transition(ConversationState.FAILED, ConversationState.INITIALIZING)
+        assert not validate_transition(ConversationState.INITIALIZING, ConversationState.PROCESSING_ANSWER)
+        assert not validate_transition(ConversationState.WAITING_FOR_INPUT, ConversationState.GENERATING_QUESTIONS)
         assert not validate_transition(
-            ConversationState.COMPLETED, ConversationState.WAITING_FOR_INPUT
-        )
-        assert not validate_transition(
-            ConversationState.FAILED, ConversationState.INITIALIZING
-        )
-        assert not validate_transition(
-            ConversationState.INITIALIZING, ConversationState.PROCESSING_ANSWER
-        )
-        assert not validate_transition(
-            ConversationState.WAITING_FOR_INPUT, ConversationState.GENERATING_QUESTIONS
-        )
-        assert not validate_transition(
-            ConversationState.ASSESSING_COMPLETENESS, ConversationState.GENERATING_QUESTIONS
+            ConversationState.ASSESSING_COMPLETENESS,
+            ConversationState.GENERATING_QUESTIONS,
         )
 
     def test_terminal_states(self):

@@ -4,10 +4,11 @@ import os
 import sys
 import time
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from typing import Any, Iterator
+from datetime import UTC, datetime
+from typing import Any
 
 # Context variables for correlation and tracing
 _ctx_trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
@@ -35,9 +36,7 @@ class ContextFilter(logging.Filter):
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat().replace("+00:00", "Z"),
             "level": record.levelname.lower(),
             "message": record.getMessage(),
         }
@@ -144,11 +143,7 @@ def init_logging(
     else:
         resolved_file = file_path or env_file
 
-    resolved_mask = bool(
-        mask
-        if mask is not None
-        else (env_mask or "").lower() in {"1", "true", "yes", "on"}
-    )
+    resolved_mask = bool(mask if mask is not None else (env_mask or "").lower() in {"1", "true", "yes", "on"})
 
     # Default behavior: stdout for backward compatibility
     # Can be overridden to stderr for better UX separation via use_stderr parameter or env var
@@ -171,7 +166,10 @@ def init_logging(
             handler = logging.FileHandler(resolved_file)
         except (OSError, PermissionError) as e:
             # Fall back to stderr if file creation fails (safer than stdout for errors)
-            print(f"Warning: Could not create log file '{resolved_file}': {e}", file=sys.stderr)
+            print(
+                f"Warning: Could not create log file '{resolved_file}': {e}",
+                file=sys.stderr,
+            )
             print("Falling back to stderr logging.", file=sys.stderr)
             handler = logging.StreamHandler(sys.stderr)
             resolved_file = None  # Update resolved_file to reflect actual output

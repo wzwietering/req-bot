@@ -29,9 +29,7 @@ class StateRecoveryManager:
 
         with recovery_lock:
             state = session.conversation_state
-            recovery_action = (
-                self.session_manager.state_manager.determine_recovery_action(session)
-            )
+            recovery_action = self.session_manager.state_manager.determine_recovery_action(session)
 
             log_event(
                 "conversation.recovery_attempt",
@@ -53,9 +51,7 @@ class StateRecoveryManager:
                     "retry_requirements_generation": self._retry_requirements_generation,
                 }
 
-                recovery_method = recovery_methods.get(
-                    recovery_action, self._restart_from_beginning
-                )
+                recovery_method = recovery_methods.get(recovery_action, self._restart_from_beginning)
                 return recovery_method(session)
 
             except Exception as e:
@@ -70,9 +66,7 @@ class StateRecoveryManager:
 
     def _restart_initialization(self, session: Session) -> bool:
         """Restart from initialization state."""
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.INITIALIZING
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.INITIALIZING)
         return True
 
     def _retry_question_generation(self, session: Session) -> bool:
@@ -80,33 +74,23 @@ class StateRecoveryManager:
         try:
             # Clear any partial questions and regenerate
             if not session.questions:
-                seed_questions = self.question_queue_manager.initialize_from_seeds(
-                    shuffled=False
-                )
-                llm_questions = self.provider.generate_questions(
-                    session.project, seed_questions=seed_questions
-                )
+                seed_questions = self.question_queue_manager.initialize_from_seeds(shuffled=False)
+                llm_questions = self.provider.generate_questions(session.project, seed_questions=seed_questions)
                 session.questions = seed_questions + llm_questions
 
-            self.session_manager.state_manager.transition_to(
-                session, ConversationState.WAITING_FOR_INPUT
-            )
+            self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
             return True
         except Exception:
             # If question generation fails, fall back to continuing with existing questions
             if session.questions:
-                self.session_manager.state_manager.transition_to(
-                    session, ConversationState.WAITING_FOR_INPUT
-                )
+                self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
                 return True
             return False
 
     def _continue_from_question(self, session: Session) -> bool:
         """Continue from current question position."""
         # Simply transition to waiting for input state
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.WAITING_FOR_INPUT
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
         return True
 
     def _reprocess_last_answer(self, session: Session) -> bool:
@@ -123,9 +107,7 @@ class StateRecoveryManager:
                 level=logging.INFO,
             )
 
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.WAITING_FOR_INPUT
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
         return True
 
     def _skip_followups_continue(self, session: Session) -> bool:
@@ -137,9 +119,7 @@ class StateRecoveryManager:
             session_id=session.id,
             level=logging.INFO,
         )
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.WAITING_FOR_INPUT
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
         return True
 
     def _assume_incomplete_continue(self, session: Session) -> bool:
@@ -152,9 +132,7 @@ class StateRecoveryManager:
             level=logging.INFO,
         )
         session.conversation_complete = False
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.WAITING_FOR_INPUT
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
         return True
 
     def _retry_requirements_generation(self, session: Session) -> bool:
@@ -167,9 +145,7 @@ class StateRecoveryManager:
                 session_id=session.id,
                 level=logging.INFO,
             )
-            self.session_manager.state_manager.transition_to(
-                session, ConversationState.GENERATING_REQUIREMENTS
-            )
+            self.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_REQUIREMENTS)
             return True
         except Exception:
             return False
@@ -186,7 +162,5 @@ class StateRecoveryManager:
         session.answers.clear()
         session.requirements.clear()
         session.conversation_complete = False
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.INITIALIZING
-        )
+        self.session_manager.state_manager.transition_to(session, ConversationState.INITIALIZING)
         return True

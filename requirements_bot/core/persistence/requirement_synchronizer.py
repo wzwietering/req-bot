@@ -13,21 +13,15 @@ class RequirementSynchronizer:
         for i, requirement in enumerate(session.requirements):
             current_requirement_ids.add(requirement.id)
             if requirement.id in existing_requirements:
-                self._update_existing_requirement(
-                    existing_requirements[requirement.id], requirement, i
-                )
+                self._update_existing_requirement(existing_requirements[requirement.id], requirement, i)
             else:
                 self._add_new_requirement(requirement, session.id, i, db_session)
 
-        self._remove_orphaned_requirements(
-            existing_requirements, current_requirement_ids, db_session
-        )
+        self._remove_orphaned_requirements(existing_requirements, current_requirement_ids, db_session)
 
     def convert_requirements_from_table(self, session_table) -> list[Requirement]:
         """Convert database requirement records to Requirement objects."""
-        requirements_sorted = sorted(
-            session_table.requirements, key=lambda r: r.order_index
-        )
+        requirements_sorted = sorted(session_table.requirements, key=lambda r: r.order_index)
         return [
             Requirement(
                 id=r.id,
@@ -38,18 +32,14 @@ class RequirementSynchronizer:
             for r in requirements_sorted
         ]
 
-    def _update_existing_requirement(
-        self, existing_r, requirement: Requirement, order_index: int
-    ) -> None:
+    def _update_existing_requirement(self, existing_r, requirement: Requirement, order_index: int) -> None:
         """Update existing requirement with new data."""
         existing_r.title = requirement.title
         existing_r.rationale = requirement.rationale
         existing_r.priority = requirement.priority
         existing_r.order_index = order_index
 
-    def _add_new_requirement(
-        self, requirement: Requirement, session_id: str, order_index: int, db_session
-    ) -> None:
+    def _add_new_requirement(self, requirement: Requirement, session_id: str, order_index: int, db_session) -> None:
         """Add new requirement to database."""
         r_table = RequirementTable(
             id=requirement.id,
@@ -61,9 +51,7 @@ class RequirementSynchronizer:
         )
         db_session.add(r_table)
 
-    def _remove_orphaned_requirements(
-        self, existing_requirements: dict, current_ids: set, db_session
-    ) -> None:
+    def _remove_orphaned_requirements(self, existing_requirements: dict, current_ids: set, db_session) -> None:
         """Remove requirements that are no longer present in session."""
         for r_id, existing_r in existing_requirements.items():
             if r_id not in current_ids:

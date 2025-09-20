@@ -20,8 +20,7 @@ class QuestionQueue:
 
     def initialize_from_seeds(self, shuffled: bool = True) -> list[Question]:
         seed_questions = [
-            Question(id=f"q{i}", category=c, text=t, required=True)
-            for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+            Question(id=f"q{i}", category=c, text=t, required=True) for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
         ]
 
         if shuffled:
@@ -30,14 +29,10 @@ class QuestionQueue:
             return shuffled_seeds
         return seed_questions
 
-    def add_questions(
-        self, new_questions: list[Question], existing_questions: list[Question]
-    ) -> list[Question]:
+    def add_questions(self, new_questions: list[Question], existing_questions: list[Question]) -> list[Question]:
         return self.filter_similar_questions(new_questions, existing_questions)
 
-    def insert_followups(
-        self, follow_up_texts: list[str], base_question: Question, session: Session
-    ) -> list[Question]:
+    def insert_followups(self, follow_up_texts: list[str], base_question: Question, session: Session) -> list[Question]:
         follow_up_questions: list[Question] = []
         for i, follow_up_text in enumerate(follow_up_texts):
             follow_up_id = f"followup_{base_question.id}_{i}"
@@ -51,9 +46,7 @@ class QuestionQueue:
             session.questions.append(follow_up)
         return follow_up_questions
 
-    def filter_asked_questions(
-        self, new_questions: list[Question], session: Session
-    ) -> list[Question]:
+    def filter_asked_questions(self, new_questions: list[Question], session: Session) -> list[Question]:
         asked_texts = {q.text.lower() for q in session.questions}
         return [q for q in new_questions if q.text.lower() not in asked_texts]
 

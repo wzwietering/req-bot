@@ -1,18 +1,16 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 from requirements_bot.core.interview_constants import EXIT_COMMANDS, EXIT_SIGNAL
 
 try:
     from prompt_toolkit import prompt
-    from prompt_toolkit.history import FileHistory
     from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.history import FileHistory
     from rich.console import Console
     from rich.panel import Panel
-    from rich.text import Text
-    from rich.progress import Progress, SpinnerColumn, TextColumn
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -35,7 +33,7 @@ class IOInterface(ABC):
 class RichConsoleIO(IOInterface):
     """Rich console implementation with enhanced input/output features."""
 
-    def __init__(self, session_id: Optional[str] = None):
+    def __init__(self, session_id: str | None = None):
         self.session_id = session_id
         self.console = Console() if RICH_AVAILABLE else None
         self.history_file = None
@@ -56,20 +54,15 @@ class RichConsoleIO(IOInterface):
             Sanitized session ID (max 50 characters) safe for use in filenames
         """
         # Remove path separators and dangerous characters, keep only alphanumeric, dash, underscore
-        sanitized = "".join(c for c in session_id if c.isalnum() or c in '-_')
+        sanitized = "".join(c for c in session_id if c.isalnum() or c in "-_")
         # Limit length to 50 characters to prevent extremely long filenames
         return sanitized[:50] if sanitized else "unknown_session"
 
     def print(self, message: str) -> None:
         if self.console:
             # Create a nice panel for questions/messages
-            if message.strip().endswith('?'):
-                panel = Panel(
-                    message,
-                    title="🤖 Question",
-                    border_style="blue",
-                    padding=(1, 2)
-                )
+            if message.strip().endswith("?"):
+                panel = Panel(message, title="🤖 Question", border_style="blue", padding=(1, 2))
                 self.console.print(panel)
             else:
                 self.console.print(f"[blue]ℹ[/blue] {message}")
@@ -109,16 +102,29 @@ class RichConsoleIO(IOInterface):
             "",  # Empty prompt since we already displayed it with styling
             history=history,
             completer=completer,
-            complete_while_typing=False
+            complete_while_typing=False,
         )
 
     def _create_completer(self) -> "WordCompleter":
         """Create auto-completer with common requirements terms and exit commands."""
         completions = [
-            "yes", "no", "maybe", "not sure", "I don't know",
-            "web application", "mobile app", "desktop app", "API",
-            "user authentication", "database", "file upload", "search",
-            "real-time", "notifications", "payments", "reporting"
+            "yes",
+            "no",
+            "maybe",
+            "not sure",
+            "I don't know",
+            "web application",
+            "mobile app",
+            "desktop app",
+            "API",
+            "user authentication",
+            "database",
+            "file upload",
+            "search",
+            "real-time",
+            "notifications",
+            "payments",
+            "reporting",
         ] + list(EXIT_COMMANDS)
         return WordCompleter(completions, ignore_case=True)
 
@@ -144,8 +150,8 @@ class RichConsoleIO(IOInterface):
                 "error": str(error),
                 "error_type": type(error).__name__,
                 "component": "io",
-                "operation": "rich_input"
-            }
+                "operation": "rich_input",
+            },
         )
 
     def print_success(self, message: str) -> None:

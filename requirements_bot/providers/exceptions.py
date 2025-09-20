@@ -1,6 +1,6 @@
 import json
-from typing import Any, Callable, TypeVar
-from functools import wraps
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from requirements_bot.core.logging import log_event
 from requirements_bot.core.models import (

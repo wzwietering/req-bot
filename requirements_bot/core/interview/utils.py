@@ -31,9 +31,7 @@ def print_interview_header(mode: str, remaining_questions: int) -> None:
         )
         print("💡 Tip: Type 'exit', 'quit', or 'done' to save your progress and exit anytime.")
     else:
-        print(
-            f"\n=== Starting interview with {remaining_questions} remaining questions ==="
-        )
+        print(f"\n=== Starting interview with {remaining_questions} remaining questions ===")
         print("💡 Tip: Type 'exit', 'quit', or 'done' to save your progress and exit anytime.")
 
 

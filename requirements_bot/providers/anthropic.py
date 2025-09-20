@@ -35,9 +35,7 @@ class ProviderImpl(Provider):
             api_key=os.environ.get("ANTHROPIC_API_KEY"),
         )
 
-    def generate_questions(
-        self, project: str, seed_questions: list[Question]
-    ) -> list[Question]:
+    def generate_questions(self, project: str, seed_questions: list[Question]) -> list[Question]:
         """Generate additional questions based on the project description and existing questions."""
 
         prompt = generate_questions_prompt(project, seed_questions)
@@ -119,9 +117,7 @@ class ProviderImpl(Provider):
             fallback_factory=FallbackFactory.empty_requirements_list,
         )
 
-    def analyze_answer(
-        self, question: Question, answer: Answer, context: str = ""
-    ) -> AnswerAnalysis:
+    def analyze_answer(self, question: Question, answer: Answer, context: str = "") -> AnswerAnalysis:
         """Analyze answer quality and generate follow-up questions if needed."""
 
         prompt = analyze_answer_prompt(question.text, answer.text, context)
@@ -205,7 +201,5 @@ class ProviderImpl(Provider):
             provider="anthropic",
             model=self.model,
             operation_func=_do_operation,
-            fallback_factory=lambda: FallbackFactory.default_completeness_assessment(
-                len(session.questions)
-            ),
+            fallback_factory=lambda: FallbackFactory.default_completeness_assessment(len(session.questions)),
         )

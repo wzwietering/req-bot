@@ -30,6 +30,10 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install
+    - name: Lint and format with ruff
+      run: |
+        poetry run ruff check .
+        poetry run ruff format --check .
     - name: Test with pytest and coverage
       run: |
         poetry run coverage run -m pytest
