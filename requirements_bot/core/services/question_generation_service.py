@@ -79,9 +79,6 @@ class QuestionGenerationService:
     def generate_missing_area_questions(self, session: Session) -> list:
         """Generate questions for missing areas identified during completeness assessment."""
         print("   → Generating additional questions for missing areas")
-        self.session_manager.state_manager.transition_to(
-            session, ConversationState.GENERATING_QUESTIONS
-        )
         self.session_manager.state_manager.create_checkpoint(
             session, "generate_missing_area_questions"
         )
