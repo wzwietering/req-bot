@@ -26,7 +26,7 @@ class InterviewConductor:
         self.io = io or RichConsoleIO()
 
     def present_question(self, question: Question, question_number: int, total_questions: int) -> None:
-        self.io.print(f"\n[{question_number}/{total_questions}] [{question.category.upper()}] {question.text}")
+        self.io.print_question_with_progress(question.text, question_number, total_questions, question.category)
 
     def collect_user_input(self) -> str:
         return self.io.input("> ")
@@ -76,12 +76,12 @@ class InterviewConductor:
             return self.provider.assess_completeness(session)
 
     def handle_completion(self, completeness: CompletenessAssessment) -> bool:
-        self.io.print(f"\n✓ Assessment: {completeness.reasoning}")
+        self.io.print_assessment_feedback(completeness.reasoning)
         return True
 
     def handle_missing_areas(self, completeness: CompletenessAssessment) -> None:
         if completeness.missing_areas:
-            self.io.print(f"\n⚠ Still need info on: {', '.join(completeness.missing_areas)}")
+            self.io.print_assessment_feedback(completeness.reasoning, completeness.missing_areas)
 
     def process_followups(
         self,
@@ -96,6 +96,6 @@ class InterviewConductor:
         follow_ups = self.question_queue.insert_followups(analysis.follow_up_questions, question, session)
 
         if analysis.analysis_notes:
-            self.io.print(f"   → I need to ask a follow-up: {analysis.analysis_notes}")
+            self.io.print_follow_up_context(analysis.analysis_notes)
 
         return follow_ups + question_queue

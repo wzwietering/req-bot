@@ -4,10 +4,7 @@ import random
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.interview.interview_conductor import InterviewConductor
 from requirements_bot.core.interview.question_queue import QuestionQueue
-from requirements_bot.core.interview.utils import (
-    generate_requirements,
-    print_interview_header,
-)
+from requirements_bot.core.interview.utils import generate_requirements
 from requirements_bot.core.interview_constants import EXIT_SIGNAL
 from requirements_bot.core.io_interface import RichConsoleIO
 from requirements_bot.core.logging import log_event, span
@@ -49,7 +46,7 @@ def run_interview(
         all_qs = [q for q in session.questions if q.id not in answered_question_ids]
     else:
         if session_id:
-            print(f"\n⚠ Session {session_id} not found, starting new interview")
+            io.print_session_message(f"Session {session_id} not found, starting new interview", is_warning=True)
 
         seed_questions = question_queue.initialize_from_seeds(shuffled=False)
         session = session_manager.create_new_session(project, [], "simple")
@@ -76,8 +73,8 @@ def run_interview(
                 error_type=type(e).__name__,
                 level=logging.WARNING,
             )
-            print(f"⚠ LLM question generation failed: {e}")
-            print("⚠ Continuing with seed questions only")
+            io.print_session_message(f"LLM question generation failed: {e}", is_warning=True)
+            io.print_session_message("Continuing with seed questions only", is_warning=True)
             filtered_questions = []
 
         all_qs = seed_questions + filtered_questions
@@ -86,7 +83,7 @@ def run_interview(
         session.questions = all_qs
         session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
 
-    print_interview_header("simple", len(all_qs) - len(session.answers))
+    io.print_interview_header("simple", len(all_qs) - len(session.answers))
 
     for i, q in enumerate(all_qs, len(session.answers) + 1):
         # Update context for current question
@@ -101,7 +98,7 @@ def run_interview(
 
         # Check for exit signal
         if answer_text == EXIT_SIGNAL:
-            print("Exiting interview. Session has been saved.")
+            io.print_exit_message()
             break
 
         if answer_text:
@@ -133,7 +130,7 @@ def run_conversational_interview(
     session, question_counter = pipeline.setup_session(session_id)
     question_queue = pipeline.prepare_initial_question_queue(session, question_counter)
 
-    print_interview_header("conversational", 0)
+    pipeline.io.print_interview_header("conversational", 0)
 
     session = pipeline.run_interview_loop(session, question_queue, question_counter, max_questions)
     return pipeline.finalize_session(session)
@@ -154,8 +151,8 @@ class ConversationalInterviewPipeline:
         self.provider = Provider.from_id(model_id)
         self.session_manager = SessionManager(storage)
         self.question_queue_manager = QuestionQueue()
-        io = RichConsoleIO(session_id=session_id)
-        self.conductor = InterviewConductor(self.provider, self.session_manager, self.question_queue_manager, io)
+        self.io = RichConsoleIO(session_id=session_id)
+        self.conductor = InterviewConductor(self.provider, self.session_manager, self.question_queue_manager, self.io)
 
         # Initialize specialized services
         self.session_setup = SessionSetupManager(self.session_manager)
@@ -168,7 +165,9 @@ class ConversationalInterviewPipeline:
         self.interview_loop = InterviewLoopManager(
             self.conductor, self.session_manager, self.completeness_assessment, model_id
         )
-        self.session_finalization = SessionFinalizationService(self.provider, self.session_manager, model_id, project)
+        self.session_finalization = SessionFinalizationService(
+            self.provider, self.session_manager, model_id, project, self.io
+        )
 
         self.session_manager.setup_logging_context()
 
@@ -200,7 +199,7 @@ class ConversationalInterviewPipeline:
 
     def _reopen_completed_session(self, session: Session) -> None:
         """Reopen a completed session for additional questions."""
-        print("   → Reopening completed session for additional questions")
+        self.io.print_session_message("Reopening completed session for additional questions")
         session.conversation_complete = False
         self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
 
