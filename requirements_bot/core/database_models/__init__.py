@@ -32,12 +32,37 @@ def enable_sqlite_foreign_keys(engine: Engine):
             cursor.close()
 
 
+class UserTable(Base):
+    """User table for OAuth2 authentication."""
+
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    email = Column(String, nullable=False, unique=True)
+    provider = Column(String, nullable=False)  # 'google', 'github', 'microsoft'
+    provider_id = Column(String, nullable=False)  # OAuth provider's user ID
+    name = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+    # Relationships
+    sessions = relationship("SessionTable", back_populates="user", cascade="all, delete-orphan")
+
+    # Unique constraint on provider + provider_id
+    __table_args__ = (
+        Index("ix_users_email", "email"),
+        Index("ix_users_provider_id", "provider", "provider_id", unique=True),
+    )
+
+
 class SessionTable(Base):
     """Core session table for requirements gathering."""
 
     __tablename__ = "sessions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     project = Column(String, nullable=False)
     conversation_complete = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
@@ -49,6 +74,7 @@ class SessionTable(Base):
     last_state_change = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
+    user = relationship("UserTable", back_populates="sessions")
     questions = relationship("QuestionTable", back_populates="session", cascade="all, delete-orphan")
     answers = relationship("AnswerTable", back_populates="session", cascade="all, delete-orphan")
     requirements = relationship(
@@ -129,6 +155,7 @@ class RequirementTable(Base):
 # Export core models only
 __all__ = [
     "Base",
+    "UserTable",
     "SessionTable",
     "QuestionTable",
     "AnswerTable",
