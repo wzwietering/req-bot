@@ -1,4 +1,6 @@
+import logging
 import os
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -8,6 +10,8 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from requirements_bot.core.models import UserCreate
+
+logger = logging.getLogger(__name__)
 
 
 class OAuth2Config(BaseModel):
@@ -23,7 +27,7 @@ class JWTService:
     def __init__(self, secret_key: str, algorithm: str = "HS256"):
         self.secret_key = secret_key
         self.algorithm = algorithm
-        self.access_token_expire_minutes = 60 * 24 * 7  # 7 days
+        self.access_token_expire_minutes = 60 * 2  # 2 hours
 
     def create_access_token(self, user_id: str, email: str) -> str:
         expire = datetime.now(UTC) + timedelta(minutes=self.access_token_expire_minutes)
@@ -56,6 +60,25 @@ class OAuth2Providers:
     def __init__(self):
         self.oauth = OAuth()
         self._setup_providers()
+        self._state_storage = {}  # In production, use Redis or database
+
+    def generate_state(self) -> str:
+        """Generate and store OAuth state parameter for CSRF protection."""
+        state = secrets.token_urlsafe(32)
+        self._state_storage[state] = datetime.now(UTC)
+        return state
+
+    def verify_state(self, state: str) -> bool:
+        """Verify OAuth state parameter and remove it."""
+        if state not in self._state_storage:
+            return False
+
+        # Check if state is not expired (5 minutes)
+        created_at = self._state_storage.pop(state)
+        if datetime.now(UTC) - created_at > timedelta(minutes=5):
+            return False
+
+        return True
 
     def _get_env_config(self, provider: str) -> OAuth2Config:
         client_id = os.getenv(f"{provider.upper()}_CLIENT_ID")
@@ -77,8 +100,8 @@ class OAuth2Providers:
                 server_metadata_url="https://accounts.google.com/.well-known/openid_configuration",
                 client_kwargs={"scope": "openid email profile"},
             )
-        except ValueError:
-            pass  # Provider not configured
+        except ValueError as e:
+            logger.warning(f"OAuth provider google not configured: {e}")
 
         # GitHub OAuth2
         try:
@@ -92,8 +115,8 @@ class OAuth2Providers:
                 api_base_url="https://api.github.com/",
                 client_kwargs={"scope": "user:email"},
             )
-        except ValueError:
-            pass  # Provider not configured
+        except ValueError as e:
+            logger.warning(f"OAuth provider github not configured: {e}")
 
         # Microsoft OAuth2
         try:
@@ -105,8 +128,8 @@ class OAuth2Providers:
                 server_metadata_url="https://login.microsoftonline.com/common/v2.0/.well-known/openid_configuration",
                 client_kwargs={"scope": "openid email profile"},
             )
-        except ValueError:
-            pass  # Provider not configured
+        except ValueError as e:
+            logger.warning(f"OAuth provider microsoft not configured: {e}")
 
     def get_provider(self, provider_name: str):
         if provider_name not in ["google", "github", "microsoft"]:
@@ -150,12 +173,20 @@ class OAuth2Providers:
     async def _get_github_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.github
         resp = await provider.get("user", token=token)
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch user information from GitHub"
+            )
+
         user_data = resp.json()
 
         # Get primary email if not public
         email = user_data.get("email")
         if not email:
             emails_resp = await provider.get("user/emails", token=token)
+            if emails_resp.status_code != 200:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch email from GitHub")
             emails = emails_resp.json()
             primary_email = next((e for e in emails if e["primary"]), None)
             email = primary_email["email"] if primary_email else None
@@ -188,7 +219,9 @@ class OAuth2Providers:
 def get_jwt_service() -> JWTService:
     secret_key = os.getenv("JWT_SECRET_KEY")
     if not secret_key:
-        raise ValueError("JWT_SECRET_KEY environment variable is required")
+        raise ValueError("Application configuration error")
+    if len(secret_key) < 32:
+        raise ValueError("Application configuration error")
     return JWTService(secret_key)
 
 

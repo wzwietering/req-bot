@@ -2,14 +2,14 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from requirements_bot.core.conversation_state import ConversationState, StateContext
 
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
-    email: str
+    email: EmailStr
     provider: Literal["google", "github", "microsoft"]
     provider_id: str
     name: str | None = None
@@ -19,7 +19,7 @@ class User(BaseModel):
 
 
 class UserCreate(BaseModel):
-    email: str
+    email: EmailStr
     provider: Literal["google", "github", "microsoft"]
     provider_id: str
     name: str | None = None
@@ -28,7 +28,7 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    email: str
+    email: EmailStr
     provider: str
     name: str | None = None
     avatar_url: str | None = None

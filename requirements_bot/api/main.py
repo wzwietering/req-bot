@@ -3,9 +3,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from requirements_bot.api.auth import get_jwt_service
 from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
-from requirements_bot.api.middleware import ExceptionHandlingMiddleware
-from requirements_bot.api.routes import questions, sessions
+from requirements_bot.api.middleware import AuthenticationMiddleware, ExceptionHandlingMiddleware
+from requirements_bot.api.routes import auth, questions, sessions
 
 app = FastAPI(
     title="Requirements Bot API",
@@ -16,14 +17,18 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Restrict to specific origins
-    allow_credentials=False,  # Disable until authentication is implemented
-    allow_methods=["GET", "POST", "DELETE"],  # Only allow necessary methods
-    allow_headers=["Content-Type"],  # Restrict headers
+    allow_credentials=True,  # Enable for authentication
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Include PUT and OPTIONS
+    allow_headers=["Content-Type", "Authorization"],  # Allow Authorization header
 )
+
+# Add authentication middleware (before exception handling)
+app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service())
 
 # Add unified exception handling middleware
 app.add_middleware(ExceptionHandlingMiddleware)
 
+app.include_router(auth.router, prefix="/api/v1", tags=["authentication"])
 app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
 app.include_router(questions.router, prefix="/api/v1", tags=["questions"])
 
