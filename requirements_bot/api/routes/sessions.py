@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_201_CREATED
 
 from requirements_bot.api.dependencies import (
+    get_current_user_id,
     get_session_service,
     get_validated_session_id,
 )
@@ -25,9 +26,10 @@ router = APIRouter()
 async def create_session(
     request: SessionCreateRequest,
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> SessionCreateResponse:
     """Create a new requirements gathering session."""
-    session = session_service.get_or_create_session(request.project)
+    session = session_service.get_or_create_session(request.project, user_id)
     response_data = SessionResponseBuilder.build_session_create_response(session)
 
     return SessionCreateResponse(**response_data)
@@ -42,9 +44,10 @@ def _create_session_summary(summary_data_row) -> SessionSummary:
 @router.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> SessionListResponse:
-    """List all requirements gathering sessions."""
-    summary_data = session_service.get_session_summaries()
+    """List user's requirements gathering sessions."""
+    summary_data = session_service.get_session_summaries(user_id)
     session_summaries = [_create_session_summary(row) for row in summary_data]
     return SessionListResponse(sessions=session_summaries)
 
@@ -53,10 +56,11 @@ async def list_sessions(
 async def get_session(
     session_id: Annotated[str, Depends(get_validated_session_id)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> SessionDetailResponse:
     """Get detailed information about a specific session."""
     try:
-        session = session_service.load_session_with_validation(session_id)
+        session = session_service.load_session_with_validation(session_id, user_id)
         response_data = SessionResponseBuilder.build_session_detail(session)
         return SessionDetailResponse(**response_data)
     except SessionValidationError:
@@ -67,10 +71,11 @@ async def get_session(
 async def delete_session(
     session_id: Annotated[str, Depends(get_validated_session_id)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> dict[str, str]:
     """Delete a specific session."""
     try:
-        session_service.delete_session(session_id)
+        session_service.delete_session(session_id, user_id)
         return {"message": f"Session {session_id} deleted successfully"}
     except SessionValidationError:
         raise SessionNotFoundAPIException(session_id)

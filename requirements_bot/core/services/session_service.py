@@ -52,12 +52,13 @@ class SessionService:
         return session_id
 
     def get_or_create_session(
-        self, project: str, session_id: str | None = None, interview_type: str = "conversational"
+        self, project: str, user_id: str, session_id: str | None = None, interview_type: str = "conversational"
     ) -> Session:
         """Get existing session or create new one with basic setup.
 
         Args:
             project: Project name for the session
+            user_id: ID of the user creating/accessing the session
             session_id: Optional existing session ID
             interview_type: Type of interview to conduct
 
@@ -72,10 +73,14 @@ class SessionService:
             session = self.storage.load_session(validated_id)
             if not session:
                 raise SessionValidationError(f"Session {validated_id} not found")
+            # Verify user owns this session
+            if session.user_id != user_id:
+                raise SessionValidationError(f"Access denied: Session {validated_id} not found")
             return session
 
         # Create new session
         session, _ = self.setup_manager.setup_session(project, None, interview_type)
+        session.user_id = user_id
 
         # Add basic questions for new sessions
         if not session.questions:
@@ -223,11 +228,12 @@ class SessionService:
         session = self.get_or_create_session(project, session_id)
         return project, session
 
-    def load_session_with_validation(self, session_id: str) -> Session:
+    def load_session_with_validation(self, session_id: str, user_id: str | None = None) -> Session:
         """Load session with validation, raising appropriate errors.
 
         Args:
             session_id: ID of the session to load
+            user_id: Optional user ID to verify ownership
 
         Returns:
             Session: The loaded session
@@ -239,26 +245,42 @@ class SessionService:
         session = self.storage.load_session(validated_id)
         if not session:
             raise SessionValidationError(f"Session {validated_id} not found")
+
+        # Verify user owns this session if user_id provided
+        if user_id and session.user_id != user_id:
+            raise SessionValidationError(f"Session {validated_id} not found")
+
         return session
 
-    def delete_session(self, session_id: str) -> None:
+    def delete_session(self, session_id: str, user_id: str | None = None) -> None:
         """Delete a session with validation.
 
         Args:
             session_id: ID of the session to delete
+            user_id: Optional user ID to verify ownership
 
         Raises:
-            SessionValidationError: If session_id is invalid
+            SessionValidationError: If session_id is invalid or access denied
         """
-        validated_id = self.validate_session_id(session_id)
-        self.storage.delete_session(validated_id)
+        # Load session first to verify ownership
+        if user_id:
+            self.load_session_with_validation(session_id, user_id)
+        else:
+            self.validate_session_id(session_id)
 
-    def get_session_summaries(self) -> list[dict]:
-        """Get summaries of all sessions.
+        self.storage.delete_session(session_id)
+
+    def get_session_summaries(self, user_id: str | None = None) -> list[dict]:
+        """Get summaries of sessions, optionally filtered by user.
+
+        Args:
+            user_id: Optional user ID to filter sessions
 
         Returns:
             list[dict]: List of session summary data
         """
+        if user_id:
+            return self.storage.get_session_summaries_for_user(user_id)
         return self.storage.get_session_summaries()
 
     def finalize_session_with_document(self, session: Session, output_path: str, io: IOInterface) -> str:

@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,12 +16,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Configure CORS for production
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Restrict to specific origins
+    allow_origins=allowed_origins,  # Configurable origins for production
     allow_credentials=True,  # Enable for authentication
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Include PUT and OPTIONS
-    allow_headers=["Content-Type", "Authorization"],  # Allow Authorization header
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Standard REST methods
+    allow_headers=["Content-Type", "Authorization"],  # Required headers for auth
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
 
 # Add authentication middleware (before exception handling)
