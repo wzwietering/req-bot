@@ -11,6 +11,12 @@ from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.core.storage import DatabaseManager, StorageInterface
 
 
+class StorageConfigurationError(Exception):
+    """Raised when storage is not configured correctly."""
+
+    pass
+
+
 @lru_cache
 def get_storage() -> StorageInterface:
     """Get storage instance (cached)."""
@@ -23,7 +29,7 @@ def get_database_manager() -> DatabaseManager:
     storage = get_storage()
     if isinstance(storage, DatabaseManager):
         return storage
-    raise RuntimeError("Storage is not a DatabaseManager instance")
+    raise StorageConfigurationError("Storage is not configured as DatabaseManager")
 
 
 def get_session_manager() -> SessionManager:

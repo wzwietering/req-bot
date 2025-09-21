@@ -74,6 +74,10 @@ async def submit_answer(
 
         current_question = _get_and_validate_current_question(session, answer_service)
         updated_session, is_complete = answer_service.process_answer(session, current_question, request.answer_text)
+
+        if not updated_session.answers:
+            raise SessionInvalidStateException("No answers found after processing")
+
         new_answer = updated_session.answers[-1]
         requirements_generated = is_complete and len(updated_session.requirements) > 0
 

@@ -102,26 +102,64 @@ class SessionService:
         Raises:
             SessionValidationError: If session is invalid or not found
         """
+        session = self._load_and_validate_session(session_id)
+
+        if session.conversation_complete:
+            return session, True
+
+        return self._process_active_session_answer(session, answer_text)
+
+    def _load_and_validate_session(self, session_id: str) -> Session:
+        """Load and validate session exists.
+
+        Args:
+            session_id: ID of the session to load
+
+        Returns:
+            Session: The loaded session
+
+        Raises:
+            SessionValidationError: If session is invalid or not found
+        """
         validated_id = self.validate_session_id(session_id)
         session = self.storage.load_session(validated_id)
 
         if not session:
             raise SessionValidationError(f"Session {validated_id} not found")
 
-        if session.conversation_complete:
+        return session
+
+    def _process_active_session_answer(self, session: Session, answer_text: str) -> tuple[Session, bool]:
+        """Process answer for an active session.
+
+        Args:
+            session: The active session
+            answer_text: The user's answer text
+
+        Returns:
+            tuple: (updated_session, is_complete)
+        """
+        current_question = self._get_current_question_or_complete(session)
+        if not current_question:
             return session, True
 
-        # Get current question
+        return self.answer_service.process_answer(session, current_question, answer_text)
+
+    def _get_current_question_or_complete(self, session: Session) -> object | None:
+        """Get current question or mark session complete if none available.
+
+        Args:
+            session: The session to check
+
+        Returns:
+            Question object or None if session should be completed
+        """
         current_question = self.answer_service.get_next_unanswered_question(session)
         if not current_question:
             session.conversation_complete = True
             self.storage.save_session(session)
-            return session, True
 
-        # Process the answer
-        updated_session, is_complete = self.answer_service.process_answer(session, current_question, answer_text)
-
-        return updated_session, is_complete
+        return current_question
 
     def get_session_progress(self, session: Session) -> dict[str, int | float]:
         """Calculate session progress metrics.
