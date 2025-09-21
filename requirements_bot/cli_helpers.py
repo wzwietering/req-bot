@@ -1,9 +1,11 @@
 import typer
 
 from requirements_bot.core.constants import DEFAULT_DB_PATH
-from requirements_bot.core.document import write_document
+from requirements_bot.core.io_interface import RichConsoleIO
 from requirements_bot.core.models import Session
 from requirements_bot.core.pipeline import run_conversational_interview, run_interview
+from requirements_bot.core.services import SessionService
+from requirements_bot.core.services.session_service import SessionValidationError
 from requirements_bot.core.storage import DatabaseManager
 
 
@@ -12,31 +14,22 @@ class InterviewRunner:
 
     def __init__(self, db_path: str = DEFAULT_DB_PATH):
         self.db_path = db_path
+        self.db_manager = DatabaseManager(db_path)
+        self.session_service = SessionService(self.db_manager)
+        self.io = RichConsoleIO()
 
     def setup_project_and_session(self, project: str | None, session_id: str | None) -> tuple[str, DatabaseManager]:
         """Set up project name and database manager for interview."""
-        db_manager = DatabaseManager(self.db_path)
-
-        # If resuming a session, get project from the session
-        if session_id and not project:
-            existing_session = db_manager.load_session(session_id)
-            if existing_session:
-                project = existing_session.project
-            else:
-                typer.echo(f"Session {session_id} not found.", err=True)
-                raise typer.Exit(1)
-
-        # If no project provided and not resuming, prompt for it
-        if not project:
-            project = typer.prompt("Project name/title")
-
-        return project, db_manager
+        try:
+            project, session = self.session_service.setup_project_and_session(project, session_id, self.io)
+            return project, self.db_manager
+        except SessionValidationError as e:
+            self.session_service.handle_session_error(e, self.io, exit_on_error=False)
+            raise typer.Exit(1)
 
     def finalize_session(self, session: Session, out: str) -> None:
         """Write document and display completion message."""
-        path = write_document(session, path=out)
-        typer.echo(f"Requirements written to {path}")
-        typer.echo(f"Session saved as {session.id}")
+        self.session_service.finalize_session_with_document(session, out, self.io)
 
     def run_simple_interview(
         self,
@@ -96,12 +89,11 @@ class InterviewRunner:
         typer.echo("Falling back to non-persistent mode...")
 
         if not project:
-            project = typer.prompt("Project name/title")
+            project = self.io.input("Project name/title: ")
 
         if interview_type == "conversational interview":
             session = run_conversational_interview(project=project, model_id=model, max_questions=max_questions)
         else:
             session = run_interview(project=project, model_id=model)
 
-        path = write_document(session, path=out)
-        typer.echo(f"Requirements written to {path}")
+        self.session_service.finalize_session_with_document(session, out, self.io)

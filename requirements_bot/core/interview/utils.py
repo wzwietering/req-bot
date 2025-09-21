@@ -23,17 +23,5 @@ def generate_requirements(
         return provider.summarize_requirements(project, questions, answers)
 
 
-def print_interview_header(mode: str, remaining_questions: int) -> None:
-    if mode == "conversational":
-        print("\n=== Starting conversational interview ===")
-        print(
-            "I'll ask questions to understand your requirements. I may ask follow-up questions based on your answers."
-        )
-        print("💡 Tip: Type 'exit', 'quit', or 'done' to save your progress and exit anytime.")
-    else:
-        print(f"\n=== Starting interview with {remaining_questions} remaining questions ===")
-        print("💡 Tip: Type 'exit', 'quit', or 'done' to save your progress and exit anytime.")
-
-
-def print_requirements_generation(answer_count: int) -> None:
-    print(f"\n=== Generating requirements from {answer_count} answers ===")
+# Presentation logic moved to IoInterface implementations.
+# Use io.print_interview_header() and io.print_requirements_generation() instead.

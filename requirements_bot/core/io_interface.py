@@ -29,6 +29,52 @@ class IOInterface(ABC):
         """Get input from the user with a prompt."""
         pass
 
+    def print_interview_header(self, mode: str, remaining_questions: int = 0) -> None:
+        """Print interview start header with mode-specific messaging."""
+        if mode == "conversational":
+            self.print("\n=== Starting conversational interview ===")
+            self.print(
+                "I'll ask questions to understand your requirements. I may ask follow-up questions using your answers."
+            )
+        else:
+            self.print(f"\n=== Starting interview with {remaining_questions} remaining questions ===")
+        self.print_info("💡 Tip: Type 'exit', 'quit', or 'done' to save your progress and exit anytime.")
+
+    def print_requirements_generation(self, answer_count: int) -> None:
+        """Print requirements generation start message."""
+        self.print(f"\n=== Generating requirements from {answer_count} answers ===")
+
+    def print_question_with_progress(
+        self, question_text: str, question_number: int, total_questions: int, category: str = ""
+    ) -> None:
+        """Print a question with progress information and category."""
+        if category:
+            progress_info = f"[{question_number}/{total_questions}] [{category.upper()}]"
+        else:
+            progress_info = f"[{question_number}/{total_questions}]"
+        self.print(f"\n{progress_info} {question_text}")
+
+    def print_assessment_feedback(self, reasoning: str, missing_areas: list[str] = None) -> None:
+        """Print completeness assessment feedback."""
+        self.print_success(f"Assessment: {reasoning}")
+        if missing_areas:
+            self.print_info(f"Still need info on: {', '.join(missing_areas)}")
+
+    def print_follow_up_context(self, analysis_notes: str) -> None:
+        """Print context for follow-up questions."""
+        self.print(f"   → I need to ask a follow-up: {analysis_notes}")
+
+    def print_session_message(self, message: str, is_warning: bool = False) -> None:
+        """Print session-related messages (creation, resumption, etc)."""
+        if is_warning:
+            self.print_info(f"⚠ {message}")
+        else:
+            self.print_info(message)
+
+    def print_exit_message(self) -> None:
+        """Print exit message when user exits interview."""
+        self.print_success("Exiting interview. Session has been saved.")
+
 
 class RichConsoleIO(IOInterface):
     """Rich console implementation with enhanced input/output features."""
@@ -182,6 +228,84 @@ class RichConsoleIO(IOInterface):
         else:
             print(f"ℹ {message}")
 
+    def print_interview_header(self, mode: str, remaining_questions: int = 0) -> None:
+        """Print rich interview start header."""
+        if self.console:
+            if mode == "conversational":
+                header_panel = Panel(
+                    "🤖 [bold blue]Conversational Interview Mode[/bold blue]\n\n"
+                    "I'll ask questions to understand your requirements.\n"
+                    "I may ask follow-up questions based on your answers.\n\n"
+                    "[dim]💡 Tip: Type 'exit', 'quit', or 'done' to save and exit anytime[/dim]",
+                    title="🚀 Starting Interview",
+                    border_style="bright_blue",
+                    padding=(1, 2),
+                )
+            else:
+                header_panel = Panel(
+                    f"📋 [bold blue]Standard Interview Mode[/bold blue]\n\n"
+                    f"Questions remaining: [bold yellow]{remaining_questions}[/bold yellow]\n\n"
+                    "[dim]💡 Tip: Type 'exit', 'quit', or 'done' to save and exit anytime[/dim]",
+                    title="🚀 Starting Interview",
+                    border_style="bright_blue",
+                    padding=(1, 2),
+                )
+            self.console.print(header_panel)
+        else:
+            # Fallback to parent implementation
+            super().print_interview_header(mode, remaining_questions)
+
+    def print_requirements_generation(self, answer_count: int) -> None:
+        """Print rich requirements generation message."""
+        if self.console:
+            gen_panel = Panel(
+                f"🔄 [bold green]Generating Requirements[/bold green]\n\n"
+                f"Processing [bold yellow]{answer_count}[/bold yellow] answers...\n"
+                "Creating comprehensive requirements document",
+                title="📝 Requirements Generation",
+                border_style="green",
+                padding=(1, 2),
+            )
+            self.console.print(gen_panel)
+        else:
+            super().print_requirements_generation(answer_count)
+
+    def print_question_with_progress(
+        self, question_text: str, question_number: int, total_questions: int, category: str = ""
+    ) -> None:
+        """Print rich question with progress bar and category."""
+        if self.console:
+            # Create progress bar
+
+            progress_text = f"Question {question_number} of {total_questions}"
+            if category:
+                progress_text += f" • {category.upper()}"
+
+            # Create question panel with progress
+            question_panel = Panel(
+                f"[bold white]{question_text}[/bold white]",
+                title=f"🤔 {progress_text}",
+                border_style="blue",
+                padding=(1, 2),
+            )
+            self.console.print(question_panel)
+        else:
+            super().print_question_with_progress(question_text, question_number, total_questions, category)
+
+    def print_assessment_feedback(self, reasoning: str, missing_areas: list[str] = None) -> None:
+        """Print rich assessment feedback."""
+        if self.console:
+            feedback_content = f"[bold green]✓[/bold green] {reasoning}"
+            if missing_areas:
+                feedback_content += f"\n\n[yellow]⚠ Still need info on:[/yellow] {', '.join(missing_areas)}"
+
+            feedback_panel = Panel(
+                feedback_content, title="📊 Completeness Assessment", border_style="green", padding=(1, 2)
+            )
+            self.console.print(feedback_panel)
+        else:
+            super().print_assessment_feedback(reasoning, missing_areas)
+
 
 class ConsoleIO(RichConsoleIO):
     """Legacy alias for backward compatibility."""
@@ -207,3 +331,15 @@ class TestableIO(IOInterface):
             self.response_index += 1
             return response
         return ""
+
+    def print_success(self, message: str) -> None:
+        self.printed_messages.append(f"SUCCESS: {message}")
+
+    def print_error(self, message: str) -> None:
+        self.printed_messages.append(f"ERROR: {message}")
+
+    def print_info(self, message: str) -> None:
+        self.printed_messages.append(f"INFO: {message}")
+
+    def print_thinking(self, message: str = "Processing...") -> None:
+        self.printed_messages.append(f"THINKING: {message}")

@@ -21,8 +21,6 @@ class SessionSetupManager:
         if session:
             return session, len(session.answers)
         else:
-            if session_id:
-                print(f"\n⚠ Session {session_id} not found, starting new interview")
             return self._create_new_session(project, mode), 0
 
     def _create_new_session(self, project: str, mode: str) -> Session:

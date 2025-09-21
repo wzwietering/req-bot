@@ -5,6 +5,8 @@ from .interview_loop_manager import InterviewLoopManager
 from .question_generation_service import QuestionGenerationService
 from .session_answer_service import SessionAnswerService
 from .session_finalization_service import SessionFinalizationService
+from .session_response_builder import SessionResponseBuilder
+from .session_service import SessionService
 from .session_setup_manager import SessionSetupManager
 
 __all__ = [
@@ -14,4 +16,6 @@ __all__ = [
     "CompletenessAssessmentService",
     "SessionFinalizationService",
     "SessionAnswerService",
+    "SessionService",
+    "SessionResponseBuilder",
 ]
