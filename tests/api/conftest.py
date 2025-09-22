@@ -5,14 +5,31 @@ import os
 import uuid
 from pathlib import Path
 
+# Set up test environment variables before any other imports
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-with-at-least-32-characters-for-testing")
+
 import pytest
 from fastapi.testclient import TestClient
 
-from requirements_bot.api.dependencies import get_storage
+from requirements_bot.api.dependencies import get_current_user_id, get_storage
 from requirements_bot.api.main import app
+from requirements_bot.core.models import UserCreate
+from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import DatabaseManager
 
 logger = logging.getLogger(__name__)
+
+
+# Global variable to store the test user ID
+_test_user_id = None
+
+
+def get_test_user_id() -> str:
+    """Override for get_current_user_id dependency in tests."""
+    global _test_user_id
+    if _test_user_id is None:
+        raise RuntimeError("Test user not created yet")
+    return _test_user_id
 
 
 @pytest.fixture(scope="function")
@@ -63,8 +80,30 @@ def test_db():
 @pytest.fixture(scope="function")
 def client(test_db):
     """Create a test client with isolated database."""
+    # Override the authentication dependency for tests
+    app.dependency_overrides[get_current_user_id] = get_test_user_id
+
+    # Create a test user in the database to satisfy foreign key constraints
+    global _test_user_id
+    db_manager = DatabaseManager(db_path=test_db)
+    db_session = db_manager.SessionLocal()
+    try:
+        user_service = UserService(db_session)
+        test_user = UserCreate(
+            email="test@example.com", provider="google", provider_id="test-provider-id-123", name="Test User"
+        )
+        created_user = user_service.create_user(test_user)
+        _test_user_id = created_user.id
+        db_session.commit()
+    finally:
+        db_session.close()
+
     with TestClient(app) as test_client:
         yield test_client
+
+    # Clean up the override and global state after test
+    app.dependency_overrides.clear()
+    _test_user_id = None
 
 
 @pytest.fixture

@@ -39,29 +39,26 @@ def upgrade() -> None:
     op.create_index('ix_users_email', 'users', ['email'], unique=False)
     op.create_index('ix_users_provider_id', 'users', ['provider', 'provider_id'], unique=True)
 
-    # Add user_id column to sessions table
-    op.add_column('sessions', sa.Column('user_id', sa.String(), nullable=False))
-
-    # Create foreign key constraint
-    op.create_foreign_key(
-        'fk_sessions_user_id',
-        'sessions',
-        'users',
-        ['user_id'],
-        ['id'],
-        ondelete='CASCADE'
-    )
-
-    # Create index for sessions.user_id
-    op.create_index('ix_sessions_user_id', 'sessions', ['user_id'], unique=False)
+    # For SQLite, use batch mode to add column and foreign key constraint
+    with op.batch_alter_table('sessions', schema=None) as batch_op:
+        batch_op.add_column(sa.Column('user_id', sa.String(), nullable=False))
+        batch_op.create_foreign_key(
+            'fk_sessions_user_id',
+            'users',
+            ['user_id'],
+            ['id'],
+            ondelete='CASCADE'
+        )
+        batch_op.create_index('ix_sessions_user_id', ['user_id'], unique=False)
 
 
 def downgrade() -> None:
     """Remove users table and user relationship from sessions."""
-    # Drop foreign key and index from sessions
-    op.drop_index('ix_sessions_user_id', table_name='sessions')
-    op.drop_constraint('fk_sessions_user_id', 'sessions', type_='foreignkey')
-    op.drop_column('sessions', 'user_id')
+    # For SQLite, use batch mode to handle constraint drops
+    with op.batch_alter_table('sessions', schema=None) as batch_op:
+        batch_op.drop_index('ix_sessions_user_id')
+        batch_op.drop_constraint('fk_sessions_user_id', type_='foreignkey')
+        batch_op.drop_column('user_id')
 
     # Drop users table indexes and table
     op.drop_index('ix_users_provider_id', table_name='users')

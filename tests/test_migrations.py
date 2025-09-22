@@ -20,6 +20,7 @@ from requirements_bot.core.database_models import (
     QuestionTable,
     RequirementTable,
     SessionTable,
+    UserTable,
 )
 
 
@@ -173,9 +174,20 @@ class MigrationTestFramework:
         # Create test data using direct SQLAlchemy operations
         with self.SessionLocal() as session:
             try:
+                # Create user first
+                test_user = UserTable(
+                    id="test-user-id",
+                    email="test@example.com",
+                    provider="google",
+                    provider_id="test-provider-id",
+                    name="Test User",
+                )
+                session.add(test_user)
+
                 # Create session
                 test_session = SessionTable(
                     id=session_id,
+                    user_id="test-user-id",
                     project="Test Migration Project",
                     conversation_complete=False,
                 )

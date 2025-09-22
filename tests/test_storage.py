@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 
 from requirements_bot.core.memory_storage import MemoryStorage
-from requirements_bot.core.models import Answer, Question, Requirement, Session
+from requirements_bot.core.models import Answer, Question, Requirement, Session, UserCreate
+from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import DatabaseManager
 
 
@@ -17,6 +18,7 @@ class TestMemoryStorage:
         self.storage = MemoryStorage()
         self.sample_session = Session(
             id="test-session-123",
+            user_id="test-user-123",
             project="Test Project",
             questions=[
                 Question(
@@ -110,8 +112,20 @@ class TestDatabaseManager:
         self.temp_db_name = f"test_db_{os.getpid()}_{id(self)}.db"
 
         self.storage = DatabaseManager(db_path=self.temp_db_name)
+
+        # Create a test user first to satisfy foreign key constraints
+        with self.storage.SessionLocal() as db_session:
+            user_service = UserService(db_session)
+            test_user = UserCreate(
+                email="test@example.com", provider="google", provider_id="test-provider-id-123", name="Test User"
+            )
+            created_user = user_service.create_user(test_user)
+            self.test_user_id = created_user.id
+            db_session.commit()
+
         self.sample_session = Session(
             id=str(uuid.uuid4()),
+            user_id=self.test_user_id,
             project="Database Test Project",
             questions=[
                 Question(
