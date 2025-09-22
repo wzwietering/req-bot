@@ -1,6 +1,7 @@
 import logging
 import random
 
+from requirements_bot.core.constants import CLI_USER_ID
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.logging import (
     get_run_id,
@@ -57,6 +58,7 @@ class SessionManager:
     def create_new_session(self, project: str, questions: list[Question], mode: str) -> Session:
         session = Session(
             project=project,
+            user_id=CLI_USER_ID,
             questions=questions,
             answers=[],
             requirements=[],

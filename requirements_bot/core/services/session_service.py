@@ -1,5 +1,6 @@
 import uuid
 
+from requirements_bot.core.constants import CLI_USER_ID
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.io_interface import IOInterface
 from requirements_bot.core.models import Session
@@ -225,7 +226,7 @@ class SessionService:
             project = io.input("Project name/title: ")
 
         # Get or create session
-        session = self.get_or_create_session(project, session_id)
+        session = self.get_or_create_session(project, CLI_USER_ID, session_id)
         return project, session
 
     def load_session_with_validation(self, session_id: str, user_id: str | None = None) -> Session:

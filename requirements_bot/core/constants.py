@@ -12,3 +12,6 @@ DEFAULT_DB_PATH = "requirements_bot.db"
 
 # Interview Defaults
 DEFAULT_MAX_QUESTIONS = 15
+
+# CLI User
+CLI_USER_ID = "cli-user"

@@ -49,6 +49,7 @@ class SessionPersistenceService:
         return Session(
             id=session_table.id,
             project=session_table.project,
+            user_id=session_table.user_id,
             questions=questions,
             answers=answers,
             requirements=requirements,
@@ -73,6 +74,7 @@ class SessionPersistenceService:
         session_table = SessionTable(
             id=session.id,
             project=session.project,
+            user_id=session.user_id,
             conversation_complete=session.conversation_complete,
             created_at=session.created_at,
             updated_at=session.updated_at,
