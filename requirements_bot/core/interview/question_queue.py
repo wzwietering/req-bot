@@ -1,4 +1,5 @@
 import random
+import uuid
 
 from requirements_bot.core.models import Question, Session
 
@@ -20,7 +21,8 @@ class QuestionQueue:
 
     def initialize_from_seeds(self, shuffled: bool = True) -> list[Question]:
         seed_questions = [
-            Question(id=f"q{i}", category=c, text=t, required=True) for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
+            Question(id=str(uuid.uuid4()), category=c, text=t, required=True)
+            for i, (c, t) in enumerate(CANNED_SEED_QUESTIONS, 1)
         ]
 
         if shuffled:
@@ -34,8 +36,8 @@ class QuestionQueue:
 
     def insert_followups(self, follow_up_texts: list[str], base_question: Question, session: Session) -> list[Question]:
         follow_up_questions: list[Question] = []
-        for i, follow_up_text in enumerate(follow_up_texts):
-            follow_up_id = f"followup_{base_question.id}_{i}"
+        for _, follow_up_text in enumerate(follow_up_texts):
+            follow_up_id = str(uuid.uuid4())
             follow_up = Question(
                 id=follow_up_id,
                 text=follow_up_text,
