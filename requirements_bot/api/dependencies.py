@@ -5,9 +5,11 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Path, Request, status
 from sqlalchemy.orm import Session as DBSession
 
+from requirements_bot.api.auth import JWTService, OAuth2Providers, get_jwt_service, get_oauth_providers
 from requirements_bot.api.exceptions import InvalidSessionIdException
 from requirements_bot.core.models import User
 from requirements_bot.core.services import SessionAnswerService, SessionService, SessionSetupManager
+from requirements_bot.core.services.refresh_token_service import RefreshTokenService
 from requirements_bot.core.services.session_service import SessionValidationError
 from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.session_manager import SessionManager
@@ -107,3 +109,21 @@ def get_validated_session_id(session_id: Annotated[str, Path()]) -> str:
         return session_service.validate_session_id(session_id)
     except SessionValidationError as e:
         raise InvalidSessionIdException(session_id) from e
+
+
+def get_oauth_providers_with_db() -> OAuth2Providers:
+    """Get OAuth providers with database session factory configured."""
+    db_manager = get_database_manager()
+    return get_oauth_providers(db_manager.SessionLocal)
+
+
+def get_refresh_token_service() -> RefreshTokenService:
+    """Get refresh token service with database session factory."""
+    db_manager = get_database_manager()
+    return RefreshTokenService(db_manager.SessionLocal)
+
+
+def get_jwt_service_with_refresh() -> JWTService:
+    """Get JWT service with refresh token support."""
+    refresh_service = get_refresh_token_service()
+    return get_jwt_service(refresh_service)

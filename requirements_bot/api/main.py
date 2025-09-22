@@ -5,7 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from requirements_bot.api.auth import get_jwt_service
+from requirements_bot.api.dependencies import get_jwt_service_with_refresh
+from requirements_bot.api.error_responses import ErrorDetail
 from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
 from requirements_bot.api.middleware import AuthenticationMiddleware, ExceptionHandlingMiddleware
 from requirements_bot.api.routes import auth, questions, sessions
@@ -29,7 +30,7 @@ app.add_middleware(
 )
 
 # Add authentication middleware (before exception handling)
-app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service())
+app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service_with_refresh())
 
 # Add unified exception handling middleware
 app.add_middleware(ExceptionHandlingMiddleware)
@@ -50,9 +51,19 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
 # Exception handler for Pydantic request validation errors
 @app.exception_handler(RequestValidationError)
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    details = []
+    for error in exc.errors():
+        field = ".".join(str(x) for x in error["loc"])
+        details.append(ErrorDetail(type="validation", message=error["msg"], field=field))
+
     return JSONResponse(
         status_code=422,
-        content={"error": "ValidationError", "message": "Request validation failed", "details": str(exc)},
+        content={
+            "error": "validation_failed",
+            "message": "Request validation failed",
+            "details": [detail.dict() for detail in details],
+            "status_code": 422,
+        },
     )
 
 

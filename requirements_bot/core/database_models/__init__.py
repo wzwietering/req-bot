@@ -152,6 +152,42 @@ class RequirementTable(Base):
     __table_args__ = (Index("ix_requirements_session_id", "session_id"),)
 
 
+class OAuthStateTable(Base):
+    """OAuth state storage for CSRF protection."""
+
+    __tablename__ = "oauth_states"
+
+    state = Column(String, primary_key=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    expires_at = Column(DateTime, nullable=False)
+
+    # Index for cleanup queries
+    __table_args__ = (Index("ix_oauth_states_expires_at", "expires_at"),)
+
+
+class RefreshTokenTable(Base):
+    """Refresh token storage for JWT authentication."""
+
+    __tablename__ = "refresh_tokens"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String, nullable=False, unique=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False)
+
+    # Relationships
+    user = relationship("UserTable")
+
+    # Indexes
+    __table_args__ = (
+        Index("ix_refresh_tokens_user_id", "user_id"),
+        Index("ix_refresh_tokens_expires_at", "expires_at"),
+        Index("ix_refresh_tokens_token_hash", "token_hash", unique=True),
+    )
+
+
 # Export core models only
 __all__ = [
     "Base",
@@ -160,5 +196,7 @@ __all__ = [
     "QuestionTable",
     "AnswerTable",
     "RequirementTable",
+    "OAuthStateTable",
+    "RefreshTokenTable",
     "enable_sqlite_foreign_keys",
 ]

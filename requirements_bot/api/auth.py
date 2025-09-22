@@ -1,6 +1,5 @@
 import logging
 import os
-import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -9,7 +8,11 @@ from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
+from requirements_bot.api.error_responses import AuthenticationError, ConfigurationError
 from requirements_bot.core.models import UserCreate
+from requirements_bot.core.services.oauth_config_service import ConfigValidationError, OAuthConfigService
+from requirements_bot.core.services.oauth_state_service import OAuthStateService
+from requirements_bot.core.services.refresh_token_service import RefreshTokenService
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +27,43 @@ class OAuth2Config(BaseModel):
 
 
 class JWTService:
-    def __init__(self, secret_key: str, algorithm: str = "HS256"):
+    def __init__(self, secret_key: str, algorithm: str = "HS256", refresh_token_service: RefreshTokenService = None):
         self.secret_key = secret_key
         self.algorithm = algorithm
-        self.access_token_expire_minutes = 60 * 2  # 2 hours
+        self.access_token_expire_minutes = 15  # Shorter for access tokens
+        self.refresh_token_service = refresh_token_service
+
+    def create_token_pair(self, user_id: str, email: str) -> dict:
+        """Create both access and refresh tokens."""
+        access_token = self.create_access_token(user_id, email)
+
+        if self.refresh_token_service:
+            refresh_token = self.refresh_token_service.create_refresh_token(user_id)
+        else:
+            raise ValueError("Refresh token service not configured")
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": self.access_token_expire_minutes * 60,
+        }
 
     def create_access_token(self, user_id: str, email: str) -> str:
         expire = datetime.now(UTC) + timedelta(minutes=self.access_token_expire_minutes)
         to_encode = {"sub": user_id, "email": email, "exp": expire, "iat": datetime.now(UTC)}
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+
+    def refresh_access_token(self, refresh_token: str, user_email: str) -> str:
+        """Create new access token using refresh token."""
+        if not self.refresh_token_service:
+            raise ValueError("Refresh token service not configured")
+
+        user_id = self.refresh_token_service.verify_refresh_token(refresh_token)
+        if not user_id:
+            raise AuthenticationError("Invalid or expired refresh token")
+
+        return self.create_access_token(user_id, user_email)
 
     def verify_token(self, token: str) -> dict[str, Any]:
         try:
@@ -41,110 +72,97 @@ class JWTService:
             email: str = payload.get("email")
 
             if user_id is None or email is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token: missing user information",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+                raise AuthenticationError("Invalid token: missing user information")
 
             return {"user_id": user_id, "email": email}
         except JWTError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            raise AuthenticationError("Invalid token")
 
 
 class OAuth2Providers:
-    def __init__(self):
+    def __init__(self, db_session_factory=None):
         self.oauth = OAuth()
+        self._state_service = OAuthStateService(db_session_factory) if db_session_factory else None
+        self._config_service = OAuthConfigService()
         self._setup_providers()
-        self._state_storage = {}  # In production, use Redis or database
 
     def generate_state(self) -> str:
         """Generate and store OAuth state parameter for CSRF protection."""
-        state = secrets.token_urlsafe(32)
-        self._state_storage[state] = datetime.now(UTC)
-        return state
+        if not self._state_service:
+            raise ConfigurationError("Database session factory not configured")
+        return self._state_service.generate_state()
 
     def verify_state(self, state: str) -> bool:
         """Verify OAuth state parameter and remove it."""
-        if state not in self._state_storage:
-            return False
-
-        # Check if state is not expired (5 minutes)
-        created_at = self._state_storage.pop(state)
-        if datetime.now(UTC) - created_at > timedelta(minutes=5):
-            return False
-
-        return True
-
-    def _get_env_config(self, provider: str) -> OAuth2Config:
-        client_id = os.getenv(f"{provider.upper()}_CLIENT_ID")
-        client_secret = os.getenv(f"{provider.upper()}_CLIENT_SECRET")
-
-        if not client_id or not client_secret:
-            raise ValueError(f"Missing OAuth2 configuration for {provider}")
-
-        return OAuth2Config(client_id=client_id, client_secret=client_secret)
+        if not self._state_service:
+            raise ConfigurationError("Database session factory not configured")
+        return self._state_service.verify_and_consume_state(state)
 
     def _setup_providers(self):
-        # Google OAuth2
-        try:
-            google_config = self._get_env_config("google")
-            self.oauth.register(
-                name="google",
-                client_id=google_config.client_id,
-                client_secret=google_config.client_secret,
-                server_metadata_url="https://accounts.google.com/.well-known/openid_configuration",
-                client_kwargs={"scope": "openid email profile"},
-            )
-        except ValueError as e:
-            logger.warning(f"OAuth provider google not configured: {e}")
+        """Setup OAuth providers using validated configurations."""
+        for provider_name in ["google", "github", "microsoft"]:
+            try:
+                config = self._config_service.validate_provider_config(provider_name)
 
-        # GitHub OAuth2
-        try:
-            github_config = self._get_env_config("github")
-            self.oauth.register(
-                name="github",
-                client_id=github_config.client_id,
-                client_secret=github_config.client_secret,
-                access_token_url="https://github.com/login/oauth/access_token",
-                authorize_url="https://github.com/login/oauth/authorize",
-                api_base_url="https://api.github.com/",
-                client_kwargs={"scope": "user:email"},
-            )
-        except ValueError as e:
-            logger.warning(f"OAuth provider github not configured: {e}")
+                if provider_name == "google":
+                    self.oauth.register(
+                        name="google",
+                        client_id=config.client_id,
+                        client_secret=config.client_secret,
+                        server_metadata_url=config.server_metadata_url,
+                        client_kwargs={"scope": " ".join(config.scopes)},
+                    )
+                elif provider_name == "github":
+                    self.oauth.register(
+                        name="github",
+                        client_id=config.client_id,
+                        client_secret=config.client_secret,
+                        access_token_url=config.access_token_url,
+                        authorize_url=config.authorize_url,
+                        api_base_url="https://api.github.com/",
+                        client_kwargs={"scope": " ".join(config.scopes)},
+                    )
+                elif provider_name == "microsoft":
+                    self.oauth.register(
+                        name="microsoft",
+                        client_id=config.client_id,
+                        client_secret=config.client_secret,
+                        server_metadata_url=config.server_metadata_url,
+                        client_kwargs={"scope": " ".join(config.scopes)},
+                    )
 
-        # Microsoft OAuth2
-        try:
-            microsoft_config = self._get_env_config("microsoft")
-            self.oauth.register(
-                name="microsoft",
-                client_id=microsoft_config.client_id,
-                client_secret=microsoft_config.client_secret,
-                server_metadata_url="https://login.microsoftonline.com/common/v2.0/.well-known/openid_configuration",
-                client_kwargs={"scope": "openid email profile"},
-            )
-        except ValueError as e:
-            logger.warning(f"OAuth provider microsoft not configured: {e}")
+                logger.info(f"OAuth provider {provider_name} configured successfully")
+
+            except ConfigValidationError as e:
+                logger.warning(f"OAuth provider {provider_name} not configured: {e}")
 
     def get_provider(self, provider_name: str):
-        if provider_name not in ["google", "github", "microsoft"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported OAuth provider: {provider_name}"
-            )
+        """Get OAuth provider if properly configured."""
+        available_providers = self._config_service.get_available_providers()
+
+        if provider_name not in available_providers:
+            if provider_name in ["google", "github", "microsoft"]:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"OAuth provider {provider_name} not properly configured",
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported OAuth provider: {provider_name}"
+                )
 
         provider = getattr(self.oauth, provider_name, None)
         if provider is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"OAuth provider {provider_name} not configured",
+                detail=f"OAuth provider {provider_name} registration failed",
             )
 
         return provider
+
+    def get_configuration_status(self) -> dict:
+        """Get configuration status for all providers."""
+        return self._config_service.validate_all_configurations()
 
     async def get_user_info(self, provider_name: str, token: dict) -> UserCreate:
         if provider_name == "google":
@@ -216,14 +234,14 @@ class OAuth2Providers:
 
 
 # Global instances
-def get_jwt_service() -> JWTService:
+def get_jwt_service(refresh_token_service: RefreshTokenService = None) -> JWTService:
     secret_key = os.getenv("JWT_SECRET_KEY")
     if not secret_key:
         raise ValueError("Application configuration error")
     if len(secret_key) < 32:
         raise ValueError("Application configuration error")
-    return JWTService(secret_key)
+    return JWTService(secret_key, refresh_token_service=refresh_token_service)
 
 
-def get_oauth_providers() -> OAuth2Providers:
-    return OAuth2Providers()
+def get_oauth_providers(db_session_factory=None) -> OAuth2Providers:
+    return OAuth2Providers(db_session_factory)
