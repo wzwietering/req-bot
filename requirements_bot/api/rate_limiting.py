@@ -1,3 +1,4 @@
+import os
 import time
 from collections import defaultdict, deque
 
@@ -49,18 +50,40 @@ class RateLimitMiddleware:
 
     def __init__(self, oauth_rate_limiter: RateLimiter):
         self.oauth_rate_limiter = oauth_rate_limiter
+        self.trusted_proxies = self._get_trusted_proxies()
+
+    def _get_trusted_proxies(self) -> set[str]:
+        """Get list of trusted proxy IPs from environment."""
+        trusted_proxies_env = os.getenv("TRUSTED_PROXIES", "")
+        if not trusted_proxies_env:
+            return set()
+        return {ip.strip() for ip in trusted_proxies_env.split(",") if ip.strip()}
 
     def get_client_identifier(self, request: Request) -> str:
-        """Get client identifier for rate limiting."""
-        # Use X-Forwarded-For if available (for proxy setups)
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # Take the first IP in the chain
-            client_ip = forwarded_for.split(",")[0].strip()
-        else:
-            client_ip = request.client.host
+        """Get client identifier for rate limiting with proxy spoofing protection."""
+        # Only use X-Forwarded-For if request comes from trusted proxy
+        if self.trusted_proxies and hasattr(request.client, "host"):
+            client_host = request.client.host
+            if client_host in self.trusted_proxies:
+                forwarded_for = request.headers.get("X-Forwarded-For")
+                if forwarded_for:
+                    # Take the first IP in the chain and validate format
+                    client_ip = forwarded_for.split(",")[0].strip()
+                    if self._is_valid_ip(client_ip):
+                        return client_ip
 
-        return client_ip
+        # Fallback to direct client IP
+        return getattr(request.client, "host", "unknown")
+
+    def _is_valid_ip(self, ip: str) -> bool:
+        """Basic IP format validation."""
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        try:
+            return all(0 <= int(part) <= 255 for part in parts)
+        except ValueError:
+            return False
 
     def check_oauth_rate_limit(self, request: Request):
         """Check rate limit for OAuth endpoints."""

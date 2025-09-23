@@ -21,17 +21,20 @@ class RefreshTokenService:
 
         with self._lock:
             with self.db_session_factory() as db:
-                refresh_token = RefreshTokenTable(
-                    user_id=user_id,
-                    token_hash=token_hash,
-                    created_at=datetime.now(UTC),
-                    expires_at=expires_at,
-                    revoked=False,
-                )
-                db.add(refresh_token)
-                db.commit()
-
-        return token
+                try:
+                    refresh_token = RefreshTokenTable(
+                        user_id=user_id,
+                        token_hash=token_hash,
+                        created_at=datetime.now(UTC),
+                        expires_at=expires_at,
+                        revoked=False,
+                    )
+                    db.add(refresh_token)
+                    db.commit()
+                    return token
+                except Exception:
+                    db.rollback()
+                    raise
 
     def verify_refresh_token(self, token: str) -> str | None:
         """Verify refresh token and return user_id if valid."""
@@ -42,19 +45,23 @@ class RefreshTokenService:
 
         with self._lock:
             with self.db_session_factory() as db:
-                refresh_token = (
-                    db.query(RefreshTokenTable)
-                    .filter(
-                        RefreshTokenTable.token_hash == token_hash,
-                        not RefreshTokenTable.revoked,
-                        RefreshTokenTable.expires_at > datetime.now(UTC),
+                try:
+                    refresh_token = (
+                        db.query(RefreshTokenTable)
+                        .filter(
+                            RefreshTokenTable.token_hash == token_hash,
+                            not RefreshTokenTable.revoked,
+                            RefreshTokenTable.expires_at > datetime.now(UTC),
+                        )
+                        .first()
                     )
-                    .first()
-                )
 
-                if refresh_token:
-                    return refresh_token.user_id
-                return None
+                    if refresh_token:
+                        return refresh_token.user_id
+                    return None
+                except Exception:
+                    db.rollback()
+                    return None
 
     def revoke_refresh_token(self, token: str) -> bool:
         """Revoke a refresh token."""
@@ -65,45 +72,59 @@ class RefreshTokenService:
 
         with self._lock:
             with self.db_session_factory() as db:
-                refresh_token = db.query(RefreshTokenTable).filter(RefreshTokenTable.token_hash == token_hash).first()
+                try:
+                    refresh_token = (
+                        db.query(RefreshTokenTable).filter(RefreshTokenTable.token_hash == token_hash).first()
+                    )
 
-                if refresh_token:
-                    refresh_token.revoked = True
-                    db.commit()
-                    return True
-                return False
+                    if refresh_token:
+                        refresh_token.revoked = True
+                        db.commit()
+                        return True
+                    return False
+                except Exception:
+                    db.rollback()
+                    return False
 
     def revoke_all_user_tokens(self, user_id: str) -> int:
         """Revoke all refresh tokens for a user. Returns count of revoked tokens."""
         with self._lock:
             with self.db_session_factory() as db:
-                tokens = (
-                    db.query(RefreshTokenTable)
-                    .filter(RefreshTokenTable.user_id == user_id, not RefreshTokenTable.revoked)
-                    .all()
-                )
+                try:
+                    tokens = (
+                        db.query(RefreshTokenTable)
+                        .filter(RefreshTokenTable.user_id == user_id, not RefreshTokenTable.revoked)
+                        .all()
+                    )
 
-                count = len(tokens)
-                for token in tokens:
-                    token.revoked = True
+                    count = len(tokens)
+                    for token in tokens:
+                        token.revoked = True
 
-                db.commit()
-                return count
+                    db.commit()
+                    return count
+                except Exception:
+                    db.rollback()
+                    return 0
 
     def cleanup_expired_tokens(self) -> int:
         """Clean up expired refresh tokens. Returns number of cleaned up tokens."""
         with self._lock:
             with self.db_session_factory() as db:
-                expired_tokens = (
-                    db.query(RefreshTokenTable).filter(RefreshTokenTable.expires_at < datetime.now(UTC)).all()
-                )
+                try:
+                    expired_tokens = (
+                        db.query(RefreshTokenTable).filter(RefreshTokenTable.expires_at < datetime.now(UTC)).all()
+                    )
 
-                count = len(expired_tokens)
-                for token in expired_tokens:
-                    db.delete(token)
+                    count = len(expired_tokens)
+                    for token in expired_tokens:
+                        db.delete(token)
 
-                db.commit()
-                return count
+                    db.commit()
+                    return count
+                except Exception:
+                    db.rollback()
+                    return 0
 
     def _hash_token(self, token: str) -> str:
         """Hash a token for secure storage."""

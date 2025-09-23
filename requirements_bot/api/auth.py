@@ -103,38 +103,51 @@ class OAuth2Providers:
         for provider_name in ["google", "github", "microsoft"]:
             try:
                 config = self._config_service.validate_provider_config(provider_name)
-
-                if provider_name == "google":
-                    self.oauth.register(
-                        name="google",
-                        client_id=config.client_id,
-                        client_secret=config.client_secret,
-                        server_metadata_url=config.server_metadata_url,
-                        client_kwargs={"scope": " ".join(config.scopes)},
-                    )
-                elif provider_name == "github":
-                    self.oauth.register(
-                        name="github",
-                        client_id=config.client_id,
-                        client_secret=config.client_secret,
-                        access_token_url=config.access_token_url,
-                        authorize_url=config.authorize_url,
-                        api_base_url="https://api.github.com/",
-                        client_kwargs={"scope": " ".join(config.scopes)},
-                    )
-                elif provider_name == "microsoft":
-                    self.oauth.register(
-                        name="microsoft",
-                        client_id=config.client_id,
-                        client_secret=config.client_secret,
-                        server_metadata_url=config.server_metadata_url,
-                        client_kwargs={"scope": " ".join(config.scopes)},
-                    )
-
+                self._register_provider(provider_name, config)
                 logger.info(f"OAuth provider {provider_name} configured successfully")
-
             except ConfigValidationError as e:
                 logger.warning(f"OAuth provider {provider_name} not configured: {e}")
+
+    def _register_provider(self, provider_name: str, config):
+        """Register a specific OAuth provider."""
+        if provider_name == "google":
+            self._register_google_provider(config)
+        elif provider_name == "github":
+            self._register_github_provider(config)
+        elif provider_name == "microsoft":
+            self._register_microsoft_provider(config)
+
+    def _register_google_provider(self, config):
+        """Register Google OAuth provider."""
+        self.oauth.register(
+            name="google",
+            client_id=config.client_id,
+            client_secret=config.client_secret,
+            server_metadata_url=config.server_metadata_url,
+            client_kwargs={"scope": " ".join(config.scopes)},
+        )
+
+    def _register_github_provider(self, config):
+        """Register GitHub OAuth provider."""
+        self.oauth.register(
+            name="github",
+            client_id=config.client_id,
+            client_secret=config.client_secret,
+            access_token_url=config.access_token_url,
+            authorize_url=config.authorize_url,
+            api_base_url="https://api.github.com/",
+            client_kwargs={"scope": " ".join(config.scopes)},
+        )
+
+    def _register_microsoft_provider(self, config):
+        """Register Microsoft OAuth provider."""
+        self.oauth.register(
+            name="microsoft",
+            client_id=config.client_id,
+            client_secret=config.client_secret,
+            server_metadata_url=config.server_metadata_url,
+            client_kwargs={"scope": " ".join(config.scopes)},
+        )
 
     def get_provider(self, provider_name: str):
         """Get OAuth provider if properly configured."""
@@ -198,19 +211,7 @@ class OAuth2Providers:
             )
 
         user_data = resp.json()
-
-        # Get primary email if not public
-        email = user_data.get("email")
-        if not email:
-            emails_resp = await provider.get("user/emails", token=token)
-            if emails_resp.status_code != 200:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch email from GitHub")
-            emails = emails_resp.json()
-            primary_email = next((e for e in emails if e["primary"]), None)
-            email = primary_email["email"] if primary_email else None
-
-        if not email:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to retrieve email from GitHub")
+        email = await self._get_github_user_email(provider, token, user_data)
 
         return UserCreate(
             email=email,
@@ -219,6 +220,23 @@ class OAuth2Providers:
             name=user_data.get("name"),
             avatar_url=user_data.get("avatar_url"),
         )
+
+    async def _get_github_user_email(self, provider, token: dict, user_data: dict) -> str:
+        """Get user email from GitHub, handling private emails."""
+        email = user_data.get("email")
+        if email:
+            return email
+
+        emails_resp = await provider.get("user/emails", token=token)
+        if emails_resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch email from GitHub")
+
+        emails = emails_resp.json()
+        primary_email = next((e for e in emails if e["primary"]), None)
+        if not primary_email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to retrieve email from GitHub")
+
+        return primary_email["email"]
 
     async def _get_microsoft_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.microsoft
@@ -237,9 +255,11 @@ class OAuth2Providers:
 def get_jwt_service(refresh_token_service: RefreshTokenService = None) -> JWTService:
     secret_key = os.getenv("JWT_SECRET_KEY")
     if not secret_key:
-        raise ValueError("Application configuration error")
+        raise ValueError("JWT_SECRET_KEY environment variable is not set. Please configure a secure JWT secret key.")
     if len(secret_key) < 32:
-        raise ValueError("Application configuration error")
+        raise ValueError(
+            f"JWT_SECRET_KEY must be at least 32 characters long for security. Current length: {len(secret_key)}"
+        )
     return JWTService(secret_key, refresh_token_service=refresh_token_service)
 
 

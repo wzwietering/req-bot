@@ -7,17 +7,30 @@ from pathlib import Path
 
 # Set up test environment variables before any other imports
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-with-at-least-32-characters-for-testing")
+os.environ.setdefault("ENVIRONMENT", "test")
 
 import pytest
 from fastapi.testclient import TestClient
 
 from requirements_bot.api.dependencies import get_current_user_id, get_storage
-from requirements_bot.api.main import app
 from requirements_bot.core.models import UserCreate
 from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import DatabaseManager
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def validate_test_environment():
+    """Validate test environment setup."""
+    jwt_secret = os.environ.get("JWT_SECRET_KEY")
+    if not jwt_secret or len(jwt_secret) < 32:
+        pytest.fail("JWT_SECRET_KEY must be at least 32 characters for testing")
+
+    # Ensure we're in test mode
+    assert os.environ.get("ENVIRONMENT") == "test", "Tests must run in test environment"
+
+    logger.info("Test environment validation passed")
 
 
 # Global variable to store the test user ID
@@ -80,6 +93,12 @@ def test_db():
 @pytest.fixture(scope="function")
 def client(test_db):
     """Create a test client with isolated database."""
+    # Import app after environment is set up
+    from requirements_bot.api.main import app
+
+    # Store original dependency overrides to restore later
+    original_overrides = app.dependency_overrides.copy()
+
     # Override the authentication dependency for tests
     app.dependency_overrides[get_current_user_id] = get_test_user_id
 
@@ -101,8 +120,9 @@ def client(test_db):
     with TestClient(app) as test_client:
         yield test_client
 
-    # Clean up the override and global state after test
+    # Restore original dependency overrides
     app.dependency_overrides.clear()
+    app.dependency_overrides.update(original_overrides)
     _test_user_id = None
 
 

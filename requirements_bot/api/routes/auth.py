@@ -1,3 +1,4 @@
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -55,6 +56,14 @@ class LogoutRequest(BaseModel):
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
+def _is_valid_state_format(state: str) -> bool:
+    """Validate OAuth state parameter format to prevent injection attacks."""
+    if not state or len(state) < 10 or len(state) > 128:
+        return False
+    # Allow alphanumeric, hyphens, and underscores only
+    return re.match(r"^[a-zA-Z0-9_-]+$", state) is not None
+
+
 def validate_provider_name(provider: str) -> str:
     """Validate OAuth provider name."""
     if not provider or not provider.strip():
@@ -65,6 +74,39 @@ def validate_provider_name(provider: str) -> str:
         raise ValidationError(f"Unsupported provider: {provider}", "provider")
 
     return provider
+
+
+def _validate_oauth_state(request: Request, oauth_providers: OAuth2Providers, provider: str):
+    """Validate OAuth state parameter."""
+    state = request.query_params.get("state")
+    if not state:
+        raise OAuthError("Missing state parameter", provider)
+
+    if not _is_valid_state_format(state):
+        raise OAuthError("Invalid state parameter format", provider)
+
+    if not oauth_providers.verify_state(state):
+        raise OAuthError("Invalid or expired state parameter", provider)
+
+
+async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
+    """Exchange authorization code for OAuth token."""
+    token = await oauth_client.authorize_access_token(request)
+    if not token:
+        raise OAuthError("Failed to obtain access token", provider)
+    return token
+
+
+def _create_user_session(user_create, db_session: DBSession, jwt_service: JWTService):
+    """Create user and generate session tokens."""
+    user_service = UserService(db_session)
+    user = user_service.create_user(user_create)
+    db_session.commit()
+
+    token_data = jwt_service.create_token_pair(user.id, user.email)
+    response = token_data.copy()
+    response["user"] = user_service.to_response(user)
+    return response
 
 
 @router.get("/login/{provider}")
@@ -113,41 +155,15 @@ async def oauth_callback(
     jwt_service: Annotated[JWTService, Depends(get_jwt_service_with_refresh)],
 ):
     """Handle OAuth callback and create user session."""
-    # Apply rate limiting
     rate_limit_middleware.check_oauth_rate_limit(request)
-
     provider = validate_provider_name(provider)
+
     try:
         oauth_client = oauth_providers.get_provider(provider)
-
-        # Get state parameter from query
-        state = request.query_params.get("state")
-        if not state or not oauth_providers.verify_state(state):
-            raise OAuthError("Invalid or expired state parameter", provider)
-
-        # Exchange authorization code for token
-        token = await oauth_client.authorize_access_token(request)
-        if not token:
-            raise OAuthError("Failed to obtain access token", provider)
-
-        # Get user info from provider
+        _validate_oauth_state(request, oauth_providers, provider)
+        token = await _exchange_oauth_token(oauth_client, request, provider)
         user_create = await oauth_providers.get_user_info(provider, token)
-
-        # Create or get existing user
-        user_service = UserService(db_session)
-        user = user_service.create_user(user_create)
-
-        # Commit the transaction
-        db_session.commit()
-
-        # Generate JWT token pair
-        token_data = jwt_service.create_token_pair(user.id, user.email)
-
-        # Include user info in response
-        response = token_data.copy()
-        response["user"] = user_service.to_response(user)
-        return response
-
+        return _create_user_session(user_create, db_session, jwt_service)
     except HTTPException:
         db_session.rollback()
         raise
