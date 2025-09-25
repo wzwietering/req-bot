@@ -1,7 +1,7 @@
 import json
 from datetime import UTC, datetime
 
-from requirements_bot.core.conversation_state import StateContext
+from requirements_bot.core.conversation_state import ConversationState, StateContext
 from requirements_bot.core.database_models import SessionTable
 from requirements_bot.core.logging import span
 from requirements_bot.core.models import Session
@@ -43,8 +43,6 @@ class SessionPersistenceService:
         answers = self.answer_sync.convert_answers_from_table(session_table)
         requirements = self.requirement_sync.convert_requirements_from_table(session_table)
         state_context = self._deserialize_state_context(session_table.state_context)
-
-        from requirements_bot.core.conversation_state import ConversationState
 
         return Session(
             id=session_table.id,

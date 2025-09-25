@@ -44,12 +44,12 @@ class ValidationError(HTTPException):
             error_details.append(ErrorDetail(type="validation", message=message, field=field))
 
         super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={
                 "error": "validation_failed",
                 "message": "Input validation failed",
-                "details": error_details,
-                "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "details": [detail.model_dump() for detail in error_details],
+                "status_code": status.HTTP_422_UNPROCESSABLE_CONTENT,
             },
         )
 
@@ -82,7 +82,7 @@ class OAuthError(HTTPException):
             detail={
                 "error": "oauth_error",
                 "message": message,
-                "details": error_details,
+                "details": [detail.model_dump() for detail in error_details],
                 "status_code": status.HTTP_400_BAD_REQUEST,
             },
         )
@@ -101,7 +101,7 @@ class NotFoundError(HTTPException):
             detail={
                 "error": "not_found",
                 "message": message,
-                "details": [ErrorDetail(type="not_found", message=f"Resource: {resource}")],
+                "details": [ErrorDetail(type="not_found", message=f"Resource: {resource}").model_dump()],
                 "status_code": status.HTTP_404_NOT_FOUND,
             },
         )
@@ -113,5 +113,10 @@ def create_error_response(
     """Create a standardized error response."""
     return HTTPException(
         status_code=status_code,
-        detail={"error": error_type, "message": message, "details": details or [], "status_code": status_code},
+        detail={
+            "error": error_type,
+            "message": message,
+            "details": [detail.model_dump() for detail in (details or [])],
+            "status_code": status_code,
+        },
     )

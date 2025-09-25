@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -107,8 +108,6 @@ class TestDatabaseManager:
     def setup_method(self):
         """Set up test fixtures."""
         # Create temporary database in current directory for testing
-        import os
-
         self.temp_db_name = f"test_db_{os.getpid()}_{id(self)}.db"
 
         self.storage = DatabaseManager(db_path=self.temp_db_name)

@@ -26,7 +26,7 @@ class RateLimiter:
         # Check if under limit
         if len(request_times) < self.max_requests:
             request_times.append(now)
-            return True, int(window_start + self.window_seconds)
+            return True, int(now + self.window_seconds)
         else:
             # Return when the oldest request will expire
             return False, int(request_times[0] + self.window_seconds)
@@ -48,8 +48,9 @@ class RateLimiter:
 class RateLimitMiddleware:
     """Rate limiting middleware for specific endpoints."""
 
-    def __init__(self, oauth_rate_limiter: RateLimiter):
+    def __init__(self, oauth_rate_limiter: RateLimiter, refresh_rate_limiter: RateLimiter = None):
         self.oauth_rate_limiter = oauth_rate_limiter
+        self.refresh_rate_limiter = refresh_rate_limiter or refresh_token_rate_limiter
         self.trusted_proxies = self._get_trusted_proxies()
 
     def _get_trusted_proxies(self) -> set[str]:
@@ -87,7 +88,6 @@ class RateLimitMiddleware:
 
     def check_oauth_rate_limit(self, request: Request):
         """Check rate limit for OAuth endpoints."""
-        # Only apply to OAuth endpoints
         path = str(request.url.path)
         if not (path.startswith("/api/v1/auth/login/") or path.startswith("/api/v1/auth/callback/")):
             return
@@ -107,7 +107,25 @@ class RateLimitMiddleware:
                 headers={"Retry-After": str(reset_time - int(time.time()))},
             )
 
+    def check_refresh_token_rate_limit(self, request: Request):
+        """Check rate limit for token refresh endpoint."""
+        identifier = self.get_client_identifier(request)
+        allowed, reset_time = self.refresh_rate_limiter.is_allowed(identifier)
+
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": "Too many token refresh requests. Please try again later.",
+                    "details": [{"type": "rate_limit", "message": f"Rate limit reset at {reset_time}"}],
+                    "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
+                },
+                headers={"Retry-After": str(reset_time - int(time.time()))},
+            )
+
 
 # Global rate limiters
 oauth_rate_limiter = RateLimiter(max_requests=5, window_seconds=60)  # 5 OAuth attempts per minute
+refresh_token_rate_limiter = RateLimiter(max_requests=10, window_seconds=3600)  # 10 refresh attempts per hour
 rate_limit_middleware = RateLimitMiddleware(oauth_rate_limiter)

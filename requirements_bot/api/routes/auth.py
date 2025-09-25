@@ -1,4 +1,3 @@
-import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -21,7 +20,10 @@ from requirements_bot.api.error_responses import (
 )
 from requirements_bot.api.rate_limiting import rate_limit_middleware
 from requirements_bot.core.models import UserResponse
+from requirements_bot.core.services.oauth_callback_validator import OAuthCallbackValidator
+from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectConfig
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
+from requirements_bot.core.services.user_registration_service import UserRegistrationService
 from requirements_bot.core.services.user_service import UserService
 
 
@@ -56,14 +58,6 @@ class LogoutRequest(BaseModel):
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-def _is_valid_state_format(state: str) -> bool:
-    """Validate OAuth state parameter format to prevent injection attacks."""
-    if not state or len(state) < 10 or len(state) > 128:
-        return False
-    # Allow alphanumeric, hyphens, and underscores only
-    return re.match(r"^[a-zA-Z0-9_-]+$", state) is not None
-
-
 def validate_provider_name(provider: str) -> str:
     """Validate OAuth provider name."""
     if not provider or not provider.strip():
@@ -76,17 +70,15 @@ def validate_provider_name(provider: str) -> str:
     return provider
 
 
-def _validate_oauth_state(request: Request, oauth_providers: OAuth2Providers, provider: str):
-    """Validate OAuth state parameter."""
-    state = request.query_params.get("state")
-    if not state:
-        raise OAuthError("Missing state parameter", provider)
+def _validate_oauth_callback(request: Request, oauth_providers: OAuth2Providers, provider: str) -> dict:
+    """Validate OAuth callback parameters and state."""
+    validator = OAuthCallbackValidator()
+    params = validator.validate_callback_params(request, provider)
 
-    if not _is_valid_state_format(state):
-        raise OAuthError("Invalid state parameter format", provider)
-
-    if not oauth_providers.verify_state(state):
+    if not oauth_providers.verify_state(params["state"]):
         raise OAuthError("Invalid or expired state parameter", provider)
+
+    return params
 
 
 async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
@@ -97,12 +89,20 @@ async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
     return token
 
 
+async def _process_oauth_user(
+    oauth_providers: OAuth2Providers, provider: str, token: dict, db_session: DBSession, jwt_service: JWTService
+):
+    """Process OAuth user information and create session."""
+    user_create = await oauth_providers.get_user_info(provider, token)
+    return _create_user_session(user_create, db_session, jwt_service)
+
+
 def _create_user_session(user_create, db_session: DBSession, jwt_service: JWTService):
     """Create user and generate session tokens."""
-    user_service = UserService(db_session)
-    user = user_service.create_user(user_create)
-    db_session.commit()
+    registration_service = UserRegistrationService(db_session)
+    user = registration_service.get_or_create_user(user_create)
 
+    user_service = UserService(db_session)
     token_data = jwt_service.create_token_pair(user.id, user.email)
     response = token_data.copy()
     response["user"] = user_service.to_response(user)
@@ -116,30 +116,21 @@ async def oauth_login(
     oauth_providers: Annotated[OAuth2Providers, Depends(get_oauth_providers_with_db)],
 ):
     """Initiate OAuth login with specified provider."""
-    # Apply rate limiting
     rate_limit_middleware.check_oauth_rate_limit(request)
-
     provider = validate_provider_name(provider)
+
     try:
         oauth_client = oauth_providers.get_provider(provider)
-
-        # Generate state for CSRF protection
         state = oauth_providers.generate_state()
 
-        # Build callback URL
-        callback_url = str(request.url_for("oauth_callback", provider=provider))
+        redirect_config = OAuthRedirectConfig()
+        callback_url = redirect_config.build_callback_url(request, provider)
 
-        # Redirect to provider's authorization URL
         redirect_url = await oauth_client.authorize_redirect(request, callback_url, state=state)
-
         return redirect_url
 
     except HTTPException:
         raise
-    except ValueError as e:
-        raise create_error_response(
-            "oauth_configuration_error", "OAuth provider not properly configured", status.HTTP_500_INTERNAL_SERVER_ERROR
-        ) from e
     except Exception as e:
         raise create_error_response(
             "oauth_login_failed", "Failed to initiate OAuth login", status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -160,16 +151,12 @@ async def oauth_callback(
 
     try:
         oauth_client = oauth_providers.get_provider(provider)
-        _validate_oauth_state(request, oauth_providers, provider)
+        _validate_oauth_callback(request, oauth_providers, provider)
         token = await _exchange_oauth_token(oauth_client, request, provider)
-        user_create = await oauth_providers.get_user_info(provider, token)
-        return _create_user_session(user_create, db_session, jwt_service)
+        return await _process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
     except HTTPException:
         db_session.rollback()
         raise
-    except ValueError as e:
-        db_session.rollback()
-        raise OAuthError("Invalid OAuth configuration or token", provider) from e
     except Exception as e:
         db_session.rollback()
         raise create_error_response(
@@ -200,10 +187,13 @@ async def get_current_user_profile(
 @router.post("/refresh")
 async def refresh_token(
     request_data: RefreshTokenRequest,
+    request: Request,
     db_session: Annotated[DBSession, Depends(get_database_session)],
     jwt_service: Annotated[JWTService, Depends(get_jwt_service_with_refresh)],
 ):
     """Refresh access token using refresh token."""
+    rate_limit_middleware.check_refresh_token_rate_limit(request)
+
     try:
         refresh_token_service = RefreshTokenService(lambda: db_session)
         user_id = refresh_token_service.verify_refresh_token(request_data.refresh_token)

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -9,7 +10,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from jose import jwt
 
-from requirements_bot.api.auth import JWTService
+from requirements_bot.api.auth import JWTService, get_jwt_service
 
 
 class TestJWTTokens:
@@ -28,8 +29,6 @@ class TestJWTTokens:
         """Test JWT service initialization with short secret key."""
         # This test verifies initialization rejects short keys (handled by get_jwt_service function)
         with patch.dict(os.environ, {"JWT_SECRET_KEY": "short_key"}):
-            from requirements_bot.api.auth import get_jwt_service
-
             with pytest.raises(ValueError, match="JWT_SECRET_KEY must be at least 32 characters"):
                 get_jwt_service()
 
@@ -168,8 +167,6 @@ class TestAuthSecurity:
         valid_token = service.create_access_token(user_id, "test@example.com")
 
         # Try to modify it to use algorithm 'none' - this should fail verification
-        import base64
-
         header, payload, signature = valid_token.split(".")
 
         # Create malicious header with 'none' algorithm

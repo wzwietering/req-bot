@@ -20,6 +20,7 @@ from requirements_bot.api.exceptions import (
     SessionNotFoundAPIException,
     ValidationException,
 )
+from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.storage import (
     SessionDeleteError,
     SessionLoadError,
@@ -163,6 +164,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, jwt_service):
         super().__init__(app)
         self.jwt_service = jwt_service
+        self.cookie_config = SessionCookieConfig()
         # Public routes that don't require authentication
         self.public_routes = {
             "/api/v1/auth/login",
@@ -178,11 +180,15 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         """Check authentication for protected routes."""
         # Skip authentication for public routes
         if self._is_public_route(request.url.path):
-            return await call_next(request)
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
 
         # Skip authentication for preflight requests
         if request.method == "OPTIONS":
-            return await call_next(request)
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
 
         try:
             # Extract and validate token
@@ -193,7 +199,9 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             request.state.user_id = user_info["user_id"]
             request.state.user_email = user_info["email"]
 
-            return await call_next(request)
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
 
         except Exception as exc:
             return self._create_auth_error_response(str(exc))
@@ -216,7 +224,15 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         except ValueError:
             raise Exception("Invalid Authorization header format")
 
+    def _add_security_headers(self, response: Response) -> None:
+        """Add security headers to response."""
+        security_headers = self.cookie_config.get_response_headers()
+        for header, value in security_headers.items():
+            response.headers[header] = value
+
     def _create_auth_error_response(self, message: str) -> JSONResponse:
         """Create authentication error response."""
         content = {"error": "AuthenticationError", "message": message, "details": None}
-        return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content=content, headers={"WWW-Authenticate": "Bearer"})
+        headers = {"WWW-Authenticate": "Bearer"}
+        headers.update(self.cookie_config.get_response_headers())
+        return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content=content, headers=headers)

@@ -2,6 +2,7 @@ import uuid
 
 from requirements_bot.core.constants import CLI_USER_ID
 from requirements_bot.core.conversation_state import ConversationState
+from requirements_bot.core.document import write_document
 from requirements_bot.core.io_interface import IOInterface
 from requirements_bot.core.models import Session
 from requirements_bot.core.services.question_service import QuestionService
@@ -295,8 +296,6 @@ class SessionService:
         Returns:
             str: Path where the document was written
         """
-        from requirements_bot.core.document import write_document
-
         path = write_document(session, path=output_path)
         io.print_success(f"Requirements written to {path}")
         io.print_info(f"Session saved as {session.id}")

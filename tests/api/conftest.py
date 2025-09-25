@@ -2,6 +2,8 @@
 
 import logging
 import os
+import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -13,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from requirements_bot.api.dependencies import get_current_user_id, get_storage
+from requirements_bot.api.main import app
 from requirements_bot.core.models import UserCreate
 from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import DatabaseManager
@@ -49,9 +52,6 @@ def get_test_user_id() -> str:
 def test_db():
     """Create a temporary database for testing."""
     # Create unique temporary database file in the current directory (project root)
-    import threading
-    import time
-
     db_path = Path(f"test_{int(time.time() * 1000)}_{threading.get_ident()}_{uuid.uuid4().hex[:8]}.db")
 
     # Set environment variable for the test database
@@ -93,9 +93,6 @@ def test_db():
 @pytest.fixture(scope="function")
 def client(test_db):
     """Create a test client with isolated database."""
-    # Import app after environment is set up
-    from requirements_bot.api.main import app
-
     # Store original dependency overrides to restore later
     original_overrides = app.dependency_overrides.copy()
 

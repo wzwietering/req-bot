@@ -19,14 +19,18 @@ class Provider:
             )
 
         vendor, model = model_id.split(":", 1)
-        if vendor == "openai":
-            from . import openai as impl
-        elif vendor == "anthropic":
-            from . import anthropic as impl
-        elif vendor == "google":
-            from . import google as impl
-        else:
+
+        # Import mapping to avoid inline imports
+        provider_map = {
+            "openai": lambda: __import__("requirements_bot.providers.openai", fromlist=["ProviderImpl"]),
+            "anthropic": lambda: __import__("requirements_bot.providers.anthropic", fromlist=["ProviderImpl"]),
+            "google": lambda: __import__("requirements_bot.providers.google", fromlist=["ProviderImpl"]),
+        }
+
+        if vendor not in provider_map:
             raise ValueError(f"Unknown provider '{vendor}'")
+
+        impl = provider_map[vendor]()
         return impl.ProviderImpl(model)
 
     def generate_questions(self, project: str, seed_questions: list[Question]) -> list[Question]: ...
