@@ -1,3 +1,4 @@
+import copy
 import threading
 from datetime import UTC, datetime
 
@@ -18,8 +19,6 @@ class MemoryStorage(StorageInterface):
         with self._lock:
             session.updated_at = datetime.now(UTC)
             # Deep copy to avoid external mutations
-            import copy
-
             self._sessions[session.id] = copy.deepcopy(session)
             return session.id
 
@@ -29,8 +28,6 @@ class MemoryStorage(StorageInterface):
             session = self._sessions.get(session_id)
             if session:
                 # Return a deep copy to avoid external mutations
-                import copy
-
                 return copy.deepcopy(session)
             return None
 

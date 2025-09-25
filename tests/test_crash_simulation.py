@@ -59,6 +59,7 @@ class TestCrashSimulation:
             Question(id="q2", text="Who are the users?", category="users"),
         ]
         return Session(
+            user_id="test-user-id",
             project="Test Project",
             questions=questions,
             answers=[],
@@ -168,8 +169,8 @@ class TestCrashSimulation:
 
     def test_concurrent_access_during_crash(self, state_manager, mock_storage):
         """Test that concurrent access during crashes is handled safely."""
-        session1 = Session(project="Project 1", questions=[], answers=[])
-        session2 = Session(project="Project 2", questions=[], answers=[])
+        session1 = Session(user_id="test-user-id-1", project="Project 1", questions=[], answers=[])
+        session2 = Session(user_id="test-user-id-2", project="Project 2", questions=[], answers=[])
 
         def transition_with_delay(session, state):
             time.sleep(0.1)  # Simulate processing time

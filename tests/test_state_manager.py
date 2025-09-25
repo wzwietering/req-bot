@@ -24,6 +24,7 @@ class TestConversationStateManager:
     @pytest.fixture
     def sample_session(self):
         return Session(
+            user_id="test-user-id",
             project="Test Project",
             questions=[],
             answers=[],

@@ -6,10 +6,22 @@ from typing import Any
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, func, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
+from requirements_bot.core.database_models import (
+    AnswerTable as Answer,
+)
+from requirements_bot.core.database_models import (
+    QuestionTable as Question,
+)
+from requirements_bot.core.database_models import (
+    RequirementTable as Requirement,
+)
+from requirements_bot.core.database_models import (
+    SessionTable as SessionModel,
+)
 from requirements_bot.core.database_models import enable_sqlite_foreign_keys
 
 logger = logging.getLogger(__name__)
@@ -138,21 +150,6 @@ class MigrationManager:
                 # Use SQLAlchemy ORM queries instead of raw SQL to prevent injection
                 # These queries are built using the ORM, making them safe from SQL injection
                 try:
-                    from sqlalchemy import func
-
-                    from requirements_bot.core.database_models import (
-                        AnswerTable as Answer,
-                    )
-                    from requirements_bot.core.database_models import (
-                        QuestionTable as Question,
-                    )
-                    from requirements_bot.core.database_models import (
-                        RequirementTable as Requirement,
-                    )
-                    from requirements_bot.core.database_models import (
-                        SessionTable as SessionModel,
-                    )
-
                     # Check for orphaned questions
                     orphaned_questions = (
                         session.query(func.count(Question.id))

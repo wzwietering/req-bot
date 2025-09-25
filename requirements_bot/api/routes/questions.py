@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from requirements_bot.api.dependencies import (
+    get_current_user_id,
     get_session_answer_service,
     get_session_service,
     get_validated_session_id,
@@ -25,10 +26,11 @@ async def continue_session(
     session_id: Annotated[str, Depends(get_validated_session_id)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
     answer_service: Annotated[SessionAnswerService, Depends(get_session_answer_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> SessionContinueResponse:
     """Continue or resume a session to get the next question."""
     try:
-        session = session_service.load_session_with_validation(session_id)
+        session = session_service.load_session_with_validation(session_id, user_id)
 
         if session.conversation_complete:
             response_data = SessionResponseBuilder.build_session_continue_response(session, None, True)
@@ -66,10 +68,11 @@ async def submit_answer(
     request: QuestionAnswerRequest,
     session_service: Annotated[SessionService, Depends(get_session_service)],
     answer_service: Annotated[SessionAnswerService, Depends(get_session_answer_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> AnswerSubmissionResponse:
     """Submit an answer to the current question."""
     try:
-        session = session_service.load_session_with_validation(session_id)
+        session = session_service.load_session_with_validation(session_id, user_id)
         _validate_session_for_answer(session, session_id)
 
         current_question = _get_and_validate_current_question(session, answer_service)
@@ -94,10 +97,11 @@ async def get_current_question_endpoint(
     session_id: Annotated[str, Depends(get_validated_session_id)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
     answer_service: Annotated[SessionAnswerService, Depends(get_session_answer_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ):
     """Get the current question for a session."""
     try:
-        session = session_service.load_session_with_validation(session_id)
+        session = session_service.load_session_with_validation(session_id, user_id)
 
         if session.conversation_complete:
             return {"current_question": None, "conversation_complete": True}
@@ -127,10 +131,11 @@ async def get_session_status(
     session_id: Annotated[str, Depends(get_validated_session_id)],
     answer_service: Annotated[SessionAnswerService, Depends(get_session_answer_service)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> SessionStatusResponse:
     """Get the current status and progress of a session."""
     try:
-        session = session_service.load_session_with_validation(session_id)
+        session = session_service.load_session_with_validation(session_id, user_id)
 
         progress_data = session_service.get_session_progress(session)
         current_question = _get_current_question_if_active(session, answer_service)

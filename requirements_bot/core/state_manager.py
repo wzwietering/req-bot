@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import UTC, datetime
 
 from requirements_bot.core.conversation_state import (
@@ -123,8 +124,6 @@ class ConversationStateManager:
 
     def _save_with_retry(self, session: Session, state: ConversationState, max_retries: int = 3) -> None:
         """Save session state with retry logic for better reliability."""
-        import time
-
         for attempt in range(max_retries):
             try:
                 with span(

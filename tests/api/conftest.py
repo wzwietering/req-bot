@@ -2,26 +2,56 @@
 
 import logging
 import os
+import threading
+import time
 import uuid
 from pathlib import Path
+
+# Set up test environment variables before any other imports
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-with-at-least-32-characters-for-testing")
+os.environ.setdefault("ENVIRONMENT", "test")
 
 import pytest
 from fastapi.testclient import TestClient
 
-from requirements_bot.api.dependencies import get_storage
+from requirements_bot.api.dependencies import get_current_user_id, get_storage
 from requirements_bot.api.main import app
+from requirements_bot.core.models import UserCreate
+from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import DatabaseManager
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def validate_test_environment():
+    """Validate test environment setup."""
+    jwt_secret = os.environ.get("JWT_SECRET_KEY")
+    if not jwt_secret or len(jwt_secret) < 32:
+        pytest.fail("JWT_SECRET_KEY must be at least 32 characters for testing")
+
+    # Ensure we're in test mode
+    assert os.environ.get("ENVIRONMENT") == "test", "Tests must run in test environment"
+
+    logger.info("Test environment validation passed")
+
+
+# Global variable to store the test user ID
+_test_user_id = None
+
+
+def get_test_user_id() -> str:
+    """Override for get_current_user_id dependency in tests."""
+    global _test_user_id
+    if _test_user_id is None:
+        raise RuntimeError("Test user not created yet")
+    return _test_user_id
 
 
 @pytest.fixture(scope="function")
 def test_db():
     """Create a temporary database for testing."""
     # Create unique temporary database file in the current directory (project root)
-    import threading
-    import time
-
     db_path = Path(f"test_{int(time.time() * 1000)}_{threading.get_ident()}_{uuid.uuid4().hex[:8]}.db")
 
     # Set environment variable for the test database
@@ -63,8 +93,34 @@ def test_db():
 @pytest.fixture(scope="function")
 def client(test_db):
     """Create a test client with isolated database."""
+    # Store original dependency overrides to restore later
+    original_overrides = app.dependency_overrides.copy()
+
+    # Override the authentication dependency for tests
+    app.dependency_overrides[get_current_user_id] = get_test_user_id
+
+    # Create a test user in the database to satisfy foreign key constraints
+    global _test_user_id
+    db_manager = DatabaseManager(db_path=test_db)
+    db_session = db_manager.SessionLocal()
+    try:
+        user_service = UserService(db_session)
+        test_user = UserCreate(
+            email="test@example.com", provider="google", provider_id="test-provider-id-123", name="Test User"
+        )
+        created_user = user_service.create_user(test_user)
+        _test_user_id = created_user.id
+        db_session.commit()
+    finally:
+        db_session.close()
+
     with TestClient(app) as test_client:
         yield test_client
+
+    # Restore original dependency overrides
+    app.dependency_overrides.clear()
+    app.dependency_overrides.update(original_overrides)
+    _test_user_id = None
 
 
 @pytest.fixture

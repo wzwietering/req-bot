@@ -48,6 +48,7 @@ class TestQuestionGenerationService:
     def sample_session_assessing_completeness(self):
         """Create a session in ASSESSING_COMPLETENESS state - the problematic state."""
         return Session(
+            user_id="test-user-id",
             project="Test Project",
             questions=[],
             answers=[],

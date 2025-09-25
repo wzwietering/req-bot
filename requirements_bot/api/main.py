@@ -1,11 +1,15 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from requirements_bot.api.dependencies import get_jwt_service_with_refresh
+from requirements_bot.api.error_responses import ErrorDetail
 from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
-from requirements_bot.api.middleware import ExceptionHandlingMiddleware
-from requirements_bot.api.routes import questions, sessions
+from requirements_bot.api.middleware import AuthenticationMiddleware, ExceptionHandlingMiddleware
+from requirements_bot.api.routes import auth, questions, sessions
 
 app = FastAPI(
     title="Requirements Bot API",
@@ -13,17 +17,25 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Configure CORS for production
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Restrict to specific origins
-    allow_credentials=False,  # Disable until authentication is implemented
-    allow_methods=["GET", "POST", "DELETE"],  # Only allow necessary methods
-    allow_headers=["Content-Type"],  # Restrict headers
+    allow_origins=allowed_origins,  # Configurable origins for production
+    allow_credentials=True,  # Enable for authentication
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Standard REST methods
+    allow_headers=["Content-Type", "Authorization"],  # Required headers for auth
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
+
+# Add authentication middleware (before exception handling)
+app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service_with_refresh())
 
 # Add unified exception handling middleware
 app.add_middleware(ExceptionHandlingMiddleware)
 
+app.include_router(auth.router, prefix="/api/v1", tags=["authentication"])
 app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
 app.include_router(questions.router, prefix="/api/v1", tags=["questions"])
 
@@ -39,9 +51,19 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
 # Exception handler for Pydantic request validation errors
 @app.exception_handler(RequestValidationError)
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    details = []
+    for error in exc.errors():
+        field = ".".join(str(x) for x in error["loc"])
+        details.append(ErrorDetail(type="validation", message=error["msg"], field=field))
+
     return JSONResponse(
         status_code=422,
-        content={"error": "ValidationError", "message": "Request validation failed", "details": str(exc)},
+        content={
+            "error": "validation_failed",
+            "message": "Request validation failed",
+            "details": [detail.dict() for detail in details],
+            "status_code": 422,
+        },
     )
 
 

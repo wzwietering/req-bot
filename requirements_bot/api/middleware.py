@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.status import (
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
     HTTP_404_NOT_FOUND,
     HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -19,6 +20,7 @@ from requirements_bot.api.exceptions import (
     SessionNotFoundAPIException,
     ValidationException,
 )
+from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.storage import (
     SessionDeleteError,
     SessionLoadError,
@@ -154,3 +156,83 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
         """Create a consistent error response format."""
         content = {"error": error, "message": message, "details": details}
         return JSONResponse(status_code=status_code, content=content)
+
+
+class AuthenticationMiddleware(BaseHTTPMiddleware):
+    """Middleware for JWT token authentication."""
+
+    def __init__(self, app, jwt_service):
+        super().__init__(app)
+        self.jwt_service = jwt_service
+        self.cookie_config = SessionCookieConfig()
+        # Public routes that don't require authentication
+        self.public_routes = {
+            "/api/v1/auth/login",
+            "/api/v1/auth/callback",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/",
+            "/health",
+        }
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Check authentication for protected routes."""
+        # Skip authentication for public routes
+        if self._is_public_route(request.url.path):
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
+
+        # Skip authentication for preflight requests
+        if request.method == "OPTIONS":
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
+
+        try:
+            # Extract and validate token
+            token = self._extract_token(request)
+            user_info = self.jwt_service.verify_token(token)
+
+            # Add user info to request state
+            request.state.user_id = user_info["user_id"]
+            request.state.user_email = user_info["email"]
+
+            response = await call_next(request)
+            self._add_security_headers(response)
+            return response
+
+        except Exception as exc:
+            return self._create_auth_error_response(str(exc))
+
+    def _is_public_route(self, path: str) -> bool:
+        """Check if route is public and doesn't require authentication."""
+        return any(path.startswith(route) for route in self.public_routes)
+
+    def _extract_token(self, request: Request) -> str:
+        """Extract JWT token from Authorization header."""
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            raise Exception("Missing Authorization header")
+
+        try:
+            scheme, token = authorization.split(" ", 1)
+            if scheme.lower() != "bearer":
+                raise Exception("Invalid authentication scheme")
+            return token
+        except ValueError:
+            raise Exception("Invalid Authorization header format")
+
+    def _add_security_headers(self, response: Response) -> None:
+        """Add security headers to response."""
+        security_headers = self.cookie_config.get_response_headers()
+        for header, value in security_headers.items():
+            response.headers[header] = value
+
+    def _create_auth_error_response(self, message: str) -> JSONResponse:
+        """Create authentication error response."""
+        content = {"error": "AuthenticationError", "message": message, "details": None}
+        headers = {"WWW-Authenticate": "Bearer"}
+        headers.update(self.cookie_config.get_response_headers())
+        return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content=content, headers=headers)

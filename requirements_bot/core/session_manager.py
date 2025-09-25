@@ -1,6 +1,8 @@
 import logging
 import random
+import time
 
+from requirements_bot.core.constants import CLI_USER_ID
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.logging import (
     get_run_id,
@@ -57,6 +59,7 @@ class SessionManager:
     def create_new_session(self, project: str, questions: list[Question], mode: str) -> Session:
         session = Session(
             project=project,
+            user_id=CLI_USER_ID,
             questions=questions,
             answers=[],
             requirements=[],
@@ -85,8 +88,6 @@ class SessionManager:
 
     def _save_with_retry(self, session: Session, is_final: bool, max_retries: int = 3) -> None:
         """Save session with retry logic for better reliability."""
-        import time
-
         for attempt in range(max_retries):
             try:
                 with span(

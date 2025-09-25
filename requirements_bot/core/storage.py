@@ -240,6 +240,67 @@ class DatabaseManager(StorageInterface):
                 except Exception as e:
                     raise StorageError(f"Failed to get session summaries: {str(e)}") from e
 
+    def get_session_summaries_for_user(
+        self, user_id: str
+    ) -> list[tuple[str, str, str, bool, int, int, int, datetime, datetime]]:
+        """Get session summaries for a specific user.
+
+        Args:
+            user_id: ID of the user to filter sessions for
+
+        Returns: List of tuples containing (id, project, conversation_state, conversation_complete,
+                questions_count, answers_count, requirements_count, created_at, updated_at)
+        """
+        with span(
+            "db.get_session_summaries_for_user",
+            component="db",
+            operation="get_session_summaries_for_user",
+            user_id=user_id,
+            db_engine="sqlite",
+            db_path=Path(self.db_path).name,
+        ):
+            with self.SessionLocal() as db_session:
+                try:
+                    # Single query with left joins and aggregations, filtered by user
+                    query = (
+                        select(
+                            SessionTable.id,
+                            SessionTable.project,
+                            SessionTable.conversation_state,
+                            SessionTable.conversation_complete,
+                            func.count(func.distinct(QuestionTable.id)).label("questions_count"),
+                            func.count(func.distinct(AnswerTable.id)).label("answers_count"),
+                            func.count(func.distinct(RequirementTable.id)).label("requirements_count"),
+                            SessionTable.created_at,
+                            SessionTable.updated_at,
+                        )
+                        .outerjoin(QuestionTable, SessionTable.id == QuestionTable.session_id)
+                        .outerjoin(AnswerTable, SessionTable.id == AnswerTable.session_id)
+                        .outerjoin(RequirementTable, SessionTable.id == RequirementTable.session_id)
+                        .where(SessionTable.user_id == user_id)
+                        .group_by(SessionTable.id)
+                        .order_by(SessionTable.updated_at.desc())
+                    )
+
+                    result = db_session.execute(query).all()
+                    return [
+                        (
+                            row.id,
+                            row.project,
+                            row.conversation_state,
+                            row.conversation_complete,
+                            row.questions_count,
+                            row.answers_count,
+                            row.requirements_count,
+                            row.created_at,
+                            row.updated_at,
+                        )
+                        for row in result
+                    ]
+
+                except Exception as e:
+                    raise StorageError(f"Failed to get session summaries for user {user_id}: {str(e)}") from e
+
     def delete_session(self, session_id: str) -> bool:
         """Delete a session from the database. Returns True if deleted, False if not found."""
         session_id = self._validate_session_id(session_id)

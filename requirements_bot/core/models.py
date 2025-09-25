@@ -2,9 +2,37 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from requirements_bot.core.conversation_state import ConversationState, StateContext
+
+
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    email: EmailStr
+    provider: Literal["google", "github", "microsoft"]
+    provider_id: str
+    name: str | None = None
+    avatar_url: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    provider: Literal["google", "github", "microsoft"]
+    provider_id: str
+    name: str | None = None
+    avatar_url: str | None = None
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: EmailStr
+    provider: str
+    name: str | None = None
+    avatar_url: str | None = None
+    created_at: datetime
 
 
 class Question(BaseModel):
@@ -54,6 +82,7 @@ class Requirement(BaseModel):
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
+    user_id: str
     project: str
     questions: list[Question]
     answers: list[Answer] = []

@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import logging
 import os
@@ -839,8 +840,6 @@ class TestEdgeCasesAndErrorScenarios:
 
     def test_concurrent_context_variable_access(self):
         """Test context variables behave correctly under concurrent access."""
-        import concurrent.futures
-
         with clean_logging_context():
             results = {}
 
