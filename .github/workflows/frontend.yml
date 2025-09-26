@@ -1,0 +1,174 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'apps/frontend/**'
+      - 'packages/shared-types/**'
+      - 'apps/backend/requirements_bot/api/**'
+      - 'tools/scripts/generate-types.sh'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'apps/frontend/**'
+      - 'packages/shared-types/**'
+      - 'apps/backend/requirements_bot/api/**'
+      - 'tools/scripts/generate-types.sh'
+      - '.github/workflows/frontend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-types:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: sqlite:///./test.db
+      JWT_SECRET_KEY: test-secret-key-for-ci-32-characters-minimum
+      OAUTH_CLIENT_ID: test-client-id
+      OAUTH_CLIENT_SECRET: test-client-secret
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: "2.1.4"
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Install backend dependencies
+      working-directory: ./apps/backend
+      run: poetry install --no-interaction
+
+    - name: Install root dependencies
+      run: npm install
+
+    - name: Generate TypeScript types
+      run: npm run generate:types
+
+    - name: Upload generated types
+      uses: actions/upload-artifact@v3
+      with:
+        name: generated-types
+        path: packages/shared-types/api.ts
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    needs: generate-types
+
+    defaults:
+      run:
+        working-directory: ./apps/frontend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Download generated types
+      uses: actions/download-artifact@v3
+      with:
+        name: generated-types
+        path: packages/shared-types/
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Type check
+      run: npm run type-check
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Build application
+      run: npm run build
+
+    - name: Upload build artifacts
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: ./apps/frontend/.next/
+
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: [generate-types, test-frontend]
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: "2.1.4"
+
+    - name: Install backend dependencies
+      working-directory: ./apps/backend
+      run: poetry install --no-interaction
+
+    - name: Install root dependencies
+      run: npm install
+
+    - name: Download generated types
+      uses: actions/download-artifact@v3
+      with:
+        name: generated-types
+        path: packages/shared-types/
+
+    - name: Install frontend dependencies
+      working-directory: ./apps/frontend
+      run: npm install
+
+    - name: Run integration test (start backend and build frontend)
+      run: |
+        cd apps/backend
+        export DATABASE_URL=sqlite:///./test.db
+        export JWT_SECRET_KEY=test-secret-key-for-ci-32-characters-minimum
+        export OAUTH_CLIENT_ID=test-client-id
+        export OAUTH_CLIENT_SECRET=test-client-secret
+        poetry run alembic upgrade head
+        poetry run python requirements_bot/api_server.py &
+        BACKEND_PID=$!
+        sleep 5
+
+        # Test that backend is responding
+        curl -f http://localhost:8000/health || exit 1
+
+        # Build frontend (this validates types work)
+        cd ../frontend
+        npm run build
+
+        # Clean up
+        kill $BACKEND_PID

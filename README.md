@@ -2,14 +2,21 @@
 
 [![codecov](https://codecov.io/gh/wzwietering/req-bot/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/req-bot)
 
-A console assistant for gathering software requirements through interactive interviews with AI-powered analysis.
+A modern monorepo containing both a FastAPI backend for AI-powered requirements gathering and a Next.js frontend for web-based interactions.
 
 ## Overview
 
-Requirements Bot helps software teams and developers gather comprehensive requirements for new projects through structured, AI-powered interviews. It supports multiple AI providers (Anthropic Claude, OpenAI, Google Gemini) and generates requirements documents in Markdown format.
+Requirements Bot helps software teams and developers gather comprehensive requirements for new projects through structured, AI-powered interviews. The system consists of:
+
+- **Backend** (`apps/backend/`): FastAPI application with OAuth authentication, AI provider integrations, and comprehensive API
+- **Frontend** (`apps/frontend/`): Next.js web application with modern React, TypeScript, and Tailwind CSS
+- **Shared Types** (`packages/shared-types/`): Auto-generated TypeScript types from the FastAPI OpenAPI specification
+
+The system supports multiple AI providers (Anthropic Claude, OpenAI, Google Gemini) and can be used both programmatically via API and through the web interface.
 
 ## Features
 
+### Core Functionality
 - **Interactive Interviews**: Two interview modes: structured and conversational
 - **Multi-Provider Support**: Works with Anthropic Claude, OpenAI, and Google Gemini models
 - **Intelligent Follow-ups**: AI analyzes answers and generates relevant follow-up questions
@@ -17,102 +24,142 @@ Requirements Bot helps software teams and developers gather comprehensive requir
 - **Persistent Storage**: SQLite database storage for session persistence and retrieval
 - **Session Management**: Save, load, list, and delete interview sessions
 - **Structured Output**: Generates professional requirements documents in Markdown
-- **Question Categories**: Organizes questions by scope, users, constraints, non-functional requirements, interfaces, data, risks, and success metrics
 
-## Installation
+### Technical Features
+- **OAuth Authentication**: Google OAuth integration with JWT tokens and refresh token support
+- **RESTful API**: Comprehensive FastAPI backend with OpenAPI documentation
+- **Type Safety**: Auto-generated TypeScript types shared between backend and frontend
+- **Modern Frontend**: Next.js 15+ with App Router, React 19, and Tailwind CSS 4+
+- **Development Experience**: Hot reloading, concurrent development, and comprehensive tooling
+- **CI/CD Ready**: Separate workflows for backend and frontend with proper testing
+
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.11 or higher
-- Poetry (recommended) or pip
+- **Node.js** 18.0.0 or higher
+- **Python** 3.11 or higher
+- **Poetry** 2.1.4 or higher
+- **npm** 8.0.0 or higher
 
-### Using Poetry
+### Installation
 
 ```bash
-git clone <repository-url>
+# Clone and setup everything
+git clone https://github.com/wzwietering/req-bot.git
 cd req-bot
+
+# Install all dependencies (backend + frontend)
+npm run setup
+
+# Start development servers (both backend and frontend)
+npm run dev
+```
+
+This will start:
+- **Backend API** at `http://localhost:8000` (with docs at `/docs`)
+- **Frontend Web App** at `http://localhost:3000`
+
+### Legacy CLI Usage (Backend Only)
+
+For command-line usage without the web interface:
+
+```bash
+cd apps/backend
 poetry install
+
+# Run interactive requirements gathering
+poetry run python -m requirements_bot.cli conversational --project "My Project"
 ```
 
-### Using pip
+## Development
+
+For detailed development setup and contributing guidelines, see:
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Complete development guide
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Code standards and contribution process
+
+### Available Scripts
 
 ```bash
-git clone <repository-url>
-cd req-bot
-pip install -e .
+npm run dev              # Start both backend and frontend
+npm run build            # Build all applications
+npm run test             # Run all tests
+npm run lint             # Lint all code
+npm run type-check       # Type check all TypeScript
+npm run generate:types   # Generate types from backend API
 ```
 
-### Database Setup
+### Project Structure
 
-Requirements Bot uses SQLite for persistent storage with Alembic-based migration support. The database will be created automatically on first use with the latest schema.
-
-#### Database Migration Management
-
-The system includes a migration framework for schema evolution:
-
-```bash
-# Initialize/upgrade database to latest schema
-alembic upgrade head
-
-# Check current migration status
-alembic current
-
-# View migration history
-alembic history --verbose
-
-# Create new migration after model changes
-alembic revision --autogenerate -m "Description of changes"
-
-# Rollback to previous migration (if needed)
-alembic downgrade -1
+```
+req-bot/
+├── apps/
+│   ├── backend/          # FastAPI Python application
+│   └── frontend/         # Next.js React application
+├── packages/
+│   └── shared-types/     # Auto-generated TypeScript types
+├── tools/
+│   └── scripts/          # Development and build scripts
+└── .github/workflows/    # CI/CD configurations
 ```
 
 ## Environment Variables
 
-You'll need API keys for the AI providers you want to use:
-
-| Variable | Provider | Required | Description |
-|----------|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Anthropic Claude | Optional | API key from <https://console.anthropic.com> |
-| `OPENAI_API_KEY` | OpenAI | Optional | API key from <https://platform.openai.com> |
-| `GEMINI_API_KEY` | Google Gemini | Optional | API key from Google AI Studio |
-
-**Note**: You only need to set the API key for the provider you intend to use.
-
-### Setting Environment Variables
-
-**Linux/macOS:**
-
+### Backend Configuration
+Create `apps/backend/.env`:
 ```bash
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
-export OPENAI_API_KEY="your-openai-api-key"
-export GEMINI_API_KEY="your-gemini-api-key"
+# AI Provider Keys (choose one or more)
+ANTHROPIC_API_KEY=your-anthropic-api-key
+OPENAI_API_KEY=your-openai-api-key
+GEMINI_API_KEY=your-gemini-api-key
+
+# OAuth Configuration
+OAUTH_CLIENT_ID=your-google-oauth-client-id
+OAUTH_CLIENT_SECRET=your-google-oauth-client-secret
+
+# JWT Configuration
+JWT_SECRET_KEY=your-super-secret-jwt-key-32-characters-minimum
+
+# Database (optional - defaults to SQLite)
+DATABASE_URL=sqlite:///./requirements_bot.db
 ```
 
-**Windows:**
-
-```cmd
-set ANTHROPIC_API_KEY=your-anthropic-api-key
-set OPENAI_API_KEY=your-openai-api-key
-set GEMINI_API_KEY=your-gemini-api-key
+### Frontend Configuration
+Create `apps/frontend/.env.local`:
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-## Usage
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed environment setup.
+
+## API Documentation
+
+When running the backend, API documentation is available at:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+- **OpenAPI JSON**: `http://localhost:8000/openapi.json`
+
+## Legacy CLI Usage
+
+The original CLI interface is still available for direct command-line usage. See the [Legacy CLI Documentation](#legacy-cli-documentation) section below for details.
+
+---
+
+## Legacy CLI Documentation
+
+<details>
+<summary>Click to expand original CLI documentation</summary>
+
+### Command Usage
 
 Requirements Bot provides two main commands:
 
-### Basic Interview Mode
-
-Runs a structured interview with a fixed set of questions:
-
+#### Basic Interview Mode
 ```bash
 python -m requirements_bot.cli interview --project "My Web App" --out "requirements.md" --model "anthropic:claude-3-haiku-20240307"
 ```
 
-### Conversational Interview Mode (Recommended)
-
-Runs an intelligent conversational interview with follow-up questions and automatic completeness assessment:
-
+#### Conversational Interview Mode (Recommended)
 ```bash
 python -m requirements_bot.cli conversational --project "My Web App" --out "requirements.md" --model "anthropic:claude-3-haiku-20240307" --max-questions 25
 ```
@@ -120,27 +167,15 @@ python -m requirements_bot.cli conversational --project "My Web App" --out "requ
 ### Command Options
 
 #### Common Options
-
 - `--project`: Project name/title (required, will prompt if not provided)
 - `--out`: Output file path (default: "requirements.md")
 - `--model`: AI provider and model identifier (default: "anthropic:claude-3-haiku-20240307")
 - `--db-path`: Database file path (default: "requirements_bot.db")
 
 #### Conversational Mode Options
-
 - `--max-questions`: Maximum number of questions to ask (default: 25)
 
-### Session Management
-
-Requirements Bot automatically saves interview sessions to a SQLite database. Sessions persist between runs and can be resumed or referenced later. The simplified database schema includes:
-
-- **Sessions**: Core interview metadata and completion status
-- **Questions**: All questions asked during interviews with categories
-- **Answers**: User responses with basic analysis flags
-- **Requirements**: Generated requirements with priorities
-
-## Example Session
-
+### Example Session
 ```bash
 $ python -m requirements_bot.cli conversational --project "E-commerce Mobile App"
 
@@ -165,91 +200,16 @@ I'll ask questions to understand your requirements. I may ask follow-up question
 Requirements written to requirements.md
 ```
 
-## Output Format
+### Output Format
 
 The tool generates a structured Markdown document with:
-
 - **Project Description**: Overview of the project
 - **Questions and Answers**: Organized by category (scope, users, constraints, etc.)
 - **Requirements**: Prioritized list of MUST/SHOULD/COULD requirements with rationale
 
-Example output structure:
-
-```markdown
-# Requirements Document
-
-## Project Description
-E-commerce Mobile App
-
-## Questions and Answers
-
-### Scope
-**Q: What problem are we solving?**
-A: We need a mobile app for our online store...
-
-### Users
-**Q: Who are the primary users and their key jobs?**
-A: Our customers who want to browse products...
-
-## Requirements
-
-### MUST Requirements
-**REQ-001: User Authentication**
-*Rationale: Essential for personalized shopping experience*
-
-### SHOULD Requirements
-**REQ-002: Push Notifications**
-*Rationale: Improves user engagement and retention*
-```
-
-## Architecture
-
-The project is structured with a modular provider system and simplified database management:
-
-- `requirements_bot/cli.py`: Command-line interface
-- `requirements_bot/core/`: Core business logic and models
-  - `database_models/`: Simplified SQLAlchemy ORM models
-  - `models.py`: Pydantic business models for validation
-  - `migration_manager.py`: Simple database migration management using Alembic
-  - `storage.py`: Database storage implementation
-  - `storage_interface.py`: Abstract storage interface
-  - `memory_storage.py`: In-memory storage for testing
-- `requirements_bot/providers/`: AI provider implementations
-  - `anthropic.py`: Anthropic Claude integration
-  - `openai.py`: OpenAI integration
-  - `google.py`: Google Gemini integration
-  - `base.py`: Abstract provider interface
-- `alembic/`: Database migration management
-
-## Logging and Observability
-
-Requirements Bot emits structured logs with correlation IDs to trace sessions and measure performance.
-
-- CLI flags available on all commands:
-  - `--log-level` (e.g., DEBUG, INFO)
-  - `--log-format` (`json` or `text`)
-  - `--log-file` (path to write logs; defaults to stdout)
-  - `--log-mask` (mask sensitive user inputs in logs)
-
-Environment variables: `REQBOT_LOG_LEVEL`, `REQBOT_LOG_FORMAT`, `REQBOT_LOG_FILE`, `REQBOT_LOG_MASK`.
-
-Each session’s `session_id` is used as the `trace_id`. Spans include `duration_ms`, `component`, and `operation` fields for easy aggregation.
-
-Generate a simple performance report from JSON logs:
-
-```bash
-python -m requirements_bot.cli logs-report --input reqbot.jsonl --top 20
-```
-
-This prints the slowest operations and summary statistics to help identify bottlenecks.
-
-- `versions/`: Migration scripts with version tracking
-- `tests/`: Comprehensive test suite including migration tests
-
-## Question Categories
+### Question Categories
 
 The bot organizes questions into eight key categories:
-
 1. **Scope**: Problem definition and solution boundaries
 2. **Users**: Target users and their needs
 3. **Constraints**: Platform, budget, timeline limitations
@@ -259,96 +219,4 @@ The bot organizes questions into eight key categories:
 7. **Risks**: Potential risks and unknowns
 8. **Success**: Success metrics and measurement criteria
 
-## Testing and Code Quality
-
-### Code Formatting and Linting
-
-This project uses [ruff](https://docs.astral.sh/ruff/) for code formatting and linting to maintain consistent code quality.
-
-**Pre-commit Hooks:**
-
-The project includes pre-commit hooks that automatically format and lint code before each commit:
-
-```bash
-# Install pre-commit hooks (one-time setup)
-poetry run pre-commit install
-
-# Pre-commit hooks will now run automatically on git commit
-git add .
-git commit -m "Your commit message"
-```
-
-**Manual Code Formatting:**
-
-```bash
-# Format all Python files
-poetry run ruff format .
-
-# Run linting with auto-fixes
-poetry run ruff check . --fix
-
-# Check formatting without making changes
-poetry run ruff format --check .
-
-# Run linting without making changes
-poetry run ruff check .
-```
-
-**Configuration:**
-
-Ruff is configured in `pyproject.toml` with:
-- Line length: 120 characters
-- Target Python version: 3.11+
-- Enabled rules: pycodestyle, pyflakes, isort, flake8-bugbear, comprehensions, pyupgrade
-- Automatic import sorting with `requirements_bot` as first-party package
-
-### Code Coverage
-
-This project monitors code coverage to ensure reliability and maintainability. The coverage badge on top shows current test coverage percentage.
-
-**Viewing Coverage Reports:**
-
-- **Online**: Click the coverage badge above to view detailed coverage reports on Codecov
-- **Local HTML Report**: `coverage run -m pytest && coverage html` then open `htmlcov/index.html`
-- **Terminal Report**: `coverage run -m pytest && coverage report`
-
-### Testing Strategy
-
-The project uses a testing approach with multiple test categories:
-
-**Test Categories:**
-
-- **Unit Tests**: Individual component testing with mocked dependencies
-- **Integration Tests**: End-to-end workflow testing with real database interactions
-- **Error Condition Tests**: Error handling and edge case coverage
-- **Concurrency Tests**: Thread safety validation for context variables
-- **Migration Tests**: Database schema evolution validation
-
-**Running Tests:**
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-coverage run -m pytest && coverage report
-
-# Run specific test categories
-pytest tests/test_storage.py
-pytest tests/test_logging.py
-pytest tests/test_migrations.py
-
-# Run tests with verbose output
-pytest -v
-
-# Run tests matching a pattern
-pytest -k "test_conversational"
-```
-
-**Test Quality Standards:**
-
-- All critical error conditions must be tested
-- Concurrent access patterns must be validated
-- Database operations must be tested with real SQLite
-- AI provider integrations tested with mocked responses
-- Test intention and expected output
+</details>
