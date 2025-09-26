@@ -1,0 +1,15 @@
+{
+  "name": "@req-bot/backend",
+  "version": "1.0.0",
+  "description": "FastAPI backend for Requirements Bot",
+  "private": true,
+  "scripts": {
+    "dev": "poetry run python requirements_bot/api_server.py --reload",
+    "start": "poetry run python requirements_bot/api_server.py",
+    "test": "poetry run pytest",
+    "lint": "poetry run ruff check .",
+    "format": "poetry run ruff format .",
+    "clean": "find . -type d -name __pycache__ -exec rm -rf {} + || true",
+    "install": "poetry install"
+  }
+}
