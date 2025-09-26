@@ -13,6 +13,7 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "turbo run format",
+    "type-check": "turbo run type-check",
     "clean": "turbo run clean",
     "generate:types": "turbo run generate:types",
     "dev:backend": "cd apps/backend && poetry run python requirements_bot/api_server.py --reload",

@@ -26,6 +26,10 @@
     "format": {
       "dependsOn": ["^build"]
     },
+    "type-check": {
+      "dependsOn": ["generate:types"],
+      "outputs": []
+    },
     "clean": {
       "cache": false
     }
