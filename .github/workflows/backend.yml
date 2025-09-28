@@ -61,6 +61,9 @@ jobs:
     - name: Install project
       run: poetry install --no-interaction
 
+    - name: Clean database before migrations
+      run: rm -f requirements_bot.db
+
     - name: Run database migrations
       run: poetry run alembic upgrade head
 

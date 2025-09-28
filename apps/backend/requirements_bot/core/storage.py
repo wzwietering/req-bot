@@ -3,7 +3,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, inspect, select
 from sqlalchemy.orm import joinedload, sessionmaker
 
 from .database_models import (
@@ -74,8 +74,13 @@ class DatabaseManager(StorageInterface):
         # Enable foreign key constraints for SQLite
         enable_sqlite_foreign_keys(self.engine)
 
-        # Create tables
-        Base.metadata.create_all(bind=self.engine)
+        # Only create tables if not managed by Alembic migrations
+        # Check if alembic_version table exists to determine if database is migration-managed
+        inspector = inspect(self.engine)
+        if "alembic_version" not in inspector.get_table_names():
+            # Database not managed by alembic, create tables directly
+            # This maintains backward compatibility for development/test scenarios
+            Base.metadata.create_all(bind=self.engine)
 
     def _validate_db_path(self, db_path: str) -> str:
         """Validate database path to prevent path traversal attacks."""
