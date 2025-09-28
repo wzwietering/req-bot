@@ -23,7 +23,6 @@ interface ProviderConfig {
 const providerConfig: Record<OAuthProvider, ProviderConfig> = {
   github: {
     name: 'GitHub',
-    // @ts-expect-error React 19 type compatibility with react-icons
     icon: FaGithub,
     bgColor: '#24292e',
     hoverColor: '#1a1e22',
@@ -31,7 +30,6 @@ const providerConfig: Record<OAuthProvider, ProviderConfig> = {
   },
   google: {
     name: 'Google',
-    // @ts-expect-error React 19 type compatibility with react-icons
     icon: FaGoogle,
     bgColor: '#ffffff',
     hoverColor: '#f8f9fa',
@@ -40,7 +38,6 @@ const providerConfig: Record<OAuthProvider, ProviderConfig> = {
   },
   microsoft: {
     name: 'Microsoft',
-    // @ts-expect-error React 19 type compatibility with react-icons
     icon: FaMicrosoft,
     bgColor: '#00BCF2',
     hoverColor: '#0099cc',
