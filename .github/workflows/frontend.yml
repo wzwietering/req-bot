@@ -158,6 +158,8 @@ jobs:
         export JWT_SECRET_KEY=test-secret-key-for-ci-32-characters-minimum
         export OAUTH_CLIENT_ID=test-client-id
         export OAUTH_CLIENT_SECRET=test-client-secret
+        # Clean database before migrations (tables may exist from generate-types step)
+        rm -f test.db
         poetry run alembic upgrade head
         poetry run python requirements_bot/api_server.py &
         BACKEND_PID=$!
