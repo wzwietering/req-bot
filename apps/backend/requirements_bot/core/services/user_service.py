@@ -11,7 +11,7 @@ class UserService:
 
     def create_user(self, user_create: UserCreate) -> User:
         """Create a new user or return existing user with same provider."""
-        existing_user = self.get_user_by_provider(user_create.provider, user_create.provider_id)
+        existing_user = self.get_user_by_provider_id(user_create.provider, user_create.provider_id)
         if existing_user:
             return existing_user
 
@@ -47,7 +47,7 @@ class UserService:
             return self._table_to_model(user_table)
         return None
 
-    def get_user_by_provider(self, provider: str, provider_id: str) -> User | None:
+    def get_user_by_provider_id(self, provider: str, provider_id: str) -> User | None:
         """Get user by OAuth provider and provider ID."""
         query = select(UserTable).where(UserTable.provider == provider, UserTable.provider_id == provider_id)
         user_table = self.db_session.execute(query).scalar_one_or_none()

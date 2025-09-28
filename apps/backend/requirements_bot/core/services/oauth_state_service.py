@@ -38,7 +38,15 @@ class OAuthStateService:
                     return False
 
                 # Check if state is not expired
-                if datetime.now(UTC) > oauth_state.expires_at:
+                # Handle timezone-aware/naive datetime comparison
+                current_time = datetime.now(UTC)
+                expires_at = oauth_state.expires_at
+
+                # If expires_at is timezone-naive, make it timezone-aware (assume UTC)
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=UTC)
+
+                if current_time > expires_at:
                     # Clean up expired state
                     db.delete(oauth_state)
                     db.commit()
@@ -53,7 +61,9 @@ class OAuthStateService:
         """Clean up expired OAuth states. Returns number of cleaned up states."""
         with self._lock:
             with self.db_session_factory() as db:
-                expired_states = db.query(OAuthStateTable).filter(OAuthStateTable.expires_at < datetime.now(UTC)).all()
+                # Get current time as timezone-naive for database comparison
+                current_time_naive = datetime.now(UTC).replace(tzinfo=None)
+                expired_states = db.query(OAuthStateTable).filter(OAuthStateTable.expires_at < current_time_naive).all()
 
                 count = len(expired_states)
                 for state in expired_states:

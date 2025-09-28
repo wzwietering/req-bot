@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 from requirements_bot.api.dependencies import get_jwt_service_with_refresh
 from requirements_bot.api.error_responses import ErrorDetail
@@ -16,6 +17,12 @@ app = FastAPI(
     description="HTTP API for the Requirements Bot - AI-powered requirements gathering tool",
     version="0.1.0",
 )
+
+# Add session middleware for OAuth state management
+session_secret = os.getenv("JWT_SECRET_KEY")
+if not session_secret:
+    raise ValueError("JWT_SECRET_KEY environment variable is required for session middleware")
+app.add_middleware(SessionMiddleware, secret_key=session_secret)
 
 # Configure CORS for production
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")

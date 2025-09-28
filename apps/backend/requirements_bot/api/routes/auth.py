@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -25,6 +26,8 @@ from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectCo
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
 from requirements_bot.core.services.user_registration_service import UserRegistrationService
 from requirements_bot.core.services.user_service import UserService
+
+logger = logging.getLogger(__name__)
 
 
 class RefreshTokenRequest(BaseModel):
@@ -153,7 +156,8 @@ async def oauth_callback(
         oauth_client = oauth_providers.get_provider(provider)
         _validate_oauth_callback(request, oauth_providers, provider)
         token = await _exchange_oauth_token(oauth_client, request, provider)
-        return await _process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
+        result = await _process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
+        return result
     except HTTPException:
         db_session.rollback()
         raise

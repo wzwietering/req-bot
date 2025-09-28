@@ -102,11 +102,14 @@ class OAuth2Providers:
         """Setup OAuth providers using validated configurations."""
         for provider_name in ["google", "github", "microsoft"]:
             try:
+                logger.debug(f"Attempting to configure OAuth provider: {provider_name}")
                 config = self._config_service.validate_provider_config(provider_name)
                 self._register_provider(provider_name, config)
                 logger.info(f"OAuth provider {provider_name} configured successfully")
             except ConfigValidationError as e:
                 logger.warning(f"OAuth provider {provider_name} not configured: {e}")
+            except Exception as e:
+                logger.error(f"Failed to setup OAuth provider {provider_name}: {type(e).__name__}")
 
     def _register_provider(self, provider_name: str, config):
         """Register a specific OAuth provider."""
@@ -155,17 +158,20 @@ class OAuth2Providers:
 
         if provider_name not in available_providers:
             if provider_name in ["google", "github", "microsoft"]:
+                logger.error(f"OAuth provider {provider_name} not properly configured")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"OAuth provider {provider_name} not properly configured",
                 )
             else:
+                logger.error(f"Unsupported OAuth provider: {provider_name}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported OAuth provider: {provider_name}"
                 )
 
         provider = getattr(self.oauth, provider_name, None)
         if provider is None:
+            logger.error(f"OAuth provider {provider_name} registration failed")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"OAuth provider {provider_name} registration failed",
@@ -191,7 +197,15 @@ class OAuth2Providers:
 
     async def _get_google_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.google
-        user_info = await provider.parse_id_token(token)
+        # Use userinfo endpoint instead of parsing ID token to avoid nonce requirement
+        resp = await provider.get("https://www.googleapis.com/oauth2/v2/userinfo", token=token)
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch user information from Google"
+            )
+
+        user_info = resp.json()
 
         return UserCreate(
             email=user_info["email"],

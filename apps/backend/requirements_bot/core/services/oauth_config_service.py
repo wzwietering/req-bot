@@ -28,7 +28,7 @@ class OAuthConfigService:
     SUPPORTED_PROVIDERS = {
         "google": {
             "required_scopes": ["openid", "email", "profile"],
-            "server_metadata_url": "https://accounts.google.com/.well-known/openid_configuration",
+            "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
         },
         "github": {
             "required_scopes": ["user:email"],
