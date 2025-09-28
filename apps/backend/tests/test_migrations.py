@@ -1,5 +1,6 @@
 """Test framework for database migrations with rollback capability."""
 
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -14,14 +15,6 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
-from requirements_bot.core.database_models import (
-    AnswerTable,
-    Base,
-    QuestionTable,
-    RequirementTable,
-    SessionTable,
-    UserTable,
-)
 
 
 class MigrationTestFramework:
@@ -29,6 +22,12 @@ class MigrationTestFramework:
 
     def __init__(self, test_db_path: str | None = None):
         """Initialize test framework with temporary database."""
+        # Store and clear DATABASE_URL to prevent interference with application imports
+
+        self._original_database_url = os.environ.get("DATABASE_URL")
+        if "DATABASE_URL" in os.environ:
+            del os.environ["DATABASE_URL"]
+
         if test_db_path:
             self.db_path = test_db_path
             self.cleanup_db = False
@@ -37,6 +36,11 @@ class MigrationTestFramework:
             self.db_path = str(Path(self.temp_dir) / "test_migrations.db")
             self.cleanup_db = True
 
+        # Setup Alembic configuration first
+        self.alembic_cfg = Config()
+        self.alembic_cfg.set_main_option("script_location", "alembic")
+        self.alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{self.db_path}")
+
         self.engine = create_engine(f"sqlite:///{self.db_path}")
         self.SessionLocal = sessionmaker(bind=self.engine)
 
@@ -44,20 +48,15 @@ class MigrationTestFramework:
         with self.engine.connect() as conn:
             pass  # This ensures the database file is created
 
-        # Setup Alembic configuration
-        self.alembic_cfg = Config()
-        self.alembic_cfg.set_main_option("script_location", "alembic")
-        self.alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{self.db_path}")
-
-        with self.engine.connect() as conn:
-            context = MigrationContext.configure(conn)
-            if not context.get_current_revision():
-                try:
-                    # Initialize Alembic version table if it doesn't exist
-                    context.configure(conn)
-                except Exception as e:
-                    # Log the error but don't fail initialization
-                    print(f"Warning: Could not initialize Alembic version tracking: {e}")
+        # Initialize Alembic version table FIRST to prevent DatabaseManager auto-creation
+        try:
+            # Create the version table manually
+            with self.engine.connect() as conn:
+                context = MigrationContext.configure(conn)
+                context._ensure_version_table()
+                # Don't stamp to any revision yet - leave it at None for fresh migration tests
+        except Exception as e:
+            print(f"Warning: Could not initialize Alembic version tracking: {e}")
 
     def cleanup(self):
         """Clean up test database and temporary directory."""
@@ -65,6 +64,11 @@ class MigrationTestFramework:
             self.engine.dispose()
             if hasattr(self, "temp_dir"):
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+        if self._original_database_url is not None:
+            os.environ["DATABASE_URL"] = self._original_database_url
+        elif "DATABASE_URL" in os.environ:
+            del os.environ["DATABASE_URL"]
 
     def get_current_revision(self) -> str | None:
         """Get current database revision."""
@@ -158,10 +162,8 @@ class MigrationTestFramework:
                 return False, issues
 
     def create_test_data(self) -> str:
-        """Create test data using direct SQLAlchemy operations."""
-
-        # Ensure tables exist
-        Base.metadata.create_all(bind=self.engine)
+        """Create test data using raw SQL to avoid importing table models."""
+        # Tables should already exist from migrations - don't create them here
 
         # Generate unique IDs to avoid conflicts
         session_id = str(uuid4())
@@ -171,131 +173,184 @@ class MigrationTestFramework:
         a2_id = str(uuid4())
         req1_id = str(uuid4())
 
-        # Create test data using direct SQLAlchemy operations
-        with self.SessionLocal() as session:
+        # Create test data using raw SQL to avoid importing table models
+        with self.engine.connect() as conn:
+            trans = conn.begin()
             try:
                 # Create user first
-                test_user = UserTable(
-                    id="test-user-id",
-                    email="test@example.com",
-                    provider="google",
-                    provider_id="test-provider-id",
-                    name="Test User",
+                conn.execute(
+                    text("""
+                    INSERT INTO users (id, email, provider, provider_id, name)
+                    VALUES (:id, :email, :provider, :provider_id, :name)
+                """),
+                    {
+                        "id": "test-user-id",
+                        "email": "test@example.com",
+                        "provider": "google",
+                        "provider_id": "test-provider-id",
+                        "name": "Test User",
+                    },
                 )
-                session.add(test_user)
 
                 # Create session
-                test_session = SessionTable(
-                    id=session_id,
-                    user_id="test-user-id",
-                    project="Test Migration Project",
-                    conversation_complete=False,
+                conn.execute(
+                    text("""
+                    INSERT INTO sessions (id, user_id, project, conversation_complete)
+                    VALUES (:id, :user_id, :project, :conversation_complete)
+                """),
+                    {
+                        "id": session_id,
+                        "user_id": "test-user-id",
+                        "project": "Test Migration Project",
+                        "conversation_complete": False,
+                    },
                 )
-                session.add(test_session)
 
                 # Create questions
-                questions = [
-                    QuestionTable(
-                        id=q1_id,
-                        session_id=session_id,
-                        text="What is the main goal?",
-                        category="scope",
-                        required=True,
-                        order_index=0,
-                    ),
-                    QuestionTable(
-                        id=q2_id,
-                        session_id=session_id,
-                        text="Who are the users?",
-                        category="users",
-                        required=True,
-                        order_index=1,
-                    ),
+                questions_data = [
+                    {
+                        "id": q1_id,
+                        "session_id": session_id,
+                        "text": "What is the main goal?",
+                        "category": "scope",
+                        "required": True,
+                        "order_index": 0,
+                    },
+                    {
+                        "id": q2_id,
+                        "session_id": session_id,
+                        "text": "Who are the users?",
+                        "category": "users",
+                        "required": True,
+                        "order_index": 1,
+                    },
                 ]
-                session.add_all(questions)
+
+                for q in questions_data:
+                    conn.execute(
+                        text("""
+                        INSERT INTO questions (id, session_id, text, category, required, order_index)
+                        VALUES (:id, :session_id, :text, :category, :required, :order_index)
+                    """),
+                        q,
+                    )
 
                 # Create answers
-                answers = [
-                    AnswerTable(
-                        id=a1_id,
-                        session_id=session_id,
-                        question_id=q1_id,
-                        text="Build a test system",
-                        is_vague=False,
-                        needs_followup=False,
-                    ),
-                    AnswerTable(
-                        id=a2_id,
-                        session_id=session_id,
-                        question_id=q2_id,
-                        text="Developers and testers",
-                        is_vague=False,
-                        needs_followup=False,
-                    ),
+                answers_data = [
+                    {
+                        "id": a1_id,
+                        "session_id": session_id,
+                        "question_id": q1_id,
+                        "text": "Build a test system",
+                        "is_vague": False,
+                        "needs_followup": False,
+                    },
+                    {
+                        "id": a2_id,
+                        "session_id": session_id,
+                        "question_id": q2_id,
+                        "text": "Developers and testers",
+                        "is_vague": False,
+                        "needs_followup": False,
+                    },
                 ]
-                session.add_all(answers)
+
+                for a in answers_data:
+                    conn.execute(
+                        text("""
+                        INSERT INTO answers (id, session_id, question_id, text, is_vague, needs_followup)
+                        VALUES (:id, :session_id, :question_id, :text, :is_vague, :needs_followup)
+                    """),
+                        a,
+                    )
 
                 # Create requirements
-                requirement = RequirementTable(
-                    id=req1_id,
-                    session_id=session_id,
-                    title="System must be testable",
-                    rationale="Testing is essential for quality assurance",
-                    priority="MUST",
-                    order_index=0,
+                conn.execute(
+                    text("""
+                    INSERT INTO requirements (id, session_id, title, rationale, priority, order_index)
+                    VALUES (:id, :session_id, :title, :rationale, :priority, :order_index)
+                """),
+                    {
+                        "id": req1_id,
+                        "session_id": session_id,
+                        "title": "System must be testable",
+                        "rationale": "Testing is essential for quality assurance",
+                        "priority": "MUST",
+                        "order_index": 0,
+                    },
                 )
-                session.add(requirement)
 
-                session.commit()
+                trans.commit()
                 return session_id
 
             except Exception as e:
-                session.rollback()
+                trans.rollback()
                 raise Exception(f"Failed to create test data: {e}")
 
     def verify_test_data(self, session_id: str) -> bool:
-        """Verify test data integrity using direct SQLAlchemy operations."""
+        """Verify test data integrity using raw SQL to avoid importing table models."""
         try:
-            with self.SessionLocal() as session:
+            with self.engine.connect() as conn:
                 # Verify session exists
-                test_session = session.query(SessionTable).filter_by(id=session_id).first()
-                if not test_session or test_session.project != "Test Migration Project":
+                result = conn.execute(
+                    text("""
+                    SELECT project FROM sessions WHERE id = :session_id
+                """),
+                    {"session_id": session_id},
+                )
+                session_row = result.fetchone()
+                if not session_row or session_row[0] != "Test Migration Project":
                     return False
 
                 # Verify questions
-                questions = (
-                    session.query(QuestionTable)
-                    .filter_by(session_id=session_id)
-                    .order_by(QuestionTable.order_index)
-                    .all()
+                result = conn.execute(
+                    text("""
+                    SELECT text, category FROM questions
+                    WHERE session_id = :session_id
+                    ORDER BY order_index
+                """),
+                    {"session_id": session_id},
                 )
+                questions = result.fetchall()
                 if len(questions) != 2:
                     return False
 
-                if questions[0].text != "What is the main goal?" or questions[0].category != "scope":
+                if questions[0][0] != "What is the main goal?" or questions[0][1] != "scope":
                     return False
 
-                if questions[1].text != "Who are the users?" or questions[1].category != "users":
+                if questions[1][0] != "Who are the users?" or questions[1][1] != "users":
                     return False
 
                 # Verify answers
-                answers = session.query(AnswerTable).filter_by(session_id=session_id).all()
+                result = conn.execute(
+                    text("""
+                    SELECT text FROM answers WHERE session_id = :session_id
+                """),
+                    {"session_id": session_id},
+                )
+                answers = result.fetchall()
                 if len(answers) != 2:
                     return False
 
-                answer_texts = {answer.question_id: answer.text for answer in answers}
-                if "Build a test system" not in answer_texts.values():
+                answer_texts = [row[0] for row in answers]
+                if "Build a test system" not in answer_texts:
                     return False
 
-                if "Developers and testers" not in answer_texts.values():
+                if "Developers and testers" not in answer_texts:
                     return False
 
                 # Verify requirements
-                requirements = session.query(RequirementTable).filter_by(session_id=session_id).all()
+                result = conn.execute(
+                    text("""
+                    SELECT title, priority FROM requirements WHERE session_id = :session_id
+                """),
+                    {"session_id": session_id},
+                )
+                requirements = result.fetchall()
                 if len(requirements) != 1:
                     return False
 
-                if requirements[0].title != "System must be testable" or requirements[0].priority != "MUST":
+                if requirements[0][0] != "System must be testable" or requirements[0][1] != "MUST":
                     return False
 
                 return True

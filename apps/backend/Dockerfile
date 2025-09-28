@@ -69,7 +69,7 @@ USER appuser
 EXPOSE 8000
 
 # Environment variables
-ENV REQUIREMENTS_BOT_DB_PATH=/app/data/requirements_bot.db
+ENV DATABASE_URL=sqlite:////app/data/requirements_bot.db
 ENV PYTHONPATH=/app
 
 # Health check

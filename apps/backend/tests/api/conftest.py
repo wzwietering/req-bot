@@ -55,8 +55,8 @@ def test_db():
     db_path = Path(f"test_{int(time.time() * 1000)}_{threading.get_ident()}_{uuid.uuid4().hex[:8]}.db")
 
     # Set environment variable for the test database
-    original_db_path = os.environ.get("REQUIREMENTS_BOT_DB_PATH")
-    os.environ["REQUIREMENTS_BOT_DB_PATH"] = str(db_path)
+    original_db_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
 
     # Clear the storage cache to ensure fresh instance with new database path
     get_storage.cache_clear()
@@ -81,10 +81,10 @@ def test_db():
         logger.debug(f"Failed to delete test database file {db_path}: {e}")
 
     # Restore original environment variable
-    if original_db_path is not None:
-        os.environ["REQUIREMENTS_BOT_DB_PATH"] = original_db_path
-    elif "REQUIREMENTS_BOT_DB_PATH" in os.environ:
-        del os.environ["REQUIREMENTS_BOT_DB_PATH"]
+    if original_db_url is not None:
+        os.environ["DATABASE_URL"] = original_db_url
+    elif "DATABASE_URL" in os.environ:
+        del os.environ["DATABASE_URL"]
 
     # Clear cache again to reset for next test
     get_storage.cache_clear()

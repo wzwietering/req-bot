@@ -25,7 +25,16 @@ class StorageConfigurationError(Exception):
 @lru_cache
 def get_storage() -> StorageInterface:
     """Get storage instance (cached)."""
-    db_path = os.getenv("REQUIREMENTS_BOT_DB_PATH", "./requirements_bot.db")
+    database_url = os.getenv("DATABASE_URL", "sqlite:///./requirements_bot.db")
+
+    # Parse SQLite URL format: sqlite:///path/to/db.db
+    if database_url.startswith("sqlite:///"):
+        db_path = database_url[10:]  # Remove sqlite:/// prefix
+    elif database_url.startswith("sqlite://"):
+        db_path = database_url[9:]  # Remove sqlite:// prefix
+    else:
+        db_path = database_url
+
     return DatabaseManager(db_path)
 
 
