@@ -74,11 +74,11 @@ class TestOAuthRedirectConfig:
 
             request = Mock()
             request.url.scheme = "http"
-            request.headers = {"host": "localhost:8000"}
+            request.headers = {"host": "localhost:8080"}
 
             callback_url = config.build_callback_url(request, "github")
 
-            expected = "http://localhost:8000/api/v1/auth/callback/github"
+            expected = "http://localhost:8080/api/v1/auth/callback/github"
             assert callback_url == expected
 
     def test_build_callback_url_invalid_domain(self):
@@ -229,7 +229,7 @@ class TestOAuthRedirectConfig:
             config = OAuthRedirectConfig()
 
             # Should not raise exception - port should be stripped
-            config._validate_base_domain("http://localhost:8000")
+            config._validate_base_domain("http://localhost:8080")
             config._validate_base_domain("https://localhost:443")
 
     def test_validate_base_domain_failure(self):

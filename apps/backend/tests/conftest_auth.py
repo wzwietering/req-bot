@@ -226,7 +226,7 @@ def validation_test_cases():
         "redirect_uri": {
             "valid": [
                 "https://localhost/callback",
-                "http://127.0.0.1:8000/auth",
+                "http://127.0.0.1:8080/auth",
                 "https://testdomain.com/oauth/callback",
             ],
             "invalid": [
@@ -281,7 +281,7 @@ def create_mock_request(path="/", method="GET", headers=None, params=None, clien
     request.query_params = params or {}
     request.client.host = client_ip
     request.url.scheme = "http"
-    request.url.netloc = "localhost:8000"
+    request.url.netloc = "localhost:8080"
     return request
 
 

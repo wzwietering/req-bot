@@ -166,7 +166,7 @@ jobs:
         sleep 5
 
         # Test that backend is responding
-        curl -f http://localhost:8000/health || exit 1
+        curl -f http://localhost:8080/health || exit 1
 
         # Build frontend (this validates types work)
         cd ../frontend

@@ -143,11 +143,11 @@ jobs:
 
     - name: Test Docker image
       run: |
-        docker run -d -p 8001:8000 \
+        docker run -d -p 8080:8080 \
           -e JWT_SECRET_KEY=test-secret-key-for-ci-32-characters-minimum \
           --name test-container req-bot-backend:latest
         sleep 15
-        curl -f http://localhost:8001/health || exit 1
-        curl -f http://localhost:8001/ || exit 1
+        curl -f http://localhost:8080/health || exit 1
+        curl -f http://localhost:8080/ || exit 1
         docker stop test-container
         docker rm test-container
