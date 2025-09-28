@@ -1,0 +1,23 @@
+{
+  "name": "@req-bot/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types generated from FastAPI backend",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "*.ts",
+    "*.d.ts",
+    "index.js"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf *.js *.d.ts api.ts",
+    "generate:types": "../../tools/scripts/generate-types.sh"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "typescript": "5.9.2"
+  }
+}

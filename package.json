@@ -1,0 +1,40 @@
+{
+  "name": "req-bot",
+  "version": "1.0.0",
+  "description": "AI-powered Requirements Bot",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "generate:types": "turbo run generate:types",
+    "dev:backend": "cd apps/backend && poetry run python requirements_bot/api_server.py --reload",
+    "dev:frontend": "cd apps/frontend && npm run dev",
+    "install:backend": "cd apps/backend && poetry install",
+    "install:frontend": "cd apps/frontend && npm install",
+    "setup": "npm run install:backend && npm run install:frontend"
+  },
+  "devDependencies": {
+    "turbo": "2.5.8",
+    "openapi-typescript": "7.9.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "packageManager": "npm@10.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wzwietering/req-bot.git"
+  },
+  "author": "wzwietering",
+  "license": "MIT"
+}

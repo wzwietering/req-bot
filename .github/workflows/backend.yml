@@ -1,0 +1,153 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'apps/backend/**'
+      - 'tools/scripts/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'apps/backend/**'
+      - 'tools/scripts/**'
+      - '.github/workflows/backend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./apps/backend
+
+    env:
+      DATABASE_URL: sqlite:///./test.db
+      JWT_SECRET_KEY: test-secret-key-for-ci-32-characters-minimum
+      OAUTH_CLIENT_ID: test-client-id
+      OAUTH_CLIENT_SECRET: test-client-secret
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: "2.1.4"
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        installer-parallel: true
+
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: ./apps/backend/.venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('apps/backend/poetry.lock') }}
+
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction
+
+    - name: Install project
+      run: poetry install --no-interaction
+
+    - name: Clean database before migrations
+      run: rm -f requirements_bot.db
+
+    - name: Run database migrations
+      run: poetry run alembic upgrade head
+
+    - name: Lint and format with ruff
+      run: |
+        poetry run ruff check .
+        poetry run ruff format --check .
+
+    - name: Test with pytest and coverage
+      run: |
+        poetry run coverage run -m pytest
+        poetry run coverage report
+        poetry run coverage xml
+        poetry run coverage html
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        file: ./apps/backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: false
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  build-backend:
+    runs-on: ubuntu-latest
+    needs: test-backend
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    defaults:
+      run:
+        working-directory: ./apps/backend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: "2.1.4"
+
+    - name: Build package
+      run: poetry build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-dist
+        path: ./apps/backend/dist/
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test-backend
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./apps/backend
+        file: ./apps/backend/Dockerfile
+        push: false
+        tags: req-bot-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker image
+      run: |
+        docker run -d -p 8001:8000 \
+          -e JWT_SECRET_KEY=test-secret-key-for-ci-32-characters-minimum \
+          --name test-container req-bot-backend:latest
+        sleep 15
+        curl -f http://localhost:8001/health || exit 1
+        curl -f http://localhost:8001/ || exit 1
+        docker stop test-container
+        docker rm test-container
