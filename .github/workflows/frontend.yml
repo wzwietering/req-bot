@@ -63,7 +63,7 @@ jobs:
       run: npm run generate:types
 
     - name: Upload generated types
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: generated-types
         path: packages/shared-types/api.ts
@@ -86,7 +86,7 @@ jobs:
         cache: 'npm'
 
     - name: Download generated types
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: generated-types
         path: packages/shared-types/
@@ -105,7 +105,7 @@ jobs:
 
     - name: Upload build artifacts
       if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: frontend-build
         path: ./apps/frontend/.next/
@@ -142,7 +142,7 @@ jobs:
       run: npm install
 
     - name: Download generated types
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: generated-types
         path: packages/shared-types/
@@ -185,7 +185,7 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Download generated types
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: generated-types
         path: packages/shared-types/
