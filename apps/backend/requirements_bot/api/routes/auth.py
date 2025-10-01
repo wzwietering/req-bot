@@ -1,6 +1,7 @@
 import logging
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
@@ -116,7 +117,7 @@ def _validate_oauth_callback(request: Request, oauth_providers: OAuth2Providers,
         return params
 
 
-async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
+async def _exchange_oauth_token(oauth_client, request: Request, provider: str, oauth_providers: OAuth2Providers):
     """Exchange authorization code for OAuth token."""
     with span(
         "oauth.exchange_token",
@@ -131,7 +132,13 @@ async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
             provider=provider,
         )
 
-        token = await oauth_client.authorize_access_token(request)
+        # Microsoft requires manual token exchange to bypass ID token issuer validation
+        # The /common/ endpoint returns tenant-specific issuer that doesn't match metadata
+        if provider == "microsoft":
+            token = await _exchange_microsoft_token(request, oauth_providers)
+        else:
+            # Google and GitHub work fine with standard flow
+            token = await oauth_client.authorize_access_token(request)
 
         has_access_token = bool(token and token.get("access_token"))
         has_token_type = bool(token and token.get("token_type"))
@@ -151,6 +158,56 @@ async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
             raise OAuthError("Failed to obtain access token", provider)
 
         return token
+
+
+async def _exchange_microsoft_token(request: Request, oauth_providers: OAuth2Providers) -> dict:
+    """Manually exchange Microsoft authorization code for tokens.
+
+    This bypasses Authlib's ID token validation which fails for /common/ endpoint
+    due to tenant-specific issuer mismatch.
+    """
+    # Get authorization code from callback
+    code = request.query_params.get("code")
+    if not code:
+        raise OAuthError("No authorization code in callback", "microsoft")
+
+    # Get Microsoft OAuth config
+    config = oauth_providers._config_service.validate_provider_config("microsoft")
+
+    # Build redirect URI
+    redirect_config = OAuthRedirectConfig()
+    redirect_uri = redirect_config.build_callback_url(request, "microsoft")
+
+    # Manually exchange code for tokens
+    token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            token_url,
+            data={
+                "client_id": config.client_id,
+                "client_secret": config.client_secret,
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+                "scope": " ".join(config.scopes),
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        if response.status_code != 200:
+            logger.error(f"Microsoft token exchange failed: {response.status_code} {response.text}")
+            raise OAuthError(f"Token exchange failed: {response.status_code}", "microsoft")
+
+        token_data = response.json()
+
+        # Return in format expected by rest of flow
+        return {
+            "access_token": token_data.get("access_token"),
+            "token_type": token_data.get("token_type", "Bearer"),
+            "expires_in": token_data.get("expires_in"),
+            "scope": token_data.get("scope"),
+        }
 
 
 async def _process_oauth_user(
@@ -377,7 +434,7 @@ async def oauth_callback(
             )
 
             _validate_oauth_callback(request, oauth_providers, provider)
-            token = await _exchange_oauth_token(oauth_client, request, provider)
+            token = await _exchange_oauth_token(oauth_client, request, provider, oauth_providers)
             result = await _process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
 
             log_event(

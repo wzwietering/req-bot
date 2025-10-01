@@ -310,14 +310,23 @@ class OAuth2Providers:
 
     async def _get_microsoft_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.microsoft
-        user_info = await provider.parse_id_token(token)
+        # Use Microsoft Graph API to get user info instead of parsing ID token
+        # This avoids issuer validation issues when using /common/ endpoint
+        resp = await provider.get("https://graph.microsoft.com/v1.0/me", token=token)
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch user information from Microsoft"
+            )
+
+        user_data = resp.json()
 
         return UserCreate(
-            email=user_info["email"],
+            email=user_data["mail"] or user_data.get("userPrincipalName"),
             provider="microsoft",
-            provider_id=user_info["sub"],
-            name=user_info.get("name"),
-            avatar_url=None,  # Microsoft doesn't provide avatar in ID token
+            provider_id=user_data["id"],
+            name=user_data.get("displayName"),
+            avatar_url=None,  # Microsoft Graph /me doesn't include photo URL by default
         )
 
 

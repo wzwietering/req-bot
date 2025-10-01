@@ -36,8 +36,8 @@ class OAuthConfigService:
             "access_token_url": "https://github.com/login/oauth/access_token",
         },
         "microsoft": {
-            "required_scopes": ["openid", "email", "profile"],
-            "server_metadata_url": "https://login.microsoftonline.com/common/v2.0/.well-known/openid_configuration",
+            "required_scopes": ["openid", "email", "profile", "User.Read"],
+            "server_metadata_url": "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
         },
     }
 
