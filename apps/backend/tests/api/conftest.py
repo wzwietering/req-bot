@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from requirements_bot.api.dependencies import get_current_user_id, get_storage
 from requirements_bot.api.main import app
+from requirements_bot.api.middleware import AuthenticationMiddleware
 from requirements_bot.core.models import UserCreate
 from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import DatabaseManager
@@ -99,6 +100,17 @@ def client(test_db):
     # Override the authentication dependency for tests
     app.dependency_overrides[get_current_user_id] = get_test_user_id
 
+    # Remove AuthenticationMiddleware from the app for testing
+    # This allows tests to bypass JWT token validation while still testing business logic
+    original_middleware = app.user_middleware.copy()
+    # Filter out AuthenticationMiddleware
+
+    app.user_middleware = [
+        m for m in app.user_middleware if not isinstance(m.cls, type) or m.cls != AuthenticationMiddleware
+    ]
+    app.middleware_stack = None  # Force rebuild of middleware stack
+    app.build_middleware_stack()
+
     # Create a test user in the database to satisfy foreign key constraints
     global _test_user_id
     db_manager = DatabaseManager(db_path=test_db)
@@ -117,7 +129,10 @@ def client(test_db):
     with TestClient(app) as test_client:
         yield test_client
 
-    # Restore original dependency overrides
+    # Restore original middleware stack and dependency overrides
+    app.user_middleware = original_middleware
+    app.middleware_stack = None
+    app.build_middleware_stack()
     app.dependency_overrides.clear()
     app.dependency_overrides.update(original_overrides)
     _test_user_id = None

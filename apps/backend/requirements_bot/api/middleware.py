@@ -170,6 +170,9 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         self.public_routes = {
             "/api/v1/auth/login",
             "/api/v1/auth/callback",
+            "/api/v1/auth/logout",
+            "/api/v1/auth/status",
+            "/api/v1/auth/refresh",
             "/docs",
             "/redoc",
             "/openapi.json",
