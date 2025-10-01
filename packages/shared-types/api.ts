@@ -75,7 +75,7 @@ export interface paths {
         put?: never;
         /**
          * Refresh Token
-         * @description Refresh access token using refresh token.
+         * @description Refresh access token using refresh token from cookie.
          */
         post: operations["refresh_token_api_v1_auth_refresh_post"];
         delete?: never;
@@ -333,11 +333,6 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** LogoutRequest */
-        LogoutRequest: {
-            /** Refresh Token */
-            refresh_token?: string | null;
-        };
         /** Question */
         Question: {
             /** Id */
@@ -362,11 +357,6 @@ export interface components {
              * @description Answer text for the current question
              */
             answer_text: string;
-        };
-        /** RefreshTokenRequest */
-        RefreshTokenRequest: {
-            /** Refresh Token */
-            refresh_token: string;
         };
         /** Requirement */
         Requirement: {
@@ -619,11 +609,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshTokenRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -632,15 +618,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -652,11 +629,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LogoutRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -665,15 +638,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -20,6 +20,7 @@ from requirements_bot.api.exceptions import (
     SessionNotFoundAPIException,
     ValidationException,
 )
+from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.storage import (
     SessionDeleteError,
@@ -178,6 +179,16 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Check authentication for protected routes."""
+        log_event(
+            "auth.middleware_dispatch",
+            level=logging.INFO,
+            component="auth",
+            operation="dispatch",
+            path=request.url.path,
+            method=request.method,
+            is_public=self._is_public_route(request.url.path),
+        )
+
         # Skip authentication for public routes
         if self._is_public_route(request.url.path):
             response = await call_next(request)
@@ -190,39 +201,133 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             self._add_security_headers(response)
             return response
 
-        try:
-            # Extract and validate token
-            token = self._extract_token(request)
-            user_info = self.jwt_service.verify_token(token)
+        with span(
+            "auth.authenticate_request",
+            component="auth",
+            operation="authenticate",
+            path=request.url.path,
+            method=request.method,
+        ):
+            try:
+                # Extract and validate token
+                token = self._extract_token(request)
 
-            # Add user info to request state
-            request.state.user_id = user_info["user_id"]
-            request.state.user_email = user_info["email"]
+                log_event(
+                    "auth.token_verification_start",
+                    level=logging.INFO,
+                    component="auth",
+                    operation="verify_token",
+                )
 
-            response = await call_next(request)
-            self._add_security_headers(response)
-            return response
+                user_info = self.jwt_service.verify_token(token)
 
-        except Exception as exc:
-            return self._create_auth_error_response(str(exc))
+                log_event(
+                    "auth.authentication_success",
+                    component="auth",
+                    operation="authenticate",
+                    user_id=user_info["user_id"],
+                    user_email=user_info.get("email"),
+                    path=request.url.path,
+                )
+
+                # Add user info to request state
+                request.state.user_id = user_info["user_id"]
+                request.state.user_email = user_info["email"]
+
+                response = await call_next(request)
+                self._add_security_headers(response)
+                return response
+
+            except Exception as exc:
+                log_event(
+                    "auth.authentication_failed",
+                    level=logging.WARNING,
+                    component="auth",
+                    operation="authenticate",
+                    error_type=type(exc).__name__,
+                    error_msg=str(exc),
+                    path=request.url.path,
+                )
+                return self._create_auth_error_response(str(exc))
 
     def _is_public_route(self, path: str) -> bool:
         """Check if route is public and doesn't require authentication."""
-        return any(path.startswith(route) for route in self.public_routes)
+        # Handle exact match for root path to avoid matching all paths starting with "/"
+        if path == "/":
+            return True
+
+        # For other routes, check if path starts with any public route prefix
+        # Exclude "/" from the check since we handled it above
+        return any(path.startswith(route) for route in self.public_routes if route != "/")
 
     def _extract_token(self, request: Request) -> str:
-        """Extract JWT token from Authorization header."""
-        authorization = request.headers.get("Authorization")
-        if not authorization:
-            raise Exception("Missing Authorization header")
+        """Extract JWT token from Authorization header or cookie."""
+        log_event(
+            "auth.token_extraction_start",
+            component="auth",
+            operation="extract_token",
+            path=request.url.path,
+            available_cookies=list(request.cookies.keys()),
+            has_authorization_header=bool(request.headers.get("Authorization")),
+        )
 
-        try:
-            scheme, token = authorization.split(" ", 1)
-            if scheme.lower() != "bearer":
-                raise Exception("Invalid authentication scheme")
+        # Try Authorization header first (for API clients)
+        authorization = request.headers.get("Authorization")
+        if authorization:
+            log_event(
+                "auth.trying_authorization_header",
+                level=logging.INFO,
+                component="auth",
+                operation="extract_token",
+            )
+            try:
+                scheme, token = authorization.split(" ", 1)
+                if scheme.lower() == "bearer":
+                    log_event(
+                        "auth.token_extracted_from_header",
+                        level=logging.INFO,
+                        component="auth",
+                        operation="extract_token",
+                        token_length=len(token),
+                    )
+                    return token
+                else:
+                    log_event(
+                        "auth.invalid_authorization_scheme",
+                        level=logging.WARNING,
+                        component="auth",
+                        operation="extract_token",
+                        scheme=scheme,
+                    )
+            except ValueError:
+                log_event(
+                    "auth.invalid_authorization_header_format",
+                    level=logging.WARNING,
+                    component="auth",
+                    operation="extract_token",
+                )
+
+        # Fallback to access_token cookie (for browser clients)
+        token = request.cookies.get("access_token")
+        if token:
+            log_event(
+                "auth.token_extracted_from_cookie",
+                level=logging.INFO,
+                component="auth",
+                operation="extract_token",
+                token_length=len(token),
+            )
             return token
-        except ValueError:
-            raise Exception("Invalid Authorization header format")
+
+        log_event(
+            "auth.no_token_found",
+            level=logging.WARNING,
+            component="auth",
+            operation="extract_token",
+            path=request.url.path,
+            available_cookies=list(request.cookies.keys()),
+        )
+        raise Exception("No authentication token found")
 
     def _add_security_headers(self, response: Response) -> None:
         """Add security headers to response."""

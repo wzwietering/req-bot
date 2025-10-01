@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from requirements_bot.api.error_responses import AuthenticationError, ConfigurationError
+from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.models import UserCreate
 from requirements_bot.core.services.oauth_config_service import ConfigValidationError, OAuthConfigService
 from requirements_bot.core.services.oauth_state_service import OAuthStateService
@@ -66,17 +67,72 @@ class JWTService:
         return self.create_access_token(user_id, user_email)
 
     def verify_token(self, token: str) -> dict[str, Any]:
-        try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            user_id: str = payload.get("sub")
-            email: str = payload.get("email")
+        with span("auth.jwt_verify", component="auth", operation="verify_token"):
+            try:
+                log_event(
+                    "auth.jwt_decode_start",
+                    level=logging.DEBUG,
+                    component="auth",
+                    operation="verify_token",
+                    token_length=len(token),
+                )
 
-            if user_id is None or email is None:
-                raise AuthenticationError("Invalid token: missing user information")
+                payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+                user_id: str = payload.get("sub")
+                email: str = payload.get("email")
+                exp: int = payload.get("exp")
 
-            return {"user_id": user_id, "email": email}
-        except JWTError:
-            raise AuthenticationError("Invalid token")
+                log_event(
+                    "auth.jwt_decoded",
+                    level=logging.DEBUG,
+                    component="auth",
+                    operation="verify_token",
+                    has_user_id=bool(user_id),
+                    has_email=bool(email),
+                    has_exp=bool(exp),
+                )
+
+                if user_id is None or email is None:
+                    log_event(
+                        "auth.jwt_missing_claims",
+                        level=logging.WARNING,
+                        component="auth",
+                        operation="verify_token",
+                        has_user_id=bool(user_id),
+                        has_email=bool(email),
+                    )
+                    raise AuthenticationError("Invalid token: missing user information")
+
+                log_event(
+                    "auth.jwt_verification_success",
+                    level=logging.DEBUG,
+                    component="auth",
+                    operation="verify_token",
+                    user_id=user_id,
+                )
+
+                return {"user_id": user_id, "email": email}
+            except JWTError as e:
+                error_type = type(e).__name__
+                error_msg = str(e)
+
+                log_event(
+                    "auth.jwt_verification_failed",
+                    level=logging.WARNING,
+                    component="auth",
+                    operation="verify_token",
+                    error_type=error_type,
+                    error_msg=error_msg,
+                    is_expired="expired" in error_msg.lower() or "ExpiredSignature" in error_type,
+                )
+
+                # Provide more specific error messages
+                if "expired" in error_msg.lower() or "ExpiredSignature" in error_type:
+                    raise AuthenticationError("Token expired")
+                elif "signature" in error_msg.lower():
+                    raise AuthenticationError("Invalid token signature")
+                else:
+                    raise AuthenticationError(f"Invalid token: {error_type}")
 
 
 class OAuth2Providers:
@@ -197,8 +253,8 @@ class OAuth2Providers:
 
     async def _get_google_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.google
-        # Use userinfo endpoint instead of parsing ID token to avoid nonce requirement
-        resp = await provider.get("https://www.googleapis.com/oauth2/v2/userinfo", token=token)
+        # Use OpenID Connect userinfo endpoint to get proper 'sub' field
+        resp = await provider.get("https://openidconnect.googleapis.com/v1/userinfo", token=token)
 
         if resp.status_code != 200:
             raise HTTPException(

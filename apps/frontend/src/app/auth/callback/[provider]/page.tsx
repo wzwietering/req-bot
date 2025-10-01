@@ -45,24 +45,16 @@ export default function CallbackPage({ params }: CallbackPageProps) {
           return;
         }
 
-        // Validate state parameter for CSRF protection
-        const state = searchParams.get('state');
-        if (!validateOAuthState(state)) {
-          setErrorMessage('Invalid state parameter. This may be a security issue. Please try logging in again.');
+        // Check if callback was successful (backend redirects with success=true)
+        const success = searchParams.get('success');
+        if (success !== 'true') {
+          setErrorMessage('OAuth callback did not complete successfully');
           setStatus('error');
           return;
         }
 
-        // Check if we have an authorization code
-        const code = searchParams.get('code');
-        if (!code) {
-          setErrorMessage('No authorization code received from OAuth provider');
-          setStatus('error');
-          return;
-        }
-
-        // At this point, the backend should have already processed the callback
-        // and set the authentication cookies. Let's check auth status.
+        // Backend has already processed the callback and set httpOnly cookies
+        // Now verify authentication by calling /me endpoint
         await checkAuthStatus();
 
         setStatus('success');
