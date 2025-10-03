@@ -75,7 +75,7 @@ export interface paths {
         put?: never;
         /**
          * Refresh Token
-         * @description Refresh access token using refresh token from cookie.
+         * @description Refresh access token using refresh token from cookie with token rotation.
          */
         post: operations["refresh_token_api_v1_auth_refresh_post"];
         delete?: never;
@@ -98,6 +98,29 @@ export interface paths {
          * @description Logout user and revoke refresh token.
          */
         post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invalidate-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invalidate User Sessions
+         * @description Invalidate all sessions for the current user.
+         *
+         *     Useful for security events like password changes, suspicious activity detection,
+         *     or when user wants to log out from all devices.
+         */
+        post: operations["invalidate_user_sessions_api_v1_auth_invalidate_sessions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -623,6 +646,26 @@ export interface operations {
         };
     };
     logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    invalidate_user_sessions_api_v1_auth_invalidate_sessions_post: {
         parameters: {
             query?: never;
             header?: never;

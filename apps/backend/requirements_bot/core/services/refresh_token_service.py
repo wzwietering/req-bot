@@ -63,6 +63,60 @@ class RefreshTokenService:
                     db.rollback()
                     return None
 
+    def refresh_and_rotate(self, old_token: str, expire_days: int = 30) -> tuple[str, str] | None:
+        """Verify old token, revoke it, and issue new token (token rotation).
+
+        Returns:
+            Tuple of (user_id, new_token) if successful, None otherwise
+        """
+        if not old_token:
+            return None
+
+        old_token_hash = self._hash_token(old_token)
+
+        with self._lock:
+            with self.db_session_factory() as db:
+                try:
+                    # Find and validate old token
+                    old_refresh_token = (
+                        db.query(RefreshTokenTable)
+                        .filter(
+                            RefreshTokenTable.token_hash == old_token_hash,
+                            not RefreshTokenTable.revoked,
+                            RefreshTokenTable.expires_at > datetime.now(UTC),
+                        )
+                        .first()
+                    )
+
+                    if not old_refresh_token:
+                        return None
+
+                    user_id = old_refresh_token.user_id
+
+                    # Revoke old token
+                    old_refresh_token.revoked = True
+
+                    # Create new token
+                    new_token = secrets.token_urlsafe(32)
+                    new_token_hash = self._hash_token(new_token)
+                    expires_at = datetime.now(UTC) + timedelta(days=expire_days)
+
+                    new_refresh_token = RefreshTokenTable(
+                        user_id=user_id,
+                        token_hash=new_token_hash,
+                        created_at=datetime.now(UTC),
+                        expires_at=expires_at,
+                        revoked=False,
+                    )
+
+                    db.add(new_refresh_token)
+                    db.commit()
+
+                    return (user_id, new_token)
+                except Exception:
+                    db.rollback()
+                    return None
+
     def revoke_refresh_token(self, token: str) -> bool:
         """Revoke a refresh token."""
         if not token:

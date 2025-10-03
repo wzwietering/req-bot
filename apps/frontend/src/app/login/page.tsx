@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const redirectTo = localStorage.getItem('auth_redirect') || '/dashboard';
+      const redirectTo = localStorage.getItem('auth_redirect') || '/';
       localStorage.removeItem('auth_redirect');
       router.push(redirectTo);
     }

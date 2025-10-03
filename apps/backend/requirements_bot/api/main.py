@@ -9,7 +9,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from requirements_bot.api.dependencies import get_jwt_service_with_refresh
 from requirements_bot.api.error_responses import ErrorDetail
 from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
-from requirements_bot.api.middleware import AuthenticationMiddleware, ExceptionHandlingMiddleware
+from requirements_bot.api.middleware import (
+    AuthenticationMiddleware,
+    ExceptionHandlingMiddleware,
+    RequestIDMiddleware,
+)
 from requirements_bot.api.routes import auth, questions, sessions
 from requirements_bot.core.logging import init_logging
 
@@ -45,6 +49,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],  # Required headers for auth
     max_age=86400,  # Cache preflight requests for 24 hours
 )
+
+# Add request ID middleware (first, so all logs have request ID)
+app.add_middleware(RequestIDMiddleware)
 
 # Add authentication middleware (before exception handling)
 app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service_with_refresh())

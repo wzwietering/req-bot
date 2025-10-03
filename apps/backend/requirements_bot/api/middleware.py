@@ -1,6 +1,7 @@
 """Middleware for exception handling and other cross-cutting concerns."""
 
 import logging
+import uuid
 from collections.abc import Callable
 
 from fastapi import Request, Response
@@ -20,7 +21,7 @@ from requirements_bot.api.exceptions import (
     SessionNotFoundAPIException,
     ValidationException,
 )
-from requirements_bot.core.logging import log_event, span
+from requirements_bot.core.logging import log_event, set_request_id, span
 from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.storage import (
     SessionDeleteError,
@@ -31,6 +32,49 @@ from requirements_bot.core.storage import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Middleware for adding request ID to all logs and responses."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Add request ID to request context and response headers."""
+        # Generate or extract request ID
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+
+        # Store in request state for access by other code
+        request.state.request_id = request_id
+
+        # Set in logging context for all subsequent logs
+        set_request_id(request_id)
+
+        log_event(
+            "request.started",
+            level=logging.INFO,
+            component="middleware",
+            operation="request_id",
+            method=request.method,
+            path=request.url.path,
+            client_ip=request.client.host if request.client else "unknown",
+        )
+
+        response = await call_next(request)
+
+        # Add request ID to response headers
+        response.headers["X-Request-ID"] = request_id
+
+        log_event(
+            "request.completed",
+            level=logging.INFO,
+            component="middleware",
+            operation="request_id",
+            status_code=response.status_code,
+        )
+
+        # Clear request ID from context
+        set_request_id(None)
+
+        return response
 
 
 class ExceptionHandlingMiddleware(BaseHTTPMiddleware):

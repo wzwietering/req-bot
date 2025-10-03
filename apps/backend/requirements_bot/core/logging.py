@@ -15,6 +15,7 @@ _ctx_trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
 _ctx_span_id: ContextVar[str | None] = ContextVar("span_id", default=None)
 _ctx_parent_span_id: ContextVar[str | None] = ContextVar("parent_span_id", default=None)
 _ctx_run_id: ContextVar[str | None] = ContextVar("run_id", default=None)
+_ctx_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 _ctx_mask: ContextVar[bool] = ContextVar("mask", default=False)
 
 
@@ -25,6 +26,7 @@ class ContextFilter(logging.Filter):
         record.span_id = _ctx_span_id.get()
         record.parent_span_id = _ctx_parent_span_id.get()
         record.run_id = _ctx_run_id.get()
+        record.request_id = _ctx_request_id.get()
         record.component = getattr(record, "component", None)
         record.operation = getattr(record, "operation", None)
         # Provide default event field if not present
@@ -48,6 +50,7 @@ class JsonFormatter(logging.Formatter):
             "span_id",
             "parent_span_id",
             "run_id",
+            "request_id",
             "component",
             "operation",
             "duration_ms",
@@ -231,6 +234,14 @@ def set_run_id(run_id: str) -> None:
 
 def get_run_id() -> str | None:
     return _ctx_run_id.get()
+
+
+def set_request_id(request_id: str | None) -> None:
+    _ctx_request_id.set(request_id)
+
+
+def get_request_id() -> str | None:
+    return _ctx_request_id.get()
 
 
 def set_masking(mask: bool) -> None:

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../hooks/useAuth';
-import { validateOAuthState, parseOAuthError } from '../../../../lib/auth/api';
+import { parseOAuthError } from '../../../../lib/auth/api';
 import { OAuthProvider } from '../../../../lib/auth/types';
 import { Navigation, Footer } from '../../../../components/layout';
 import { Container } from '../../../../components/ui';
@@ -19,9 +19,16 @@ export default function CallbackPage({ params }: CallbackPageProps) {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [provider, setProvider] = useState<string>('');
+  const hasProcessedCallback = useRef(false);
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent duplicate execution
+      if (hasProcessedCallback.current) {
+        return;
+      }
+      hasProcessedCallback.current = true;
+
       try {
         clearError();
 
@@ -54,13 +61,21 @@ export default function CallbackPage({ params }: CallbackPageProps) {
         }
 
         // Backend has already processed the callback and set httpOnly cookies
-        // Now verify authentication by calling /me endpoint
-        await checkAuthStatus();
+        // Verify authentication by calling /me endpoint (cookies are sent automatically)
+        // Note: We can't check for HttpOnly cookies via document.cookie - they're only sent in HTTP requests
+        try {
+          await checkAuthStatus();
+        } catch (error) {
+          // If checkAuthStatus fails, it likely means cookies weren't set or are blocked
+          setErrorMessage('Authentication failed. Please check your browser settings and ensure cookies are enabled.');
+          setStatus('error');
+          return;
+        }
 
         setStatus('success');
 
         // Redirect to intended destination
-        const redirectTo = localStorage.getItem('auth_redirect') || '/dashboard';
+        const redirectTo = localStorage.getItem('auth_redirect') || '/';
         localStorage.removeItem('auth_redirect');
 
         setTimeout(() => {
@@ -75,7 +90,8 @@ export default function CallbackPage({ params }: CallbackPageProps) {
     };
 
     handleCallback();
-  }, [params, searchParams, checkAuthStatus, clearError, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRetry = () => {
     router.push('/login');
