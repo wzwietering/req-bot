@@ -25,15 +25,27 @@ class SessionCookieConfig:
         }
 
     def get_response_headers(self) -> dict[str, str]:
-        """Get security headers for cookie responses."""
+        """Get comprehensive security headers for cookie responses."""
         headers = {}
 
+        # HSTS - Force HTTPS for 1 year in production
         if self.secure_cookies:
             headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
+        # Prevent MIME type sniffing
         headers["X-Content-Type-Options"] = "nosniff"
+
+        # Prevent clickjacking
         headers["X-Frame-Options"] = "DENY"
-        headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Referrer policy - Don't leak full URL to external sites
+        headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Content Security Policy - Restrict resource loading
+        headers["Content-Security-Policy"] = "default-src 'self'"
+
+        # Permissions Policy - Disable unnecessary browser features
+        headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
         return headers
 

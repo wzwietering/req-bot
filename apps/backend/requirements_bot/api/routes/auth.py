@@ -28,7 +28,7 @@ from requirements_bot.api.routes.auth_helpers import (
     validate_oauth_callback,
     validate_provider_name,
 )
-from requirements_bot.core.logging import log_event, mask_text, span
+from requirements_bot.core.logging import audit_log, log_event, mask_text, span
 from requirements_bot.core.models import UserResponse
 from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectConfig
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
@@ -63,6 +63,7 @@ async def oauth_login(
     ):
         log_event(
             "oauth.login_start",
+            level=logging.DEBUG,
             component="auth",
             operation="oauth_login",
             provider=provider,
@@ -76,6 +77,7 @@ async def oauth_login(
 
             log_event(
                 "oauth.state_generated",
+                level=logging.DEBUG,
                 component="auth",
                 operation="oauth_login",
                 provider=provider,
@@ -88,6 +90,7 @@ async def oauth_login(
 
             log_event(
                 "oauth.callback_url_built",
+                level=logging.DEBUG,
                 component="auth",
                 operation="oauth_login",
                 provider=provider,
@@ -98,6 +101,7 @@ async def oauth_login(
 
             log_event(
                 "oauth.login_redirect_success",
+                level=logging.INFO,
                 component="auth",
                 operation="oauth_login",
                 provider=provider,
@@ -107,18 +111,7 @@ async def oauth_login(
 
             return redirect_url
 
-        except HTTPException as e:
-            log_event(
-                "oauth.login_http_error",
-                level=logging.WARNING,
-                component="auth",
-                operation="oauth_login",
-                provider=provider,
-                client_ip=client_ip,
-                error_type=type(e).__name__,
-                status_code=e.status_code,
-                error_detail=str(e.detail) if hasattr(e, "detail") else str(e),
-            )
+        except HTTPException:
             raise
         except Exception as e:
             log_event(
@@ -162,6 +155,7 @@ async def oauth_callback(
     ):
         log_event(
             "oauth.callback_start",
+            level=logging.DEBUG,
             component="auth",
             operation="oauth_callback",
             provider=provider,
@@ -173,19 +167,13 @@ async def oauth_callback(
         try:
             oauth_client = oauth_providers.get_provider(provider)
 
-            log_event(
-                "oauth.provider_client_retrieved",
-                component="auth",
-                operation="oauth_callback",
-                provider=provider,
-            )
-
             validate_oauth_callback(request, oauth_providers, provider)
             token = await exchange_oauth_token(oauth_client, request, provider, oauth_providers)
             result = await process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
 
             log_event(
                 "oauth.callback_success",
+                level=logging.INFO,
                 component="auth",
                 operation="oauth_callback",
                 provider=provider,
@@ -196,14 +184,6 @@ async def oauth_callback(
             # Redirect to frontend with tokens in httpOnly cookies
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             frontend_callback = f"{frontend_url}/auth/callback/{provider}?success=true"
-
-            log_event(
-                "oauth.redirect_to_frontend",
-                component="auth",
-                operation="oauth_callback",
-                provider=provider,
-                frontend_url_masked=mask_text(frontend_callback),
-            )
 
             response = RedirectResponse(url=frontend_callback)
 
@@ -216,33 +196,11 @@ async def oauth_callback(
                 jwt_service,
             )
 
-            log_event(
-                "oauth.cookies_set",
-                component="auth",
-                operation="oauth_callback",
-                provider=provider,
-                has_access_token=True,
-                has_refresh_token=True,
-            )
-
             return response
 
-        except HTTPException as e:
-            db_session.rollback()
-            log_event(
-                "oauth.callback_http_error",
-                level=logging.WARNING,
-                component="auth",
-                operation="oauth_callback",
-                provider=provider,
-                client_ip=client_ip,
-                error_type=type(e).__name__,
-                status_code=e.status_code,
-                error_detail=str(e.detail) if hasattr(e, "detail") else str(e),
-            )
+        except HTTPException:
             raise
         except Exception as e:
-            db_session.rollback()
             log_event(
                 "oauth.callback_error",
                 level=logging.ERROR,
@@ -252,6 +210,14 @@ async def oauth_callback(
                 client_ip=client_ip,
                 error_type=type(e).__name__,
                 error_msg=str(e),
+            )
+            # Audit log for failed authentication
+            audit_log(
+                "oauth.authentication_failed",
+                user_id=None,
+                client_ip=client_ip,
+                provider=provider,
+                error_type=type(e).__name__,
             )
             raise create_error_response(
                 "oauth_callback_failed", "OAuth authentication process failed", status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -288,10 +254,19 @@ async def refresh_token(
     """Refresh access token using refresh token from cookie with token rotation."""
     rate_limit_middleware.check_refresh_token_rate_limit(request)
 
+    client_ip = request.client.host if request.client else "unknown"
+
     try:
         # Read refresh token from cookie
         old_refresh_token = request.cookies.get("refresh_token")
         if not old_refresh_token:
+            # Audit log for missing refresh token
+            audit_log(
+                "token.refresh_failed_no_token",
+                user_id=None,
+                client_ip=client_ip,
+                reason="No refresh token found in request",
+            )
             raise AuthenticationError("No refresh token found")
 
         refresh_token_service = RefreshTokenService(lambda: db_session)
@@ -300,6 +275,13 @@ async def refresh_token(
         rotation_result = refresh_token_service.refresh_and_rotate(old_refresh_token)
 
         if not rotation_result:
+            # Audit log for failed token refresh (could be replay attack)
+            audit_log(
+                "token.refresh_failed_invalid",
+                user_id=None,
+                client_ip=client_ip,
+                reason="Invalid or expired refresh token",
+            )
             raise AuthenticationError("Invalid or expired refresh token")
 
         user_id, new_refresh_token = rotation_result
@@ -321,6 +303,13 @@ async def refresh_token(
             operation="refresh_token",
             user_id=user.id,
             rotated_refresh_token=True,
+        )
+
+        # Audit log for successful token refresh
+        audit_log(
+            "token.refresh_success",
+            user_id=user.id,
+            client_ip=client_ip,
         )
 
         # Return response with new tokens in cookies
@@ -409,6 +398,8 @@ async def invalidate_user_sessions(
     if not user_id:
         raise AuthenticationError()
 
+    client_ip = request.client.host if request.client else "unknown"
+
     try:
         # Revoke all refresh tokens for the user
         revoked_count = refresh_token_service.revoke_all_user_tokens(user_id)
@@ -420,6 +411,14 @@ async def invalidate_user_sessions(
             operation="invalidate_sessions",
             user_id=user_id,
             tokens_revoked=revoked_count,
+        )
+
+        # Audit log for session invalidation (security event)
+        audit_log(
+            "sessions.invalidated_all",
+            user_id=user_id,
+            client_ip=client_ip,
+            sessions_revoked=revoked_count,
         )
 
         return JSONResponse(

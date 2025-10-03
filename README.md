@@ -60,7 +60,7 @@ This will start:
 - **Backend API** at `http://localhost:8080` (with docs at `/docs`)
 - **Frontend Web App** at `http://localhost:3000`
 
-### Legacy CLI Usage (Backend Only)
+### CLI Usage
 
 For command-line usage without the web interface:
 

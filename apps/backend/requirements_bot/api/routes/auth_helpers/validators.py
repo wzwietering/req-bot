@@ -6,7 +6,7 @@ from fastapi import Request
 
 from requirements_bot.api.auth import OAuth2Providers
 from requirements_bot.api.error_responses import OAuthError
-from requirements_bot.core.logging import log_event, mask_text, span
+from requirements_bot.core.logging import audit_log, log_event, mask_text, span
 from requirements_bot.core.services.oauth_callback_validator import OAuthCallbackValidator
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ def validate_oauth_callback(request: Request, oauth_providers: OAuth2Providers, 
         state_valid = oauth_providers.verify_state(params["state"])
         log_event(
             "oauth.state_verification",
+            level=logging.DEBUG,
             component="auth",
             operation="verify_state",
             provider=provider,
@@ -46,6 +47,15 @@ def validate_oauth_callback(request: Request, oauth_providers: OAuth2Providers, 
         )
 
         if not state_valid:
+            # Audit log for security event: state validation failed
+            client_ip = request.client.host if request.client else "unknown"
+            audit_log(
+                "oauth.state_validation_failed",
+                user_id=None,
+                client_ip=client_ip,
+                provider=provider,
+                reason="Invalid or expired state parameter",
+            )
             raise OAuthError("Invalid or expired state parameter", provider)
 
         return params

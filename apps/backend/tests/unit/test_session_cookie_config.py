@@ -93,7 +93,9 @@ class TestSessionCookieConfig:
             expected = {
                 "X-Content-Type-Options": "nosniff",
                 "X-Frame-Options": "DENY",
-                "X-XSS-Protection": "1; mode=block",
+                "Referrer-Policy": "strict-origin-when-cross-origin",
+                "Content-Security-Policy": "default-src 'self'",
+                "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
             }
 
             assert headers == expected
@@ -110,7 +112,9 @@ class TestSessionCookieConfig:
                 "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
                 "X-Content-Type-Options": "nosniff",
                 "X-Frame-Options": "DENY",
-                "X-XSS-Protection": "1; mode=block",
+                "Referrer-Policy": "strict-origin-when-cross-origin",
+                "Content-Security-Policy": "default-src 'self'",
+                "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
             }
 
             assert headers == expected
@@ -244,7 +248,9 @@ class TestSessionCookieConfigSecurity:
                 # These headers should always be present
                 assert headers["X-Content-Type-Options"] == "nosniff"
                 assert headers["X-Frame-Options"] == "DENY"
-                assert headers["X-XSS-Protection"] == "1; mode=block"
+                assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+                assert headers["Content-Security-Policy"] == "default-src 'self'"
+                assert headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"
 
     def test_samesite_none_requires_secure_context(self):
         """Test that SameSite=None is handled appropriately."""

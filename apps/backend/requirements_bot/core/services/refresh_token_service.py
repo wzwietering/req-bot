@@ -5,6 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 from requirements_bot.core.database_models import RefreshTokenTable
 
+# Clock skew tolerance for token expiry validation (in seconds)
+# Allows 30 second tolerance for time synchronization issues between servers
+CLOCK_SKEW_SECONDS = 30
+
 
 class RefreshTokenService:
     """Thread-safe refresh token service."""
@@ -12,6 +16,12 @@ class RefreshTokenService:
     def __init__(self, db_session_factory):
         self.db_session_factory = db_session_factory
         self._lock = threading.Lock()
+
+    def _is_token_expired(self, expires_at: datetime) -> bool:
+        """Check if token is expired with clock skew tolerance."""
+        now = datetime.now(UTC)
+        # Consider token expired if it expired more than CLOCK_SKEW_SECONDS ago
+        return expires_at < (now - timedelta(seconds=CLOCK_SKEW_SECONDS))
 
     def create_refresh_token(self, user_id: str, expire_days: int = 30) -> str:
         """Create a new refresh token for user."""
@@ -51,12 +61,11 @@ class RefreshTokenService:
                         .filter(
                             RefreshTokenTable.token_hash == token_hash,
                             not RefreshTokenTable.revoked,
-                            RefreshTokenTable.expires_at > datetime.now(UTC),
                         )
                         .first()
                     )
 
-                    if refresh_token:
+                    if refresh_token and not self._is_token_expired(refresh_token.expires_at):
                         return refresh_token.user_id
                     return None
                 except Exception:
@@ -83,12 +92,11 @@ class RefreshTokenService:
                         .filter(
                             RefreshTokenTable.token_hash == old_token_hash,
                             not RefreshTokenTable.revoked,
-                            RefreshTokenTable.expires_at > datetime.now(UTC),
                         )
                         .first()
                     )
 
-                    if not old_refresh_token:
+                    if not old_refresh_token or self._is_token_expired(old_refresh_token.expires_at):
                         return None
 
                     user_id = old_refresh_token.user_id
@@ -166,8 +174,10 @@ class RefreshTokenService:
         with self._lock:
             with self.db_session_factory() as db:
                 try:
+                    # Use clock skew tolerance when cleaning up expired tokens
+                    expiry_threshold = datetime.now(UTC) - timedelta(seconds=CLOCK_SKEW_SECONDS)
                     expired_tokens = (
-                        db.query(RefreshTokenTable).filter(RefreshTokenTable.expires_at < datetime.now(UTC)).all()
+                        db.query(RefreshTokenTable).filter(RefreshTokenTable.expires_at < expiry_threshold).all()
                     )
 
                     count = len(expired_tokens)

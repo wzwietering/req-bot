@@ -308,3 +308,27 @@ def log_event(event: str, level: int = logging.INFO, **fields: Any) -> None:
     extra = {"event": event}
     extra.update(fields)
     logger.log(level, event, extra=extra)
+
+
+def audit_log(event_type: str, user_id: str | None, client_ip: str | None = None, **details: Any) -> None:
+    """Log security-relevant events to audit trail.
+
+    Audit logs are always logged at WARNING level to ensure they're captured
+    and can be easily filtered for security analysis and compliance reporting.
+
+    Args:
+        event_type: Type of security event (e.g., "auth.failed_login", "token.refresh_failed")
+        user_id: ID of the user involved (None for anonymous events)
+        client_ip: IP address of the client
+        **details: Additional context about the security event
+    """
+    logger = logging.getLogger("requirements_bot")
+    extra = {
+        "event": f"audit.{event_type}",
+        "audit": True,  # Flag for easy audit log filtering
+        "user_id": user_id,
+        "client_ip": client_ip,
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    }
+    extra.update(details)
+    logger.warning(f"AUDIT: {event_type}", extra=extra)

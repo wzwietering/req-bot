@@ -23,6 +23,7 @@ async def exchange_oauth_token(oauth_client, request: Request, provider: str, oa
     ):
         log_event(
             "oauth.token_exchange_start",
+            level=logging.DEBUG,
             component="auth",
             operation="exchange_token",
             provider=provider,
@@ -41,6 +42,7 @@ async def exchange_oauth_token(oauth_client, request: Request, provider: str, oa
 
         log_event(
             "oauth.token_exchange_result",
+            level=logging.DEBUG,
             component="auth",
             operation="exchange_token",
             provider=provider,
