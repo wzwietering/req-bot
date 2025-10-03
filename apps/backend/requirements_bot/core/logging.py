@@ -15,6 +15,7 @@ _ctx_trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
 _ctx_span_id: ContextVar[str | None] = ContextVar("span_id", default=None)
 _ctx_parent_span_id: ContextVar[str | None] = ContextVar("parent_span_id", default=None)
 _ctx_run_id: ContextVar[str | None] = ContextVar("run_id", default=None)
+_ctx_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 _ctx_mask: ContextVar[bool] = ContextVar("mask", default=False)
 
 
@@ -25,6 +26,7 @@ class ContextFilter(logging.Filter):
         record.span_id = _ctx_span_id.get()
         record.parent_span_id = _ctx_parent_span_id.get()
         record.run_id = _ctx_run_id.get()
+        record.request_id = _ctx_request_id.get()
         record.component = getattr(record, "component", None)
         record.operation = getattr(record, "operation", None)
         # Provide default event field if not present
@@ -48,6 +50,7 @@ class JsonFormatter(logging.Formatter):
             "span_id",
             "parent_span_id",
             "run_id",
+            "request_id",
             "component",
             "operation",
             "duration_ms",
@@ -233,6 +236,14 @@ def get_run_id() -> str | None:
     return _ctx_run_id.get()
 
 
+def set_request_id(request_id: str | None) -> None:
+    _ctx_request_id.set(request_id)
+
+
+def get_request_id() -> str | None:
+    return _ctx_request_id.get()
+
+
 def set_masking(mask: bool) -> None:
     _ctx_mask.set(mask)
 
@@ -297,3 +308,27 @@ def log_event(event: str, level: int = logging.INFO, **fields: Any) -> None:
     extra = {"event": event}
     extra.update(fields)
     logger.log(level, event, extra=extra)
+
+
+def audit_log(event_type: str, user_id: str | None, client_ip: str | None = None, **details: Any) -> None:
+    """Log security-relevant events to audit trail.
+
+    Audit logs are always logged at WARNING level to ensure they're captured
+    and can be easily filtered for security analysis and compliance reporting.
+
+    Args:
+        event_type: Type of security event (e.g., "auth.failed_login", "token.refresh_failed")
+        user_id: ID of the user involved (None for anonymous events)
+        client_ip: IP address of the client
+        **details: Additional context about the security event
+    """
+    logger = logging.getLogger("requirements_bot")
+    extra = {
+        "event": f"audit.{event_type}",
+        "audit": True,  # Flag for easy audit log filtering
+        "user_id": user_id,
+        "client_ip": client_ip,
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    }
+    extra.update(details)
+    logger.warning(f"AUDIT: {event_type}", extra=extra)

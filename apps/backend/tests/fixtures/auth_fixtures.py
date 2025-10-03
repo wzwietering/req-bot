@@ -90,9 +90,9 @@ def mock_request():
     """Create mock FastAPI Request object."""
     request = Mock(spec=Request)
     request.query_params = {}
-    request.headers = {"host": "localhost:8000"}
+    request.headers = {"host": "localhost:8080"}
     request.url.scheme = "http"
-    request.url.netloc = "localhost:8000"
+    request.url.netloc = "localhost:8080"
     request.url.path = "/api/v1/auth/callback/google"
     request.client.host = "127.0.0.1"
     return request
@@ -351,9 +351,9 @@ class AuthTestHelper:
         """Create mock request with specific parameters."""
         request = Mock(spec=Request)
         request.query_params = params
-        request.headers = headers or {"host": "localhost:8000"}
+        request.headers = headers or {"host": "localhost:8080"}
         request.url.scheme = "http"
-        request.url.netloc = "localhost:8000"
+        request.url.netloc = "localhost:8080"
         request.url.path = "/api/v1/auth/callback/google"
         request.client.host = client_ip
         return request

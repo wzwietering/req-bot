@@ -1,7 +1,9 @@
+import logging
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, field_validator
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session as DBSession
 
 from requirements_bot.api.auth import JWTService, OAuth2Providers
@@ -10,103 +12,32 @@ from requirements_bot.api.dependencies import (
     get_jwt_service_with_refresh,
     get_oauth_providers_with_db,
     get_refresh_token_service,
+    get_session_cookie_config,
 )
 from requirements_bot.api.error_responses import (
     AuthenticationError,
     NotFoundError,
-    OAuthError,
-    ValidationError,
     create_error_response,
 )
 from requirements_bot.api.rate_limiting import rate_limit_middleware
+from requirements_bot.api.routes.auth_helpers import (
+    clear_auth_cookies,
+    exchange_oauth_token,
+    process_oauth_user,
+    set_auth_cookies,
+    validate_oauth_callback,
+    validate_provider_name,
+)
+from requirements_bot.core.logging import audit_log, log_event, mask_text, span
 from requirements_bot.core.models import UserResponse
-from requirements_bot.core.services.oauth_callback_validator import OAuthCallbackValidator
 from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectConfig
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
-from requirements_bot.core.services.user_registration_service import UserRegistrationService
+from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.services.user_service import UserService
 
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str
-
-    @field_validator("refresh_token")
-    @classmethod
-    def validate_refresh_token(cls, v):
-        if not v or not v.strip():
-            raise ValueError("Refresh token cannot be empty")
-        if len(v) < 10:
-            raise ValueError("Refresh token appears to be invalid")
-        return v.strip()
-
-
-class LogoutRequest(BaseModel):
-    refresh_token: str | None = None
-
-    @field_validator("refresh_token")
-    @classmethod
-    def validate_refresh_token(cls, v):
-        if v is not None:
-            if not v.strip():
-                raise ValueError("Refresh token cannot be empty if provided")
-            if len(v) < 10:
-                raise ValueError("Refresh token appears to be invalid")
-            return v.strip()
-        return v
-
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-
-
-def validate_provider_name(provider: str) -> str:
-    """Validate OAuth provider name."""
-    if not provider or not provider.strip():
-        raise ValidationError("Provider name cannot be empty", "provider")
-
-    provider = provider.strip().lower()
-    if provider not in ["google", "github", "microsoft"]:
-        raise ValidationError(f"Unsupported provider: {provider}", "provider")
-
-    return provider
-
-
-def _validate_oauth_callback(request: Request, oauth_providers: OAuth2Providers, provider: str) -> dict:
-    """Validate OAuth callback parameters and state."""
-    validator = OAuthCallbackValidator()
-    params = validator.validate_callback_params(request, provider)
-
-    if not oauth_providers.verify_state(params["state"]):
-        raise OAuthError("Invalid or expired state parameter", provider)
-
-    return params
-
-
-async def _exchange_oauth_token(oauth_client, request: Request, provider: str):
-    """Exchange authorization code for OAuth token."""
-    token = await oauth_client.authorize_access_token(request)
-    if not token:
-        raise OAuthError("Failed to obtain access token", provider)
-    return token
-
-
-async def _process_oauth_user(
-    oauth_providers: OAuth2Providers, provider: str, token: dict, db_session: DBSession, jwt_service: JWTService
-):
-    """Process OAuth user information and create session."""
-    user_create = await oauth_providers.get_user_info(provider, token)
-    return _create_user_session(user_create, db_session, jwt_service)
-
-
-def _create_user_session(user_create, db_session: DBSession, jwt_service: JWTService):
-    """Create user and generate session tokens."""
-    registration_service = UserRegistrationService(db_session)
-    user = registration_service.get_or_create_user(user_create)
-
-    user_service = UserService(db_session)
-    token_data = jwt_service.create_token_pair(user.id, user.email)
-    response = token_data.copy()
-    response["user"] = user_service.to_response(user)
-    return response
 
 
 @router.get("/login/{provider}")
@@ -119,22 +50,42 @@ async def oauth_login(
     rate_limit_middleware.check_oauth_rate_limit(request)
     provider = validate_provider_name(provider)
 
-    try:
-        oauth_client = oauth_providers.get_provider(provider)
-        state = oauth_providers.generate_state()
+    # Get client IP for security logging
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
 
-        redirect_config = OAuthRedirectConfig()
-        callback_url = redirect_config.build_callback_url(request, provider)
+    with span(
+        "oauth.login_initiate",
+        component="auth",
+        operation="oauth_login",
+        provider=provider,
+        client_ip=client_ip,
+        user_agent_masked=mask_text(user_agent),
+    ):
+        try:
+            oauth_client = oauth_providers.get_provider(provider)
+            state = oauth_providers.generate_state()
+            redirect_config = OAuthRedirectConfig()
+            callback_url = redirect_config.build_callback_url(request, provider)
+            redirect_url = await oauth_client.authorize_redirect(request, callback_url, state=state)
+            return redirect_url
 
-        redirect_url = await oauth_client.authorize_redirect(request, callback_url, state=state)
-        return redirect_url
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise create_error_response(
-            "oauth_login_failed", "Failed to initiate OAuth login", status.HTTP_500_INTERNAL_SERVER_ERROR
-        ) from e
+        except HTTPException:
+            raise
+        except Exception as e:
+            log_event(
+                "oauth.login_error",
+                level=logging.ERROR,
+                component="auth",
+                operation="oauth_login",
+                provider=provider,
+                client_ip=client_ip,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
+            raise create_error_response(
+                "oauth_login_failed", "Failed to initiate OAuth login", status.HTTP_500_INTERNAL_SERVER_ERROR
+            ) from e
 
 
 @router.get("/callback/{provider}")
@@ -144,24 +95,64 @@ async def oauth_callback(
     db_session: Annotated[DBSession, Depends(get_database_session)],
     oauth_providers: Annotated[OAuth2Providers, Depends(get_oauth_providers_with_db)],
     jwt_service: Annotated[JWTService, Depends(get_jwt_service_with_refresh)],
+    cookie_config: Annotated[SessionCookieConfig, Depends(get_session_cookie_config)],
 ):
     """Handle OAuth callback and create user session."""
     rate_limit_middleware.check_oauth_rate_limit(request)
     provider = validate_provider_name(provider)
 
-    try:
-        oauth_client = oauth_providers.get_provider(provider)
-        _validate_oauth_callback(request, oauth_providers, provider)
-        token = await _exchange_oauth_token(oauth_client, request, provider)
-        return await _process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
-    except HTTPException:
-        db_session.rollback()
-        raise
-    except Exception as e:
-        db_session.rollback()
-        raise create_error_response(
-            "oauth_callback_failed", "OAuth authentication process failed", status.HTTP_500_INTERNAL_SERVER_ERROR
-        ) from e
+    # Get client IP for security logging
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+
+    with span(
+        "oauth.callback_flow",
+        component="auth",
+        operation="oauth_callback",
+        provider=provider,
+        client_ip=client_ip,
+        user_agent_masked=mask_text(user_agent),
+    ):
+        try:
+            oauth_client = oauth_providers.get_provider(provider)
+            validate_oauth_callback(request, oauth_providers, provider)
+            token = await exchange_oauth_token(oauth_client, request, provider, oauth_providers)
+            result = await process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
+
+            # Redirect to frontend with tokens in httpOnly cookies
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            frontend_callback = f"{frontend_url}/auth/callback/{provider}?success=true"
+            response = RedirectResponse(url=frontend_callback)
+            set_auth_cookies(response, result["access_token"], result["refresh_token"], cookie_config, jwt_service)
+
+            return response
+
+        except HTTPException:
+            db_session.rollback()
+            raise
+        except Exception as e:
+            db_session.rollback()
+            log_event(
+                "oauth.callback_error",
+                level=logging.ERROR,
+                component="auth",
+                operation="oauth_callback",
+                provider=provider,
+                client_ip=client_ip,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+            )
+            # Audit log for failed authentication
+            audit_log(
+                "oauth.authentication_failed",
+                user_id=None,
+                client_ip=client_ip,
+                provider=provider,
+                error_type=type(e).__name__,
+            )
+            raise create_error_response(
+                "oauth_callback_failed", "OAuth authentication process failed", status.HTTP_500_INTERNAL_SERVER_ERROR
+            ) from e
 
 
 @router.get("/me", response_model=UserResponse)
@@ -186,20 +177,45 @@ async def get_current_user_profile(
 
 @router.post("/refresh")
 async def refresh_token(
-    request_data: RefreshTokenRequest,
     request: Request,
     db_session: Annotated[DBSession, Depends(get_database_session)],
     jwt_service: Annotated[JWTService, Depends(get_jwt_service_with_refresh)],
+    cookie_config: Annotated[SessionCookieConfig, Depends(get_session_cookie_config)],
 ):
-    """Refresh access token using refresh token."""
+    """Refresh access token using refresh token from cookie with token rotation."""
     rate_limit_middleware.check_refresh_token_rate_limit(request)
 
-    try:
-        refresh_token_service = RefreshTokenService(lambda: db_session)
-        user_id = refresh_token_service.verify_refresh_token(request_data.refresh_token)
+    client_ip = request.client.host if request.client else "unknown"
 
-        if not user_id:
+    try:
+        # Read refresh token from cookie
+        old_refresh_token = request.cookies.get("refresh_token")
+        if not old_refresh_token:
+            # Audit log for missing refresh token
+            audit_log(
+                "token.refresh_failed_no_token",
+                user_id=None,
+                client_ip=client_ip,
+                reason="No refresh token found in request",
+            )
+            raise AuthenticationError("No refresh token found")
+
+        refresh_token_service = RefreshTokenService(lambda: db_session)
+
+        # Rotate refresh token (revoke old, issue new)
+        rotation_result = refresh_token_service.refresh_and_rotate(old_refresh_token)
+
+        if not rotation_result:
+            # Audit log for failed token refresh (could be replay attack)
+            audit_log(
+                "token.refresh_failed_invalid",
+                user_id=None,
+                client_ip=client_ip,
+                reason="Invalid or expired refresh token",
+            )
             raise AuthenticationError("Invalid or expired refresh token")
+
+        user_id, new_refresh_token = rotation_result
 
         # Get user info for new access token
         user_service = UserService(db_session)
@@ -211,15 +227,47 @@ async def refresh_token(
         # Create new access token
         access_token = jwt_service.create_access_token(user.id, user.email)
 
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "expires_in": jwt_service.access_token_expire_minutes * 60,
-        }
+        log_event(
+            "auth.token_refresh_success",
+            level=logging.INFO,
+            component="auth",
+            operation="refresh_token",
+            user_id=user.id,
+            rotated_refresh_token=True,
+        )
+
+        # Audit log for successful token refresh
+        audit_log(
+            "token.refresh_success",
+            user_id=user.id,
+            client_ip=client_ip,
+        )
+
+        # Return response with new tokens in cookies
+        response = JSONResponse(
+            content={
+                "message": "Tokens refreshed successfully",
+                "token_type": "bearer",
+                "expires_in": jwt_service.access_token_expire_minutes * 60,
+            }
+        )
+
+        # Set both access and new refresh token cookies
+        set_auth_cookies(response, access_token, new_refresh_token, cookie_config, jwt_service)
+
+        return response
 
     except HTTPException:
         raise
     except Exception as e:
+        log_event(
+            "auth.token_refresh_failed",
+            level=logging.ERROR,
+            component="auth",
+            operation="refresh_token",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+        )
         raise create_error_response(
             "token_refresh_failed", "Failed to refresh access token", status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
@@ -227,19 +275,107 @@ async def refresh_token(
 
 @router.post("/logout")
 async def logout(
-    request_data: LogoutRequest,
+    request: Request,
     refresh_token_service: Annotated[RefreshTokenService, Depends(get_refresh_token_service)],
+    cookie_config: Annotated[SessionCookieConfig, Depends(get_session_cookie_config)],
 ):
     """Logout user and revoke refresh token."""
     try:
-        if request_data.refresh_token:
-            refresh_token_service.revoke_refresh_token(request_data.refresh_token)
+        # Read refresh token from cookie
+        refresh_token_value = request.cookies.get("refresh_token")
+        if refresh_token_value:
+            refresh_token_service.revoke_refresh_token(refresh_token_value)
 
-        return {"message": "Logged out successfully"}
+        # Create response
+        response = JSONResponse(content={"message": "Logged out successfully"})
 
-    except Exception:
+        # Clear cookies
+        clear_auth_cookies(response, cookie_config)
+
+        return response
+
+    except Exception as e:
         # Don't fail logout even if token revocation fails
-        return {"message": "Logged out successfully"}
+        log_event(
+            "auth.logout_token_revocation_failed",
+            level=logging.ERROR,
+            component="auth",
+            operation="logout",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+        )
+
+        response = JSONResponse(content={"message": "Logged out successfully"})
+
+        # Still clear cookies for user experience
+        clear_auth_cookies(response, cookie_config)
+
+        return response
+
+
+@router.post("/invalidate-sessions")
+async def invalidate_user_sessions(
+    request: Request,
+    db_session: Annotated[DBSession, Depends(get_database_session)],
+    refresh_token_service: Annotated[RefreshTokenService, Depends(get_refresh_token_service)],
+):
+    """Invalidate all sessions for the current user.
+
+    Useful for security events like password changes, suspicious activity detection,
+    or when user wants to log out from all devices.
+    """
+    rate_limit_middleware.check_oauth_rate_limit(request)
+
+    # Get current user from authentication middleware
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise AuthenticationError()
+
+    client_ip = request.client.host if request.client else "unknown"
+
+    try:
+        # Revoke all refresh tokens for the user
+        revoked_count = refresh_token_service.revoke_all_user_tokens(user_id)
+
+        log_event(
+            "auth.sessions_invalidated",
+            level=logging.INFO,
+            component="auth",
+            operation="invalidate_sessions",
+            user_id=user_id,
+            tokens_revoked=revoked_count,
+        )
+
+        # Audit log for session invalidation (security event)
+        audit_log(
+            "sessions.invalidated_all",
+            user_id=user_id,
+            client_ip=client_ip,
+            sessions_revoked=revoked_count,
+        )
+
+        return JSONResponse(
+            content={
+                "message": "All sessions invalidated successfully",
+                "sessions_revoked": revoked_count,
+            }
+        )
+
+    except Exception as e:
+        log_event(
+            "auth.session_invalidation_failed",
+            level=logging.ERROR,
+            component="auth",
+            operation="invalidate_sessions",
+            user_id=user_id,
+            error_type=type(e).__name__,
+            error_msg=str(e),
+        )
+        raise create_error_response(
+            "session_invalidation_failed",
+            "Failed to invalidate sessions",
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ) from e
 
 
 @router.get("/status")

@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Button, Container } from '../ui';
+import { Container } from '../ui';
+import { AuthButtons, AuthButtonsMobile } from '../auth/AuthButtons';
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
-    { href: '#features', label: 'Features' },
-    { href: '#how-it-works', label: 'How It Works' }
+    { href: '/#features', label: 'Features' },
+    { href: '/#how-it-works', label: 'How It Works' }
   ];
 
   return (
@@ -39,11 +40,9 @@ export function Navigation() {
             ))}
           </div>
 
-          {/* Desktop CTA */}
+          {/* Desktop Auth Buttons */}
           <div className="hidden md:block">
-            <Button size="md">
-              Start Your First Interview
-            </Button>
+            <AuthButtons />
           </div>
 
           {/* Mobile Menu Button */}
@@ -98,10 +97,10 @@ export function Navigation() {
                   {item.label}
                 </Link>
               ))}
-              <div className="pt-4">
-                <Button size="md" className="w-full">
-                  Start Your First Interview
-                </Button>
+
+              {/* Mobile Auth Section */}
+              <div className="pt-4 border-t border-deep-indigo-100">
+                <AuthButtonsMobile onMenuClose={() => setIsMenuOpen(false)} />
               </div>
             </div>
           </div>

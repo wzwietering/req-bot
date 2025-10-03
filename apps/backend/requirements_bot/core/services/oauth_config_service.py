@@ -28,7 +28,7 @@ class OAuthConfigService:
     SUPPORTED_PROVIDERS = {
         "google": {
             "required_scopes": ["openid", "email", "profile"],
-            "server_metadata_url": "https://accounts.google.com/.well-known/openid_configuration",
+            "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
         },
         "github": {
             "required_scopes": ["user:email"],
@@ -36,8 +36,8 @@ class OAuthConfigService:
             "access_token_url": "https://github.com/login/oauth/access_token",
         },
         "microsoft": {
-            "required_scopes": ["openid", "email", "profile"],
-            "server_metadata_url": "https://login.microsoftonline.com/common/v2.0/.well-known/openid_configuration",
+            "required_scopes": ["openid", "email", "profile", "User.Read"],
+            "server_metadata_url": "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
         },
     }
 

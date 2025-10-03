@@ -57,10 +57,10 @@ npm run dev
 ```
 
 This will start:
-- **Backend API** at `http://localhost:8000` (with docs at `/docs`)
+- **Backend API** at `http://localhost:8080` (with docs at `/docs`)
 - **Frontend Web App** at `http://localhost:3000`
 
-### Legacy CLI Usage (Backend Only)
+### CLI Usage
 
 For command-line usage without the web interface:
 
@@ -127,7 +127,7 @@ DATABASE_URL=sqlite:///./requirements_bot.db
 ### Frontend Configuration
 Create `apps/frontend/.env.local`:
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed environment setup.
@@ -135,9 +135,9 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed environment setup.
 ## API Documentation
 
 When running the backend, API documentation is available at:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
-- **OpenAPI JSON**: `http://localhost:8000/openapi.json`
+- **Swagger UI**: `http://localhost:8080/docs`
+- **ReDoc**: `http://localhost:8080/redoc`
+- **OpenAPI JSON**: `http://localhost:8080/openapi.json`
 
 ## Legacy CLI Usage
 

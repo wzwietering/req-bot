@@ -174,12 +174,15 @@ class TestSecurityVulnerabilities:
 
         assert headers["X-Content-Type-Options"] == "nosniff"
 
-    def test_xss_protection_header(self):
-        """Test XSS protection header."""
+    def test_modern_security_headers(self):
+        """Test modern security headers (CSP, Referrer-Policy, Permissions-Policy)."""
         config = SessionCookieConfig()
         headers = config.get_response_headers()
 
-        assert headers["X-XSS-Protection"] == "1; mode=block"
+        # Modern security headers that replaced X-XSS-Protection
+        assert headers["Content-Security-Policy"] == "default-src 'self'"
+        assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+        assert headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"
 
     def test_transport_security_enforcement(self):
         """Test HTTP Strict Transport Security enforcement."""

@@ -4,18 +4,39 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 from requirements_bot.api.dependencies import get_jwt_service_with_refresh
 from requirements_bot.api.error_responses import ErrorDetail
 from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
-from requirements_bot.api.middleware import AuthenticationMiddleware, ExceptionHandlingMiddleware
+from requirements_bot.api.middleware import (
+    AuthenticationMiddleware,
+    ExceptionHandlingMiddleware,
+    RequestIDMiddleware,
+)
 from requirements_bot.api.routes import auth, questions, sessions
+from requirements_bot.core.logging import init_logging
 
 app = FastAPI(
     title="Requirements Bot API",
     description="HTTP API for the Requirements Bot - AI-powered requirements gathering tool",
     version="0.1.0",
 )
+
+# Initialize structured logging for the API server
+init_logging(
+    level=os.getenv("REQBOT_LOG_LEVEL", "INFO"),
+    fmt=os.getenv("REQBOT_LOG_FORMAT", "json"),
+    file_path=os.getenv("REQBOT_LOG_FILE"),
+    mask=os.getenv("REQBOT_LOG_MASK", "false").lower() in ("true", "1", "yes", "on"),
+    use_stderr=True,  # Use stderr for better separation from app output
+)
+
+# Add session middleware for OAuth state management
+session_secret = os.getenv("JWT_SECRET_KEY")
+if not session_secret:
+    raise ValueError("JWT_SECRET_KEY environment variable is required for session middleware")
+app.add_middleware(SessionMiddleware, secret_key=session_secret)
 
 # Configure CORS for production
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
@@ -28,6 +49,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],  # Required headers for auth
     max_age=86400,  # Cache preflight requests for 24 hours
 )
+
+# Add request ID middleware (first, so all logs have request ID)
+app.add_middleware(RequestIDMiddleware)
 
 # Add authentication middleware (before exception handling)
 app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service_with_refresh())

@@ -1,7 +1,6 @@
 """User registration service for new user creation."""
 
 import re
-from typing import Any
 
 from sqlalchemy.orm import Session as DBSession
 
@@ -17,30 +16,31 @@ class UserRegistrationService:
         self.db_session = db_session
         self.user_service = UserService(db_session)
 
-    def register_oauth_user(self, user_data: dict[str, Any]):
+    def register_oauth_user(self, user_create: UserCreate):
         """Register new user via OAuth provider."""
-        self._validate_registration_data(user_data)
-        self._check_existing_user(user_data)
+        self._validate_registration_data(user_create)
+        self._check_existing_user(user_create)
 
-        user_create = UserCreate(**user_data)
         user = self.user_service.create_user(user_create)
         self.db_session.commit()
         return user
 
-    def get_or_create_user(self, user_data: dict[str, Any]):
+    def get_or_create_user(self, user_create: UserCreate):
         """Get existing user or create new one."""
-        existing_user = self._find_existing_user(user_data)
+        existing_user = self._find_existing_user(user_create)
 
         if existing_user:
-            return existing_user
+            # Update provider info to reflect current login method
+            updated_user = self._update_provider_info(existing_user, user_create)
+            return updated_user
         else:
-            return self.register_oauth_user(user_data)
+            return self.register_oauth_user(user_create)
 
-    def _validate_registration_data(self, user_data: dict[str, Any]):
+    def _validate_registration_data(self, user_create: UserCreate):
         """Validate user registration data."""
-        email = user_data.get("email", "")
-        provider = user_data.get("provider", "")
-        provider_id = user_data.get("provider_id", "")
+        email = user_create.email or ""
+        provider = user_create.provider or ""
+        provider_id = user_create.provider_id or ""
 
         # Validate email
         if not email:
@@ -68,21 +68,33 @@ class UserRegistrationService:
         ):
             raise ValidationError("Provider information is required", "provider")
 
-    def _check_existing_user(self, user_data: dict[str, Any]):
+    def _check_existing_user(self, user_create: UserCreate):
         """Check if user already exists."""
-        email = user_data.get("email", "")
+        email = user_create.email or ""
         if self.user_service.get_user_by_email(email):
             raise ValidationError("User already exists", "email")
 
-    def _find_existing_user(self, user_data: dict[str, Any]):
+    def _find_existing_user(self, user_create: UserCreate):
         """Find existing user by provider and email."""
-        provider = user_data.get("provider", "")
-        provider_id = user_data.get("provider_id", "")
-        email = user_data.get("email", "")
+        provider = user_create.provider or ""
+        provider_id = user_create.provider_id or ""
+        email = user_create.email or ""
 
         return self.user_service.get_user_by_provider_id(provider, provider_id) or self.user_service.get_user_by_email(
             email
         )
+
+    def _update_provider_info(self, existing_user, user_create: UserCreate):
+        """Update provider information when user logs in with different provider."""
+        updated_user = self.user_service.update_user_provider(
+            existing_user.id,
+            user_create.provider,
+            user_create.provider_id,
+            user_create.name,
+            user_create.avatar_url,
+        )
+        self.db_session.commit()
+        return updated_user
 
     def _is_valid_email(self, email: str) -> bool:
         """Validate email format with security checks."""

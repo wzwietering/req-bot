@@ -125,7 +125,21 @@ class RateLimitMiddleware:
             )
 
 
+# Rate limiting configuration
+# OAuth endpoints: 5 requests per minute per IP
+# - Protects against OAuth abuse and brute force attacks
+# - Allows legitimate retries while preventing excessive requests
+OAUTH_MAX_REQUESTS = int(os.getenv("OAUTH_RATE_LIMIT_MAX_REQUESTS", "5"))
+OAUTH_WINDOW_SECONDS = int(os.getenv("OAUTH_RATE_LIMIT_WINDOW_SECONDS", "60"))
+
+# Refresh token endpoint: 10 requests per hour per IP
+# - Prevents token refresh abuse
+# - Higher limit than OAuth since legitimate apps refresh tokens periodically
+# - 1 hour window provides good balance between security and usability
+REFRESH_MAX_REQUESTS = int(os.getenv("REFRESH_RATE_LIMIT_MAX_REQUESTS", "10"))
+REFRESH_WINDOW_SECONDS = int(os.getenv("REFRESH_RATE_LIMIT_WINDOW_SECONDS", "3600"))
+
 # Global rate limiters
-oauth_rate_limiter = RateLimiter(max_requests=5, window_seconds=60)  # 5 OAuth attempts per minute
-refresh_token_rate_limiter = RateLimiter(max_requests=10, window_seconds=3600)  # 10 refresh attempts per hour
+oauth_rate_limiter = RateLimiter(max_requests=OAUTH_MAX_REQUESTS, window_seconds=OAUTH_WINDOW_SECONDS)
+refresh_token_rate_limiter = RateLimiter(max_requests=REFRESH_MAX_REQUESTS, window_seconds=REFRESH_WINDOW_SECONDS)
 rate_limit_middleware = RateLimitMiddleware(oauth_rate_limiter)

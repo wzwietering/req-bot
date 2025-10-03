@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Button, Container } from '../ui';
 import { ShieldIcon, CheckCircleIcon } from '../icons';
 
@@ -56,9 +57,11 @@ export function Hero() {
             <Button size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
               Start Your First Interview
             </Button>
-            <Button variant="secondary" size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
-              See How It Works
-            </Button>
+            <Link href="#how-it-works">
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
+                See How It Works
+              </Button>
+            </Link>
           </div>
 
           {/* Trust indicators */}

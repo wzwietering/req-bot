@@ -9,10 +9,12 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from requirements_bot.api.error_responses import AuthenticationError, ConfigurationError
+from requirements_bot.core.logging import log_event, span
 from requirements_bot.core.models import UserCreate
 from requirements_bot.core.services.oauth_config_service import ConfigValidationError, OAuthConfigService
 from requirements_bot.core.services.oauth_state_service import OAuthStateService
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
+from requirements_bot.core.services.token_config import TokenConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +29,17 @@ class OAuth2Config(BaseModel):
 
 
 class JWTService:
-    def __init__(self, secret_key: str, algorithm: str = "HS256", refresh_token_service: RefreshTokenService = None):
+    def __init__(
+        self,
+        secret_key: str,
+        algorithm: str = "HS256",
+        refresh_token_service: RefreshTokenService = None,
+        token_config: TokenConfig | None = None,
+    ):
         self.secret_key = secret_key
         self.algorithm = algorithm
-        self.access_token_expire_minutes = 15  # Shorter for access tokens
+        self._token_config = token_config or TokenConfig()
+        self.access_token_expire_minutes = self._token_config.access_token_expire_minutes
         self.refresh_token_service = refresh_token_service
 
     def create_token_pair(self, user_id: str, email: str) -> dict:
@@ -66,17 +75,72 @@ class JWTService:
         return self.create_access_token(user_id, user_email)
 
     def verify_token(self, token: str) -> dict[str, Any]:
-        try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            user_id: str = payload.get("sub")
-            email: str = payload.get("email")
+        with span("auth.jwt_verify", component="auth", operation="verify_token"):
+            try:
+                log_event(
+                    "auth.jwt_decode_start",
+                    level=logging.DEBUG,
+                    component="auth",
+                    operation="verify_token",
+                    token_length=len(token),
+                )
 
-            if user_id is None or email is None:
-                raise AuthenticationError("Invalid token: missing user information")
+                payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+                user_id: str = payload.get("sub")
+                email: str = payload.get("email")
+                exp: int = payload.get("exp")
 
-            return {"user_id": user_id, "email": email}
-        except JWTError:
-            raise AuthenticationError("Invalid token")
+                log_event(
+                    "auth.jwt_decoded",
+                    level=logging.DEBUG,
+                    component="auth",
+                    operation="verify_token",
+                    has_user_id=bool(user_id),
+                    has_email=bool(email),
+                    has_exp=bool(exp),
+                )
+
+                if user_id is None or email is None:
+                    log_event(
+                        "auth.jwt_missing_claims",
+                        level=logging.WARNING,
+                        component="auth",
+                        operation="verify_token",
+                        has_user_id=bool(user_id),
+                        has_email=bool(email),
+                    )
+                    raise AuthenticationError("Invalid token: missing user information")
+
+                log_event(
+                    "auth.jwt_verification_success",
+                    level=logging.DEBUG,
+                    component="auth",
+                    operation="verify_token",
+                    user_id=user_id,
+                )
+
+                return {"user_id": user_id, "email": email}
+            except JWTError as e:
+                error_type = type(e).__name__
+                error_msg = str(e)
+
+                log_event(
+                    "auth.jwt_verification_failed",
+                    level=logging.WARNING,
+                    component="auth",
+                    operation="verify_token",
+                    error_type=error_type,
+                    error_msg=error_msg,
+                    is_expired="expired" in error_msg.lower() or "ExpiredSignature" in error_type,
+                )
+
+                # Provide more specific error messages
+                if "expired" in error_msg.lower() or "ExpiredSignature" in error_type:
+                    raise AuthenticationError("Token expired")
+                elif "signature" in error_msg.lower():
+                    raise AuthenticationError("Invalid token signature")
+                else:
+                    raise AuthenticationError(f"Invalid token: {error_type}")
 
 
 class OAuth2Providers:
@@ -98,15 +162,32 @@ class OAuth2Providers:
             raise ConfigurationError("Database session factory not configured")
         return self._state_service.verify_and_consume_state(state)
 
+    def get_provider_config(self, provider_name: str):
+        """Get validated provider configuration.
+
+        Args:
+            provider_name: Name of the OAuth provider (google, github, microsoft)
+
+        Returns:
+            Validated provider configuration
+
+        Raises:
+            ConfigValidationError: If provider configuration is invalid or missing
+        """
+        return self._config_service.validate_provider_config(provider_name)
+
     def _setup_providers(self):
         """Setup OAuth providers using validated configurations."""
         for provider_name in ["google", "github", "microsoft"]:
             try:
+                logger.debug(f"Attempting to configure OAuth provider: {provider_name}")
                 config = self._config_service.validate_provider_config(provider_name)
                 self._register_provider(provider_name, config)
                 logger.info(f"OAuth provider {provider_name} configured successfully")
             except ConfigValidationError as e:
                 logger.warning(f"OAuth provider {provider_name} not configured: {e}")
+            except Exception as e:
+                logger.error(f"Failed to setup OAuth provider {provider_name}: {type(e).__name__}")
 
     def _register_provider(self, provider_name: str, config):
         """Register a specific OAuth provider."""
@@ -155,17 +236,20 @@ class OAuth2Providers:
 
         if provider_name not in available_providers:
             if provider_name in ["google", "github", "microsoft"]:
+                logger.error(f"OAuth provider {provider_name} not properly configured")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"OAuth provider {provider_name} not properly configured",
                 )
             else:
+                logger.error(f"Unsupported OAuth provider: {provider_name}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported OAuth provider: {provider_name}"
                 )
 
         provider = getattr(self.oauth, provider_name, None)
         if provider is None:
+            logger.error(f"OAuth provider {provider_name} registration failed")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"OAuth provider {provider_name} registration failed",
@@ -191,7 +275,15 @@ class OAuth2Providers:
 
     async def _get_google_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.google
-        user_info = await provider.parse_id_token(token)
+        # Use OpenID Connect userinfo endpoint to get proper 'sub' field
+        resp = await provider.get("https://openidconnect.googleapis.com/v1/userinfo", token=token)
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch user information from Google"
+            )
+
+        user_info = resp.json()
 
         return UserCreate(
             email=user_info["email"],
@@ -240,14 +332,23 @@ class OAuth2Providers:
 
     async def _get_microsoft_user_info(self, token: dict) -> UserCreate:
         provider = self.oauth.microsoft
-        user_info = await provider.parse_id_token(token)
+        # Use Microsoft Graph API to get user info instead of parsing ID token
+        # This avoids issuer validation issues when using /common/ endpoint
+        resp = await provider.get("https://graph.microsoft.com/v1.0/me", token=token)
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch user information from Microsoft"
+            )
+
+        user_data = resp.json()
 
         return UserCreate(
-            email=user_info["email"],
+            email=user_data["mail"] or user_data.get("userPrincipalName"),
             provider="microsoft",
-            provider_id=user_info["sub"],
-            name=user_info.get("name"),
-            avatar_url=None,  # Microsoft doesn't provide avatar in ID token
+            provider_id=user_data["id"],
+            name=user_data.get("displayName"),
+            avatar_url=None,  # Microsoft Graph /me doesn't include photo URL by default
         )
 
 

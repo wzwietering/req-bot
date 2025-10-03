@@ -16,7 +16,7 @@ npm run setup
 npm run dev
 ```
 
-This starts both backend (port 8000) and frontend (port 3000) in development mode with hot reloading.
+This starts both backend (port 8080) and frontend (port 3000) in development mode with hot reloading.
 
 ## Prerequisites
 
@@ -73,7 +73,7 @@ OAUTH_CLIENT_SECRET=your-oauth-client-secret
 #### Frontend Environment Variables
 Create `apps/frontend/.env.local`:
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ### 2. Available Commands
@@ -205,7 +205,7 @@ poetry run pre-commit run --all-files  # Run manually
 #### Type Generation Issues
 - **Server won't start**: Check backend environment variables
 - **Dependencies missing**: Run `cd apps/backend && poetry install --sync`
-- **Port conflicts**: Ensure port 8000 is available
+- **Port conflicts**: Ensure port 8080 is available
 
 #### Build Issues
 - **Types not found**: Run `npm run generate:types` first
@@ -257,7 +257,7 @@ conda info --envs
 cd apps/backend
 poetry build                    # Create wheel
 poetry run alembic upgrade head # Run migrations
-poetry run uvicorn requirements_bot.api_server:app --host 0.0.0.0 --port 8000
+poetry run uvicorn requirements_bot.api_server:app --host 0.0.0.0 --port 8080
 ```
 
 #### Frontend
@@ -277,7 +277,7 @@ npm run start    # Start production server
 ## Next Steps
 
 After setup, you might want to:
-1. Explore the backend API at `http://localhost:8000/docs`
+1. Explore the backend API at `http://localhost:8080/docs`
 2. Check the frontend at `http://localhost:3000`
 3. Review the test suite to understand expected behavior
 4. Read `CONTRIBUTING.md` for code standards

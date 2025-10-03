@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from jose import jwt
 
 from requirements_bot.api.auth import JWTService, get_jwt_service
+from requirements_bot.api.error_responses import AuthenticationError
 
 
 class TestJWTTokens:
@@ -94,7 +95,7 @@ class TestJWTTokens:
         to_encode = {"sub": str(uuid4()), "email": "test@example.com", "exp": past_time, "iat": past_time}
         expired_token = jwt.encode(to_encode, "a" * 32, algorithm="HS256")
 
-        with pytest.raises(Exception, match="Invalid token"):
+        with pytest.raises(AuthenticationError, match="Token expired"):
             service.verify_token(expired_token)
 
     def test_verify_malformed_token(self):
