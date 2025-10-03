@@ -88,7 +88,7 @@ jobs:
         path: packages/shared-types/
 
     - name: Install dependencies
-      run: npm install
+      run: npm install --workspace=@req-bot/frontend --workspace=@req-bot/shared-types
 
     - name: Type check
       working-directory: ./apps/frontend
