@@ -60,55 +60,14 @@ async def oauth_login(
         operation="oauth_login",
         provider=provider,
         client_ip=client_ip,
+        user_agent_masked=mask_text(user_agent),
     ):
-        log_event(
-            "oauth.login_start",
-            level=logging.DEBUG,
-            component="auth",
-            operation="oauth_login",
-            provider=provider,
-            client_ip=client_ip,
-            user_agent_masked=mask_text(user_agent),
-        )
-
         try:
             oauth_client = oauth_providers.get_provider(provider)
             state = oauth_providers.generate_state()
-
-            log_event(
-                "oauth.state_generated",
-                level=logging.DEBUG,
-                component="auth",
-                operation="oauth_login",
-                provider=provider,
-                state_length=len(state),
-                state_prefix=mask_text(state)[:8],
-            )
-
             redirect_config = OAuthRedirectConfig()
             callback_url = redirect_config.build_callback_url(request, provider)
-
-            log_event(
-                "oauth.callback_url_built",
-                level=logging.DEBUG,
-                component="auth",
-                operation="oauth_login",
-                provider=provider,
-                callback_url_masked=mask_text(callback_url),
-            )
-
             redirect_url = await oauth_client.authorize_redirect(request, callback_url, state=state)
-
-            log_event(
-                "oauth.login_redirect_success",
-                level=logging.INFO,
-                component="auth",
-                operation="oauth_login",
-                provider=provider,
-                client_ip=client_ip,
-                redirect_url_masked=mask_text(str(redirect_url)),
-            )
-
             return redirect_url
 
         except HTTPException:
@@ -152,55 +111,27 @@ async def oauth_callback(
         operation="oauth_callback",
         provider=provider,
         client_ip=client_ip,
+        user_agent_masked=mask_text(user_agent),
     ):
-        log_event(
-            "oauth.callback_start",
-            level=logging.DEBUG,
-            component="auth",
-            operation="oauth_callback",
-            provider=provider,
-            client_ip=client_ip,
-            user_agent_masked=mask_text(user_agent),
-            query_params_count=len(request.query_params),
-        )
-
         try:
             oauth_client = oauth_providers.get_provider(provider)
-
             validate_oauth_callback(request, oauth_providers, provider)
             token = await exchange_oauth_token(oauth_client, request, provider, oauth_providers)
             result = await process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
 
-            log_event(
-                "oauth.callback_success",
-                level=logging.INFO,
-                component="auth",
-                operation="oauth_callback",
-                provider=provider,
-                client_ip=client_ip,
-                user_id=result.get("user").id if result.get("user") else None,
-            )
-
             # Redirect to frontend with tokens in httpOnly cookies
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             frontend_callback = f"{frontend_url}/auth/callback/{provider}?success=true"
-
             response = RedirectResponse(url=frontend_callback)
-
-            # Set httpOnly cookies with tokens
-            set_auth_cookies(
-                response,
-                result["access_token"],
-                result["refresh_token"],
-                cookie_config,
-                jwt_service,
-            )
+            set_auth_cookies(response, result["access_token"], result["refresh_token"], cookie_config, jwt_service)
 
             return response
 
         except HTTPException:
+            db_session.rollback()
             raise
         except Exception as e:
+            db_session.rollback()
             log_event(
                 "oauth.callback_error",
                 level=logging.ERROR,
@@ -393,6 +324,8 @@ async def invalidate_user_sessions(
     Useful for security events like password changes, suspicious activity detection,
     or when user wants to log out from all devices.
     """
+    rate_limit_middleware.check_oauth_rate_limit(request)
+
     # Get current user from authentication middleware
     user_id = getattr(request.state, "user_id", None)
     if not user_id:

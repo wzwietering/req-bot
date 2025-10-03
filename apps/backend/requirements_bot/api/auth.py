@@ -14,6 +14,7 @@ from requirements_bot.core.models import UserCreate
 from requirements_bot.core.services.oauth_config_service import ConfigValidationError, OAuthConfigService
 from requirements_bot.core.services.oauth_state_service import OAuthStateService
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
+from requirements_bot.core.services.token_config import TokenConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,17 @@ class OAuth2Config(BaseModel):
 
 
 class JWTService:
-    def __init__(self, secret_key: str, algorithm: str = "HS256", refresh_token_service: RefreshTokenService = None):
+    def __init__(
+        self,
+        secret_key: str,
+        algorithm: str = "HS256",
+        refresh_token_service: RefreshTokenService = None,
+        token_config: TokenConfig | None = None,
+    ):
         self.secret_key = secret_key
         self.algorithm = algorithm
-        self.access_token_expire_minutes = 15  # Shorter for access tokens
+        self._token_config = token_config or TokenConfig()
+        self.access_token_expire_minutes = self._token_config.access_token_expire_minutes
         self.refresh_token_service = refresh_token_service
 
     def create_token_pair(self, user_id: str, email: str) -> dict:
@@ -153,6 +161,20 @@ class OAuth2Providers:
         if not self._state_service:
             raise ConfigurationError("Database session factory not configured")
         return self._state_service.verify_and_consume_state(state)
+
+    def get_provider_config(self, provider_name: str):
+        """Get validated provider configuration.
+
+        Args:
+            provider_name: Name of the OAuth provider (google, github, microsoft)
+
+        Returns:
+            Validated provider configuration
+
+        Raises:
+            ConfigValidationError: If provider configuration is invalid or missing
+        """
+        return self._config_service.validate_provider_config(provider_name)
 
     def _setup_providers(self):
         """Setup OAuth providers using validated configurations."""

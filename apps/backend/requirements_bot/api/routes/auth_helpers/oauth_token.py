@@ -70,7 +70,7 @@ async def exchange_microsoft_token(request: Request, oauth_providers: OAuth2Prov
         raise OAuthError("No authorization code in callback", "microsoft")
 
     # Get Microsoft OAuth config
-    config = oauth_providers._config_service.validate_provider_config("microsoft")
+    config = oauth_providers.get_provider_config("microsoft")
 
     # Build redirect URI
     redirect_config = OAuthRedirectConfig()

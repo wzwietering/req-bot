@@ -4,27 +4,27 @@ import threading
 from datetime import UTC, datetime, timedelta
 
 from requirements_bot.core.database_models import RefreshTokenTable
-
-# Clock skew tolerance for token expiry validation (in seconds)
-# Allows 30 second tolerance for time synchronization issues between servers
-CLOCK_SKEW_SECONDS = 30
+from requirements_bot.core.services.token_config import TokenConfig
 
 
 class RefreshTokenService:
     """Thread-safe refresh token service."""
 
-    def __init__(self, db_session_factory):
+    def __init__(self, db_session_factory, token_config: TokenConfig | None = None):
         self.db_session_factory = db_session_factory
         self._lock = threading.Lock()
+        self._token_config = token_config or TokenConfig()
 
     def _is_token_expired(self, expires_at: datetime) -> bool:
         """Check if token is expired with clock skew tolerance."""
         now = datetime.now(UTC)
-        # Consider token expired if it expired more than CLOCK_SKEW_SECONDS ago
-        return expires_at < (now - timedelta(seconds=CLOCK_SKEW_SECONDS))
+        # Consider token expired if it expired more than clock_skew_seconds ago
+        return expires_at < (now - timedelta(seconds=self._token_config.clock_skew_seconds))
 
-    def create_refresh_token(self, user_id: str, expire_days: int = 30) -> str:
+    def create_refresh_token(self, user_id: str, expire_days: int | None = None) -> str:
         """Create a new refresh token for user."""
+        if expire_days is None:
+            expire_days = self._token_config.refresh_token_expire_days
         token = secrets.token_urlsafe(32)
         token_hash = self._hash_token(token)
         expires_at = datetime.now(UTC) + timedelta(days=expire_days)
@@ -72,7 +72,7 @@ class RefreshTokenService:
                     db.rollback()
                     return None
 
-    def refresh_and_rotate(self, old_token: str, expire_days: int = 30) -> tuple[str, str] | None:
+    def refresh_and_rotate(self, old_token: str, expire_days: int | None = None) -> tuple[str, str] | None:
         """Verify old token, revoke it, and issue new token (token rotation).
 
         Returns:
@@ -80,6 +80,9 @@ class RefreshTokenService:
         """
         if not old_token:
             return None
+
+        if expire_days is None:
+            expire_days = self._token_config.refresh_token_expire_days
 
         old_token_hash = self._hash_token(old_token)
 
@@ -175,7 +178,7 @@ class RefreshTokenService:
             with self.db_session_factory() as db:
                 try:
                     # Use clock skew tolerance when cleaning up expired tokens
-                    expiry_threshold = datetime.now(UTC) - timedelta(seconds=CLOCK_SKEW_SECONDS)
+                    expiry_threshold = datetime.now(UTC) - timedelta(seconds=self._token_config.clock_skew_seconds)
                     expired_tokens = (
                         db.query(RefreshTokenTable).filter(RefreshTokenTable.expires_at < expiry_threshold).all()
                     )
