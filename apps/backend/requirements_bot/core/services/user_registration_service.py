@@ -30,7 +30,9 @@ class UserRegistrationService:
         existing_user = self._find_existing_user(user_create)
 
         if existing_user:
-            return existing_user
+            # Update provider info to reflect current login method
+            updated_user = self._update_provider_info(existing_user, user_create)
+            return updated_user
         else:
             return self.register_oauth_user(user_create)
 
@@ -81,6 +83,18 @@ class UserRegistrationService:
         return self.user_service.get_user_by_provider_id(provider, provider_id) or self.user_service.get_user_by_email(
             email
         )
+
+    def _update_provider_info(self, existing_user, user_create: UserCreate):
+        """Update provider information when user logs in with different provider."""
+        updated_user = self.user_service.update_user_provider(
+            existing_user.id,
+            user_create.provider,
+            user_create.provider_id,
+            user_create.name,
+            user_create.avatar_url,
+        )
+        self.db_session.commit()
+        return updated_user
 
     def _is_valid_email(self, email: str) -> bool:
         """Validate email format with security checks."""

@@ -77,16 +77,20 @@ class TestUserRegistrationService:
         service = UserRegistrationService(mock_db_session)
 
         existing_user = Mock()
+        updated_user = Mock()
         mock_user_service = Mock()
         mock_user_service.get_user_by_provider_id.return_value = existing_user
+        mock_user_service.update_user_provider.return_value = updated_user
         service.user_service = mock_user_service
 
         user_data = UserCreate(email="test@example.com", provider="google", provider_id="123456789", name="Test User")
 
         result = service.get_or_create_user(user_data)
 
-        assert result == existing_user
+        assert result == updated_user
+        mock_user_service.update_user_provider.assert_called_once()
         mock_user_service.create_user.assert_not_called()
+        mock_db_session.commit.assert_called_once()
 
     def test_get_or_create_user_create_new(self):
         """Test get_or_create creates new user when not found."""
@@ -425,10 +429,13 @@ class TestUserRegistrationServiceSecurity:
         existing_user = Mock()
         existing_user.provider_id = "123456789"
         existing_user.email = "existing@example.com"
+        existing_user.id = "existing-user-id"
 
+        updated_user = Mock()
         mock_user_service = Mock()
         # get_or_create_user should find existing user by provider ID
         mock_user_service.get_user_by_provider_id.return_value = existing_user
+        mock_user_service.update_user_provider.return_value = updated_user
         service.user_service = mock_user_service
 
         # Attacker tries to register with same provider ID but different email
@@ -439,11 +446,12 @@ class TestUserRegistrationServiceSecurity:
             name="Attacker",
         )
 
-        # Should return existing user (preventing duplicate provider ID)
+        # Should return updated existing user (preventing duplicate provider ID)
         result = service.get_or_create_user(user_data)
-        assert result == existing_user
+        assert result == updated_user
 
-        # Should not create new user
+        # Should update existing user, not create new user
+        mock_user_service.update_user_provider.assert_called_once()
         mock_user_service.create_user.assert_not_called()
 
     def test_registration_case_sensitivity_email(self):

@@ -73,6 +73,28 @@ class UserService:
 
         return self._table_to_model(user_table)
 
+    def update_user_provider(
+        self, user_id: str, provider: str, provider_id: str, name: str | None, avatar_url: str | None
+    ) -> User | None:
+        """Update user provider information when logging in with different OAuth provider."""
+        query = select(UserTable).where(UserTable.id == user_id)
+        user_table = self.db_session.execute(query).scalar_one_or_none()
+
+        if not user_table:
+            return None
+
+        user_table.provider = provider
+        user_table.provider_id = provider_id
+        if name:
+            user_table.name = name
+        if avatar_url:
+            user_table.avatar_url = avatar_url
+
+        self.db_session.flush()
+        self.db_session.refresh(user_table)
+
+        return self._table_to_model(user_table)
+
     def _table_to_model(self, user_table: UserTable) -> User:
         """Convert UserTable to User model."""
         return User(
