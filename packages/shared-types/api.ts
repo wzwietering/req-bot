@@ -162,7 +162,7 @@ export interface paths {
         put?: never;
         /**
          * Create Session
-         * @description Create a new requirements gathering session.
+         * @description Create a new requirements gathering session with LLM-generated questions.
          */
         post: operations["create_session_api_v1_sessions_post"];
         delete?: never;
@@ -226,7 +226,7 @@ export interface paths {
         put?: never;
         /**
          * Submit Answer
-         * @description Submit an answer to the current question.
+         * @description Submit an answer using intelligent pipeline logic.
          */
         post: operations["submit_answer_api_v1_sessions__session_id__answers_post"];
         delete?: never;

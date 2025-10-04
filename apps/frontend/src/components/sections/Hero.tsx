@@ -1,8 +1,24 @@
+'use client';
+
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Button, Container } from '../ui';
 import { ShieldIcon, CheckCircleIcon } from '../icons';
 
 export function Hero() {
+  const router = useRouter();
+  const [hasSavedSession, setHasSavedSession] = useState(false);
+
+  useEffect(() => {
+    const savedSessionId = localStorage.getItem('current-interview-session');
+    setHasSavedSession(!!savedSessionId);
+  }, []);
+
+  const handleResumeInterview = () => {
+    router.push('/interview/new');
+  };
+
   return (
     <section className="relative py-20 lg:py-32 bg-gradient-to-br from-deep-indigo-50 to-white overflow-hidden">
       {/* Background decoration */}
@@ -54,14 +70,31 @@ export function Hero() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-12">
-            <Button size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
-              Start Your First Interview
-            </Button>
-            <Link href="#how-it-works">
-              <Button variant="secondary" size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
-                See How It Works
-              </Button>
-            </Link>
+            {hasSavedSession ? (
+              <>
+                <Button size="lg" className="w-full sm:w-auto sm:min-w-[200px]" onClick={handleResumeInterview}>
+                  Resume Your Interview
+                </Button>
+                <Link href="/interview/new" onClick={() => localStorage.removeItem('current-interview-session')}>
+                  <Button variant="secondary" size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
+                    Start New Interview
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/interview/new">
+                  <Button size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
+                    Start Your First Interview
+                  </Button>
+                </Link>
+                <Link href="#how-it-works">
+                  <Button variant="secondary" size="lg" className="w-full sm:w-auto sm:min-w-[200px]">
+                    See How It Works
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Trust indicators */}

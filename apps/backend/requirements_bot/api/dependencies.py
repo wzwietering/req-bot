@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from requirements_bot.api.auth import JWTService, OAuth2Providers, get_jwt_service, get_oauth_providers
 from requirements_bot.api.exceptions import InvalidSessionIdException
+from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.models import User
 from requirements_bot.core.services import SessionAnswerService, SessionService, SessionSetupManager
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
@@ -142,3 +143,10 @@ def get_jwt_service_with_refresh() -> JWTService:
 def get_session_cookie_config() -> SessionCookieConfig:
     """Get session cookie configuration."""
     return SessionCookieConfig()
+
+
+def get_api_interview_service() -> APIInterviewService:
+    """Get API interview service instance."""
+    storage = get_storage()
+    model_id = os.getenv("MODEL_ID", "anthropic:claude-3-5-haiku-20241022")
+    return APIInterviewService(storage, model_id)

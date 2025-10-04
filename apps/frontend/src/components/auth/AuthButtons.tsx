@@ -19,6 +19,12 @@ export function AuthButtons({ className = '', showMainCTA = true }: AuthButtonsP
     router.push('/login');
   };
 
+  const handleNewInterview = () => {
+    // Clear any existing interview session when starting a new one
+    localStorage.removeItem('current-interview-session');
+    router.push('/interview/new');
+  };
+
   if (isLoading) {
     return (
       <div className={`flex items-center space-x-3 ${className}`}>
@@ -40,7 +46,7 @@ export function AuthButtons({ className = '', showMainCTA = true }: AuthButtonsP
           isLoading={isLoading}
         />
         {showMainCTA && (
-          <Button size="md">
+          <Button size="md" onClick={handleNewInterview}>
             New Interview
           </Button>
         )}
@@ -59,7 +65,7 @@ export function AuthButtons({ className = '', showMainCTA = true }: AuthButtonsP
         Sign In
       </Button>
       {showMainCTA && (
-        <Button size="md">
+        <Button size="md" onClick={handleNewInterview}>
           Start Your First Interview
         </Button>
       )}
@@ -78,6 +84,11 @@ export function AuthButtonsMobile({ className = '', onMenuClose }: AuthButtonsMo
 
   const handleLogin = () => {
     router.push('/login');
+    onMenuClose?.();
+  };
+
+  const handleNewInterview = () => {
+    router.push('/interview/new');
     onMenuClose?.();
   };
 
@@ -133,7 +144,7 @@ export function AuthButtonsMobile({ className = '', onMenuClose }: AuthButtonsMo
 
         {/* Action Buttons */}
         <div className="space-y-3">
-          <Button size="md" className="w-full">
+          <Button size="md" className="w-full" onClick={handleNewInterview}>
             New Interview
           </Button>
           <Button
@@ -159,7 +170,7 @@ export function AuthButtonsMobile({ className = '', onMenuClose }: AuthButtonsMo
       >
         Sign In
       </Button>
-      <Button size="md" className="w-full">
+      <Button size="md" className="w-full" onClick={handleNewInterview}>
         Start Your First Interview
       </Button>
     </div>

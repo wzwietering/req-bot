@@ -6,7 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from requirements_bot.api.dependencies import get_jwt_service_with_refresh
+from requirements_bot.api.dependencies import (
+    get_database_manager,
+    get_jwt_service_with_refresh,
+    get_refresh_token_service,
+)
 from requirements_bot.api.error_responses import ErrorDetail
 from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
 from requirements_bot.api.middleware import (
@@ -54,7 +58,13 @@ app.add_middleware(
 app.add_middleware(RequestIDMiddleware)
 
 # Add authentication middleware (before exception handling)
-app.add_middleware(AuthenticationMiddleware, jwt_service=get_jwt_service_with_refresh())
+# Include refresh token service and db session factory for auto-refresh
+app.add_middleware(
+    AuthenticationMiddleware,
+    jwt_service=get_jwt_service_with_refresh(),
+    refresh_token_service=get_refresh_token_service(),
+    db_session_factory=get_database_manager().SessionLocal,
+)
 
 # Add unified exception handling middleware
 app.add_middleware(ExceptionHandlingMiddleware)

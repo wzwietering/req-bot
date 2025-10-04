@@ -15,7 +15,7 @@ class Provider:
         if ":" not in model_id:
             raise ValueError(
                 f"Model ID must be in format 'vendor:model', got: '{model_id}'. "
-                f"Use 'anthropic:claude-3-haiku-20240307' or similar."
+                f"Use 'anthropic:claude-3-5-haiku-20241022' or similar."
             )
 
         vendor, model = model_id.split(":", 1)

@@ -56,10 +56,10 @@ class SessionManager:
             )
         return session
 
-    def create_new_session(self, project: str, questions: list[Question], mode: str) -> Session:
+    def create_new_session(self, project: str, questions: list[Question], mode: str, user_id: str = CLI_USER_ID) -> Session:
         session = Session(
             project=project,
-            user_id=CLI_USER_ID,
+            user_id=user_id,
             questions=questions,
             answers=[],
             requirements=[],

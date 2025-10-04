@@ -81,8 +81,7 @@ class SessionService:
             return session
 
         # Create new session
-        session, _ = self.setup_manager.setup_session(project, None, interview_type)
-        session.user_id = user_id
+        session, _ = self.setup_manager.setup_session(project, None, interview_type, user_id)
 
         # Add basic questions for new sessions
         if not session.questions:
