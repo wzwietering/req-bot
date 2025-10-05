@@ -137,6 +137,7 @@ jobs:
         context: ./apps/backend
         file: ./apps/backend/Dockerfile
         push: false
+        load: true
         tags: req-bot-backend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max

@@ -36,7 +36,6 @@ RUN adduser --system --uid 1001 nextjs
 # Copy built application
 COPY --from=builder /app/apps/frontend/.next/standalone ./
 COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
-COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
 
 # Set correct permissions
 USER nextjs
