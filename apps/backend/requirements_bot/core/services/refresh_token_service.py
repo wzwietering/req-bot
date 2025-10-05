@@ -1,9 +1,11 @@
 import hashlib
+import logging
 import secrets
 import threading
 from datetime import UTC, datetime, timedelta
 
 from requirements_bot.core.database_models import RefreshTokenTable
+from requirements_bot.core.logging import log_event
 from requirements_bot.core.services.token_config import TokenConfig
 
 
@@ -18,6 +20,9 @@ class RefreshTokenService:
     def _is_token_expired(self, expires_at: datetime) -> bool:
         """Check if token is expired with clock skew tolerance."""
         now = datetime.now(UTC)
+        # Ensure expires_at is timezone-aware (SQLite may return naive datetimes)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
         # Consider token expired if it expired more than clock_skew_seconds ago
         return expires_at < (now - timedelta(seconds=self._token_config.clock_skew_seconds))
 
@@ -60,7 +65,7 @@ class RefreshTokenService:
                         db.query(RefreshTokenTable)
                         .filter(
                             RefreshTokenTable.token_hash == token_hash,
-                            not RefreshTokenTable.revoked,
+                            RefreshTokenTable.revoked == False,  # noqa: E712
                         )
                         .first()
                     )
@@ -68,7 +73,15 @@ class RefreshTokenService:
                     if refresh_token and not self._is_token_expired(refresh_token.expires_at):
                         return refresh_token.user_id
                     return None
-                except Exception:
+                except Exception as e:
+                    log_event(
+                        "refresh_token.verify_error",
+                        level=logging.ERROR,
+                        component="refresh_token",
+                        operation="verify_refresh_token",
+                        error_type=type(e).__name__,
+                        error_msg=str(e),
+                    )
                     db.rollback()
                     return None
 
@@ -94,7 +107,7 @@ class RefreshTokenService:
                         db.query(RefreshTokenTable)
                         .filter(
                             RefreshTokenTable.token_hash == old_token_hash,
-                            not RefreshTokenTable.revoked,
+                            RefreshTokenTable.revoked == False,  # noqa: E712
                         )
                         .first()
                     )
@@ -158,7 +171,7 @@ class RefreshTokenService:
                 try:
                     tokens = (
                         db.query(RefreshTokenTable)
-                        .filter(RefreshTokenTable.user_id == user_id, not RefreshTokenTable.revoked)
+                        .filter(RefreshTokenTable.user_id == user_id, RefreshTokenTable.revoked == False)  # noqa: E712
                         .all()
                     )
 

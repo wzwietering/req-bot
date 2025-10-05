@@ -9,7 +9,9 @@ class SessionSetupManager:
     def __init__(self, session_manager: SessionManager):
         self.session_manager = session_manager
 
-    def setup_session(self, project: str, session_id: str | None, mode: str, user_id: str = CLI_USER_ID) -> tuple[Session, int]:
+    def setup_session(
+        self, project: str, session_id: str | None, mode: str, user_id: str = CLI_USER_ID
+    ) -> tuple[Session, int]:
         """Set up session for interview, either loading existing or creating new.
 
         Returns:
