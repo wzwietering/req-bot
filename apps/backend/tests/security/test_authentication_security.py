@@ -177,12 +177,19 @@ class TestSecurityVulnerabilities:
     def test_modern_security_headers(self):
         """Test modern security headers (CSP, Referrer-Policy, Permissions-Policy)."""
         config = SessionCookieConfig()
-        headers = config.get_response_headers()
 
-        # Modern security headers that replaced X-XSS-Protection
+        # Test strict CSP for normal routes
+        headers = config.get_response_headers(for_docs=False)
         assert headers["Content-Security-Policy"] == "default-src 'self'"
         assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
         assert headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"
+
+        # Test relaxed CSP for docs routes
+        docs_headers = config.get_response_headers(for_docs=True)
+        assert "default-src 'self'" in docs_headers["Content-Security-Policy"]
+        assert "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net" in docs_headers["Content-Security-Policy"]
+        assert "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net" in docs_headers["Content-Security-Policy"]
+        assert "img-src 'self' data: fastapi.tiangolo.com" in docs_headers["Content-Security-Policy"]
 
     def test_transport_security_enforcement(self):
         """Test HTTP Strict Transport Security enforcement."""

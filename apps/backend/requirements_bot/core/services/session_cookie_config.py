@@ -24,8 +24,12 @@ class SessionCookieConfig:
             "path": "/",
         }
 
-    def get_response_headers(self) -> dict[str, str]:
-        """Get comprehensive security headers for cookie responses."""
+    def get_response_headers(self, for_docs: bool = False) -> dict[str, str]:
+        """Get comprehensive security headers for cookie responses.
+
+        Args:
+            for_docs: If True, uses relaxed CSP for API documentation endpoints
+        """
         headers = {}
 
         # HSTS - Force HTTPS for 1 year in production
@@ -42,7 +46,17 @@ class SessionCookieConfig:
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Content Security Policy - Restrict resource loading
-        headers["Content-Security-Policy"] = "default-src 'self'"
+        if for_docs:
+            # Relaxed CSP for API docs to allow Swagger UI resources
+            headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+                "img-src 'self' data: fastapi.tiangolo.com"
+            )
+        else:
+            # Strict CSP for all other routes
+            headers["Content-Security-Policy"] = "default-src 'self'"
 
         # Permissions Policy - Disable unnecessary browser features
         headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"

@@ -243,13 +243,13 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         # Skip authentication for public routes
         if self._is_public_route(request.url.path):
             response = await call_next(request)
-            self._add_security_headers(response)
+            self._add_security_headers(response, request.url.path)
             return response
 
         # Skip authentication for preflight requests
         if request.method == "OPTIONS":
             response = await call_next(request)
-            self._add_security_headers(response)
+            self._add_security_headers(response, request.url.path)
             return response
 
         with span(
@@ -286,7 +286,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 request.state.user_email = user_info["email"]
 
                 response = await call_next(request)
-                self._add_security_headers(response)
+                self._add_security_headers(response, request.url.path)
                 return response
 
             except Exception as exc:
@@ -308,7 +308,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
                         # Set new tokens in response cookies
                         self._set_auth_cookies(response, access_token, new_refresh_token)
-                        self._add_security_headers(response)
+                        self._add_security_headers(response, request.url.path)
                         return response
 
                 log_event(
@@ -510,9 +510,15 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             path=cookie_settings["path"],
         )
 
-    def _add_security_headers(self, response: Response) -> None:
-        """Add security headers to response."""
-        security_headers = self.cookie_config.get_response_headers()
+    def _add_security_headers(self, response: Response, path: str) -> None:
+        """Add security headers to response.
+
+        Args:
+            response: The response to add headers to
+            path: The request path (used to determine CSP policy)
+        """
+        is_docs = path in {"/docs", "/redoc", "/openapi.json"}
+        security_headers = self.cookie_config.get_response_headers(for_docs=is_docs)
         for header, value in security_headers.items():
             response.headers[header] = value
 

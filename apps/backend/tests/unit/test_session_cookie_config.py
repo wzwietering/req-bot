@@ -88,7 +88,7 @@ class TestSessionCookieConfig:
         with patch.dict(os.environ, {"ENVIRONMENT": "development"}, clear=True):
             config = SessionCookieConfig()
 
-            headers = config.get_response_headers()
+            headers = config.get_response_headers(for_docs=False)
 
             expected = {
                 "X-Content-Type-Options": "nosniff",
@@ -106,7 +106,7 @@ class TestSessionCookieConfig:
         with patch.dict(os.environ, {"ENVIRONMENT": "production"}, clear=True):
             config = SessionCookieConfig()
 
-            headers = config.get_response_headers()
+            headers = config.get_response_headers(for_docs=False)
 
             expected = {
                 "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
@@ -118,6 +118,26 @@ class TestSessionCookieConfig:
             }
 
             assert headers == expected
+
+    def test_get_response_headers_for_docs(self):
+        """Test response headers with relaxed CSP for API documentation."""
+        with patch.dict(os.environ, {"ENVIRONMENT": "development"}, clear=True):
+            config = SessionCookieConfig()
+
+            headers = config.get_response_headers(for_docs=True)
+
+            # Check all standard headers are present
+            assert headers["X-Content-Type-Options"] == "nosniff"
+            assert headers["X-Frame-Options"] == "DENY"
+            assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+            assert headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"
+
+            # Check relaxed CSP for docs
+            csp = headers["Content-Security-Policy"]
+            assert "default-src 'self'" in csp
+            assert "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net" in csp
+            assert "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net" in csp
+            assert "img-src 'self' data: fastapi.tiangolo.com" in csp
 
     def test_is_production_environment_detection(self):
         """Test production environment detection."""
@@ -243,7 +263,7 @@ class TestSessionCookieConfigSecurity:
         for env in environments:
             with patch.dict(os.environ, {"ENVIRONMENT": env}):
                 config = SessionCookieConfig()
-                headers = config.get_response_headers()
+                headers = config.get_response_headers(for_docs=False)
 
                 # These headers should always be present
                 assert headers["X-Content-Type-Options"] == "nosniff"
@@ -327,7 +347,7 @@ class TestSessionCookieConfigSecurity:
 
             # Should handle malicious input gracefully
             settings = config.get_cookie_settings()
-            headers = config.get_response_headers()
+            headers = config.get_response_headers(for_docs=False)
 
             # Verify no injection occurred in cookie settings
             for value in settings.values():
@@ -385,7 +405,7 @@ class TestSessionCookieConfigSecurity:
                 with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
                     config = SessionCookieConfig()
                     settings = config.get_cookie_settings()
-                    headers = config.get_response_headers()
+                    headers = config.get_response_headers(for_docs=False)
                     results.append((settings, headers))
             except Exception as e:
                 errors.append(e)
@@ -415,7 +435,7 @@ class TestSessionCookieConfigSecurity:
 
             # Get initial values
             initial_settings = config.get_cookie_settings()
-            initial_headers = config.get_response_headers()
+            initial_headers = config.get_response_headers(for_docs=False)
 
             # Try to modify returned dicts (should not affect config)
             initial_settings["secure"] = False
@@ -423,7 +443,7 @@ class TestSessionCookieConfigSecurity:
 
             # Get values again - should be unchanged
             new_settings = config.get_cookie_settings()
-            new_headers = config.get_response_headers()
+            new_headers = config.get_response_headers(for_docs=False)
 
             assert new_settings["secure"] is True
             assert new_headers["X-Frame-Options"] == "DENY"
