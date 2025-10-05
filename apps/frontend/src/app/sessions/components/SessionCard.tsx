@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionSummary } from '@/lib/api/types';
 import { Card } from '@/components/ui/Card';
@@ -9,7 +8,6 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatDate } from '@/lib/utils/dates';
-import { safeLocalStorage } from '@/lib/utils/storage';
 import { getSessionBadgeVariant, getSessionStatusText, getSessionButtonText } from '../utils/sessionStatus';
 import { useSessionDelete } from '../hooks/useSessionDelete';
 
@@ -21,41 +19,37 @@ interface SessionCardProps {
 export function SessionCard({ session, onDelete }: SessionCardProps) {
   const router = useRouter();
   const { isDeleting, deleteError, showConfirm, handleDelete, setShowConfirm } = useSessionDelete();
-  const [storageError, setStorageError] = useState<string | null>(null);
 
   const handleCardClick = () => {
-    const result = safeLocalStorage.setItem('current-interview-session', session.id);
-
-    if (!result.success) {
-      setStorageError(
-        'Unable to save session. Please check your browser settings and try again.'
-      );
-      return;
-    }
-
-    router.push('/interview/new');
+    router.push(`/interview/${session.id}`);
   };
+
+  const cardClassName = !session.conversation_complete
+    ? 'border-l-4 border-l-benzol-green-500'
+    : '';
 
   return (
     <>
-      <Card padding="md" hover>
+      <Card padding="md" hover className={cardClassName}>
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-lg font-semibold text-deep-indigo-500 truncate">{session.project}</h3>
+            <h3 className="text-lg font-semibold text-deep-indigo-500 truncate" title={session.project}>
+              {session.project}
+            </h3>
             <Badge variant={getSessionBadgeVariant(session)}>{getSessionStatusText(session)}</Badge>
           </div>
 
-          <div className="text-sm text-deep-indigo-400 space-y-1">
-            <p>Created {formatDate(session.created_at)}</p>
-            <p>Updated {formatDate(session.updated_at)}</p>
+          <div className="text-sm space-y-1">
+            <p className="text-deep-indigo-500 font-medium">Updated {formatDate(session.updated_at)}</p>
+            <p className="text-deep-indigo-400">Created {formatDate(session.created_at)}</p>
           </div>
 
           {!session.conversation_complete && session.questions_count > 0 && (
             <div className="space-y-2">
-              <ProgressBar value={session.answers_count} max={session.questions_count} />
+              <ProgressBar value={session.answers_count} max={session.questions_count} showPercentage />
               <p className="text-xs text-deep-indigo-400">
-                {session.answers_count}/{session.questions_count} questions • {session.requirements_count}{' '}
-                requirements
+                {session.answers_count}/{session.questions_count} questions •{' '}
+                <span title="Requirements identified so far">{session.requirements_count} requirements</span>
               </p>
             </div>
           )}
@@ -69,7 +63,7 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
                 e.stopPropagation();
                 setShowConfirm(true);
               }}
-              variant="outline"
+              variant="danger"
               size="md"
               disabled={isDeleting}
             >
@@ -89,16 +83,6 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
         onCancel={() => setShowConfirm(false)}
         error={deleteError}
         isLoading={isDeleting}
-      />
-
-      <ConfirmDialog
-        isOpen={!!storageError}
-        title="Storage Error"
-        message={storageError || ''}
-        confirmText="OK"
-        onConfirm={() => setStorageError(null)}
-        onCancel={() => setStorageError(null)}
-        isLoading={false}
       />
     </>
   );

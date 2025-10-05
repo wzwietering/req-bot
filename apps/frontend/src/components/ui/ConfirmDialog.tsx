@@ -91,6 +91,12 @@ export function ConfirmDialog({
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && !isLoading) {
+      onCancel();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
@@ -98,6 +104,7 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="dialog-title"
       aria-describedby="dialog-description"
+      onClick={handleBackdropClick}
     >
       <div
         ref={dialogRef}
@@ -112,7 +119,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             disabled={isLoading}
             aria-label="Close dialog"
-            className="text-deep-indigo-400 hover:text-deep-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-deep-indigo-400 hover:text-deep-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-2 -m-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <svg
               className="w-6 h-6"

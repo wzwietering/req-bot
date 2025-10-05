@@ -6,7 +6,8 @@ export default function SessionsLoading() {
       <div className="h-16 bg-white border-b" />
       <main className="py-12">
         <Container size="lg">
-          <div className="space-y-6">
+          <div className="space-y-6" role="status" aria-live="polite" aria-busy="true">
+            <span className="sr-only">Loading sessions...</span>
             <div className="flex justify-between items-center mb-8">
               <div className="space-y-2">
                 <div className="h-8 bg-deep-indigo-100 rounded w-48 animate-pulse" />

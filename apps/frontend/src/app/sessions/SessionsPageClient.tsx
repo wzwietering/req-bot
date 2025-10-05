@@ -17,8 +17,14 @@ export function SessionsPageClient() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-deep-indigo-50 to-white">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-benzol-green-500 focus:text-white focus:rounded"
+      >
+        Skip to main content
+      </a>
       <Navigation />
-      <main className="py-12">
+      <main id="main-content" className="py-12">
         <Container size="lg">
           {isLoading ? (
             <LoadingSpinner size="lg" label="Loading sessions..." />

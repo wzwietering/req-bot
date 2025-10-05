@@ -4,9 +4,9 @@ import { useCallback } from 'react';
 
 interface SessionFiltersProps {
   filter: 'all' | 'active' | 'completed';
-  sort: 'newest' | 'oldest' | 'name';
+  sort: 'newest' | 'oldest' | 'name-asc' | 'name-desc';
   onFilterChange: (filter: 'all' | 'active' | 'completed') => void;
-  onSortChange: (sort: 'newest' | 'oldest' | 'name') => void;
+  onSortChange: (sort: 'newest' | 'oldest' | 'name-asc' | 'name-desc') => void;
 }
 
 export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: SessionFiltersProps) {
@@ -56,7 +56,8 @@ export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: S
         >
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
-          <option value="name">Project Name (A-Z)</option>
+          <option value="name-asc">Project Name (A-Z)</option>
+          <option value="name-desc">Project Name (Z-A)</option>
         </select>
       </div>
     </div>

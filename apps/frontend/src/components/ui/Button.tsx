@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
   asChild?: boolean;
@@ -13,7 +13,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const variantClasses = {
       primary: 'btn-primary',
       secondary: 'btn-secondary',
-      outline: 'btn-outline'
+      outline: 'btn-outline',
+      danger: 'btn-danger'
     };
     const sizeClasses = {
       sm: 'btn-md px-4 py-2 text-sm',

@@ -40,7 +40,15 @@ export function SessionsList({ sessions, onDeleteSession }: SessionsListProps) {
       {filteredSessions.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-deep-indigo-400">No sessions match your filters</p>
-          <Button onClick={() => setFilter('all')} variant="secondary" size="md" className="mt-4">
+          <Button
+            onClick={() => {
+              setFilter('all');
+              setSort('newest');
+            }}
+            variant="secondary"
+            size="md"
+            className="mt-4"
+          >
             Clear Filters
           </Button>
         </div>
