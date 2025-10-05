@@ -1,42 +1,44 @@
 # Contributing Guide
 
-Thank you for your interest in contributing to Requirements Bot! This guide covers our development standards, processes, and best practices.
+**Last Updated**: 2025-10-05
 
-## Code of Conduct
+## Quick Start
 
-- Be respectful and inclusive
-- Focus on constructive feedback
-- Help maintain a positive development environment
+1. Fork and clone
+2. Run `npm run setup` (see [DEVELOPMENT.md](DEVELOPMENT.md))
+3. Create branch: `git checkout -b feature/your-feature`
+4. Make changes following standards below
+5. Run tests: `npm run test && npm run lint && npm run type-check`
+6. Submit PR with clear description
 
-## Getting Started
+## Code Quality Standards
 
-1. **Fork and clone** the repository
-2. **Follow setup** instructions in `DEVELOPMENT.md`
-3. **Create a feature branch** from `master`
-4. **Make your changes** following our standards
-5. **Submit a pull request** with clear description
+### Core Rules
 
-## Development Standards
+| Rule | Requirement |
+|------|-------------|
+| Function length | 10-20 lines max |
+| Responsibility | Single responsibility only |
+| Naming | Self-explanatory without comments |
+| Nesting | Maximum 2 levels |
+| Returns | Use early returns (guard clauses) |
 
-### Code Quality Principles
+### Documentation
 
-#### General Rules
-- **Functions must be 10-20 lines maximum** - Break down longer functions
-- **Single responsibility** - Each function does one thing well
-- **Clear naming** - Names should explain purpose without comments
-- **Early returns** - Use guard clauses to reduce nesting
-- **Maximum 2 levels of indentation** - Keep code flat and readable
+- Document **why**, not **what**
+- Use meaningful names over comments
+- Update docs when changing public APIs
 
-#### Documentation
-- **Document the why, not the what** - Explain reasoning and context
-- **Self-documenting code** - Use meaningful names over comments
-- **Update docs** when changing public APIs
+### Backend (Python/FastAPI)
 
-### Backend Standards (Python/FastAPI)
+**Required**:
+- Type hints on all functions
+- Pydantic models for API schemas
+- Comprehensive tests for endpoints
+- Proper error handling
 
-#### Code Style
 ```python
-# Good: Clear, single responsibility
+# Good
 def create_user_session(user_id: str, expires_in: int = 3600) -> Session:
     if not user_id:
         raise ValueError("User ID is required")
@@ -44,85 +46,47 @@ def create_user_session(user_id: str, expires_in: int = 3600) -> Session:
     session_id = generate_session_id()
     expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
-    return Session(
-        id=session_id,
-        user_id=user_id,
-        expires_at=expires_at
-    )
+    return Session(id=session_id, user_id=user_id, expires_at=expires_at)
 
-# Avoid: Multiple responsibilities, unclear naming
+# Bad
 def handle_user(data, config, mode=None):
     # 50 lines of mixed logic...
 ```
 
-#### Required Practices
-- **Type hints** on all function signatures
-- **Pydantic models** for all API schemas
-- **Proper error handling** with meaningful messages
-- **Database transactions** for data consistency
-- **Comprehensive tests** for all endpoints
+### Frontend (TypeScript/React)
 
-#### Testing Requirements
-```python
-# Test structure
-def test_create_user_session():
-    # Arrange
-    user_id = "test-user"
+**Required**:
+- Strict TypeScript (no `any`)
+- Import types from `@req-bot/shared-types`
+- Component composition over large components
+- Custom hooks for reusable logic
 
-    # Act
-    session = create_user_session(user_id)
-
-    # Assert
-    assert session.user_id == user_id
-    assert session.expires_at > datetime.utcnow()
-```
-
-### Frontend Standards (TypeScript/React)
-
-#### Code Style
 ```typescript
-// Good: Clear, typed, single responsibility
+// Good
 interface UserSessionProps {
   userId: string;
   onSessionEnd: () => void;
 }
 
 function UserSession({ userId, onSessionEnd }: UserSessionProps) {
-  if (!userId) {
-    return <div>Please log in</div>;
-  }
-
-  return (
-    <div className="user-session">
-      <SessionTimer onExpire={onSessionEnd} />
-    </div>
-  );
+  if (!userId) return <div>Please log in</div>;
+  return <div className="user-session"><SessionTimer onExpire={onSessionEnd} /></div>;
 }
 
-// Avoid: Unclear types, multiple responsibilities
+// Bad
 function UserThing({ data, callbacks }: any) {
   // 30 lines handling sessions, UI, API calls...
 }
 ```
 
-#### Required Practices
-- **Strict TypeScript** - No `any` types
-- **Import API types** from `@req-bot/shared-types`
-- **Component composition** over large components
-- **Custom hooks** for reusable logic
-- **Error boundaries** for error handling
-
 ### Type Safety
 
-#### Backend-Frontend Integration
 ```typescript
-// Correct: Use generated types
 import type { paths, components } from '@req-bot/shared-types';
 
 type SessionResponse = components['schemas']['SessionResponse'];
 type CreateSessionRequest = components['schemas']['CreateSessionRequest'];
 
-// API call with proper typing
 const createSession = async (data: CreateSessionRequest): Promise<SessionResponse> => {
   // Implementation
 };
@@ -131,29 +95,27 @@ const createSession = async (data: CreateSessionRequest): Promise<SessionRespons
 ## Pull Request Process
 
 ### Before Submitting
-- [ ] **Run all tests** - `npm run test`
-- [ ] **Type check passes** - `npm run type-check`
-- [ ] **Linting clean** - `npm run lint`
-- [ ] **Generate types** - `npm run generate:types` (if backend changes)
-- [ ] **Manual testing** - Test your changes work end-to-end
 
-### PR Requirements
+- [ ] Tests pass: `npm run test`
+- [ ] Types check: `npm run type-check`
+- [ ] Lint clean: `npm run lint`
+- [ ] Types generated (if backend changed): `npm run generate:types`
+- [ ] Manual testing completed
 
-#### Title Format
-- `feat: add user session management`
-- `fix: resolve authentication token expiry`
-- `docs: update API documentation`
-- `refactor: simplify session service`
-- `test: add integration tests for auth`
+### PR Format
 
-#### Description Template
+**Title**: `feat: add user session management` or `fix: resolve auth token expiry`
+
+**Prefixes**: `feat`, `fix`, `docs`, `refactor`, `test`
+
+**Description Template**:
 ```markdown
 ## Summary
-Brief description of changes and motivation.
+Brief description and motivation.
 
 ## Changes
-- Specific change 1
-- Specific change 2
+- Change 1
+- Change 2
 
 ## Testing
 - [ ] Unit tests added/updated
@@ -162,90 +124,66 @@ Brief description of changes and motivation.
 
 ## Type Safety
 - [ ] Generated types updated (if backend changes)
-- [ ] Frontend uses proper types
 - [ ] No TypeScript errors
 
 ## Breaking Changes
 List any breaking changes and migration steps.
 ```
 
-#### Review Checklist
-- **Code quality** - Functions under 20 lines, clear names, single responsibility
-- **Test coverage** - New code is tested
-- **Type safety** - Proper TypeScript usage
-- **Documentation** - Updated if needed
-- **Performance** - No obvious performance regressions
+### Review Checklist
 
-### Review Process
-1. **Automated checks** must pass (CI/CD)
-2. **Code review** by maintainer
-3. **Address feedback** and update
-4. **Final approval** and merge
+- Code quality (functions <20 lines, clear names, single responsibility)
+- Test coverage
+- Type safety
+- Documentation updates
+- No performance regressions
 
-## Architecture Guidelines
+## Testing
 
-### API Design
-- **RESTful endpoints** with clear resource names
-- **Consistent response formats** using Pydantic models
-- **Proper HTTP status codes**
-- **Authentication/authorization** on protected routes
-- **Request validation** with meaningful error messages
+<details>
+<summary>Backend Testing</summary>
 
-### Database Design
-- **Normalized structure** with proper relationships
-- **Database constraints** for data integrity
-- **Migrations** for schema changes
-- **Indexes** for performance-critical queries
-
-### Frontend Architecture
-- **Component-based** design with clear boundaries
-- **State management** using React Query for server state
-- **Form handling** with React Hook Form + Zod validation
-- **Responsive design** with Tailwind CSS
-- **Accessibility** following WCAG guidelines
-
-## Testing Strategy
-
-### Backend Testing
 ```python
-# Unit tests for business logic
+# Unit test
 def test_session_creation():
     session = create_session("user123")
     assert session.is_valid()
 
-# Integration tests for API endpoints
+# API endpoint test
 def test_create_session_endpoint(client):
     response = client.post("/sessions", json={"user_id": "test"})
     assert response.status_code == 201
 
-# End-to-end tests for critical flows
-def test_authentication_flow():
-    # Test complete OAuth flow
+# Run tests
+cd apps/backend
+poetry run pytest
+poetry run pytest --cov=requirements_bot  # With coverage
 ```
 
-### Frontend Testing (Future)
+</details>
+
+<details>
+<summary>Frontend Testing (Future)</summary>
+
 ```typescript
-// Component tests
+// Component test
 test('UserSession renders correctly', () => {
   render(<UserSession userId="test" onSessionEnd={mockFn} />);
   expect(screen.getByText('Session active')).toBeInTheDocument();
 });
 
-// Integration tests
-test('session creation flow', async () => {
-  // Test complete user flow
-});
+// Run tests
+cd apps/frontend
+npm test
 ```
+
+</details>
 
 ## Git Workflow
 
-### Branch Naming
-- `feature/user-authentication`
-- `fix/session-expiry-bug`
-- `docs/api-documentation`
-- `refactor/session-service`
+**Branch naming**: `feature/user-auth`, `fix/session-bug`, `docs/api-update`
 
-### Commit Messages
+**Commit format**:
 ```
 feat: add OAuth integration with Google
 
@@ -256,74 +194,64 @@ feat: add OAuth integration with Google
 Closes #123
 ```
 
-### Merge Requirements
-- **All checks pass** (tests, linting, type checking)
-- **Code review approval**
-- **Up-to-date with master**
-- **Clean commit history**
+**Merge requirements**:
+- All checks pass
+- Code review approval
+- Up-to-date with master
+- Clean commit history
 
-## Environment Management
+## Architecture Guidelines
 
-### Development
-- Use `.env` files (never commit them)
-- Document required environment variables
-- Provide example `.env.example` files
+<details>
+<summary>API Design</summary>
 
-### Production
-- Use environment-specific configurations
-- Secure secret management
-- Proper logging and monitoring
+- RESTful endpoints with clear resource names
+- Consistent response formats (Pydantic models)
+- Proper HTTP status codes
+- Authentication on protected routes
+- Request validation with meaningful errors
 
-## Performance Considerations
+</details>
 
-### Backend
-- **Database query optimization**
-- **Proper caching strategies**
-- **Connection pooling**
-- **Background job processing**
+<details>
+<summary>Database Design</summary>
 
-### Frontend
-- **Code splitting** for large bundles
-- **Image optimization**
-- **React Query caching**
-- **Lazy loading** for non-critical components
+- Normalized structure with proper relationships
+- Database constraints for data integrity
+- Migrations for schema changes
+- Indexes for performance-critical queries
 
-## Security Guidelines
+</details>
 
-### Backend Security
-- **Input validation** on all endpoints
-- **SQL injection prevention** using ORM
-- **Authentication verification** on protected routes
-- **Rate limiting** for API endpoints
-- **Secure session management**
+<details>
+<summary>Frontend Architecture</summary>
 
-### Frontend Security
-- **XSS prevention** through proper escaping
-- **CSRF protection** for sensitive operations
-- **Secure token storage**
-- **Content Security Policy** headers
+- Component-based design
+- React Query for server state
+- React Hook Form + Zod for validation
+- Responsive design (Tailwind CSS)
+- WCAG accessibility guidelines
 
-## Release Process
+</details>
 
-### Versioning
-- Follow semantic versioning (major.minor.patch)
-- Update version in relevant package.json files
-- Tag releases in git
+## Security
 
-### Deployment
-- **Staging deployment** for testing
-- **Production deployment** after approval
-- **Rollback procedures** if issues arise
+**Backend**: Input validation, SQL injection prevention (ORM), auth verification, rate limiting
+
+**Frontend**: XSS prevention, CSRF protection, secure token storage, CSP headers
+
+## Areas for Contribution
+
+**High Priority**: AI provider integrations, error handling, export formats (PDF/DOCX), performance, test coverage
+
+**Medium Priority**: UI/UX, documentation, refactoring, question templates, accessibility
+
+**Good First Issues**: Check [issue tracker](https://github.com/wzwietering/req-bot/issues) for `good-first-issue` label
 
 ## Getting Help
 
-- **Documentation** - Check `DEVELOPMENT.md` first
-- **GitHub Issues** - Search existing issues
-- **Pull Request Discussion** - Ask questions in PR comments
-- **Code Examples** - Check test files for usage patterns
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Setup and workflows
+- [GitHub Issues](https://github.com/wzwietering/req-bot/issues) - Search existing issues
+- PR comments - Ask questions
 
-## Recognition
-
-Contributors who follow these guidelines and make meaningful contributions will be recognized in our contributor list and release notes.
-
-Thank you for helping make Requirements Bot better! 🚀
+Thank you for contributing!
