@@ -66,7 +66,7 @@ async function refreshAccessToken(): Promise<boolean> {
 /**
  * Enhanced fetch with automatic token refresh
  */
-export async function apiFetch<T = any>(
+export async function apiFetch<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
@@ -104,7 +104,7 @@ export async function apiFetch<T = any>(
   // Handle other error responses
   if (!response.ok) {
     const errorText = await response.text();
-    let errorData: any = null;
+    let errorData: { message?: string; error?: string } | null = null;
 
     try {
       errorData = JSON.parse(errorText);
@@ -127,10 +127,10 @@ export async function apiFetch<T = any>(
  * Convenience methods for common HTTP verbs
  */
 export const apiClient = {
-  get: <T = any>(endpoint: string, options?: RequestInit) =>
+  get: <T = unknown>(endpoint: string, options?: RequestInit) =>
     apiFetch<T>(endpoint, { ...options, method: 'GET' }),
 
-  post: <T = any>(endpoint: string, data?: any, options?: RequestInit) =>
+  post: <T = unknown>(endpoint: string, data?: unknown, options?: RequestInit) =>
     apiFetch<T>(endpoint, {
       ...options,
       method: 'POST',
@@ -141,7 +141,7 @@ export const apiClient = {
       body: data ? JSON.stringify(data) : undefined,
     }),
 
-  put: <T = any>(endpoint: string, data?: any, options?: RequestInit) =>
+  put: <T = unknown>(endpoint: string, data?: unknown, options?: RequestInit) =>
     apiFetch<T>(endpoint, {
       ...options,
       method: 'PUT',
@@ -152,6 +152,6 @@ export const apiClient = {
       body: data ? JSON.stringify(data) : undefined,
     }),
 
-  delete: <T = any>(endpoint: string, options?: RequestInit) =>
+  delete: <T = unknown>(endpoint: string, options?: RequestInit) =>
     apiFetch<T>(endpoint, { ...options, method: 'DELETE' }),
 };
