@@ -197,6 +197,7 @@ jobs:
         context: .
         file: ./apps/frontend/Dockerfile
         push: false
+        load: true
         tags: req-bot-frontend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
