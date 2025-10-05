@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionSummary } from '@/lib/api/types';
 import { Card } from '@/components/ui/Card';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatDate } from '@/lib/utils/dates';
+import { safeLocalStorage } from '@/lib/utils/storage';
 import { getSessionBadgeVariant, getSessionStatusText, getSessionButtonText } from '../utils/sessionStatus';
 import { useSessionDelete } from '../hooks/useSessionDelete';
 
@@ -19,13 +21,18 @@ interface SessionCardProps {
 export function SessionCard({ session, onDelete }: SessionCardProps) {
   const router = useRouter();
   const { isDeleting, deleteError, showConfirm, handleDelete, setShowConfirm } = useSessionDelete();
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   const handleCardClick = () => {
-    try {
-      localStorage.setItem('current-interview-session', session.id);
-    } catch (error) {
-      console.error('Failed to save session to localStorage:', error);
+    const result = safeLocalStorage.setItem('current-interview-session', session.id);
+
+    if (!result.success) {
+      setStorageError(
+        'Unable to save session. Please check your browser settings and try again.'
+      );
+      return;
     }
+
     router.push('/interview/new');
   };
 
@@ -82,6 +89,16 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
         onCancel={() => setShowConfirm(false)}
         error={deleteError}
         isLoading={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={!!storageError}
+        title="Storage Error"
+        message={storageError || ''}
+        confirmText="OK"
+        onConfirm={() => setStorageError(null)}
+        onCancel={() => setStorageError(null)}
+        isLoading={false}
       />
     </>
   );

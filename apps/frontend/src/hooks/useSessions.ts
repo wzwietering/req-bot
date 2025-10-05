@@ -14,7 +14,7 @@ export function useSessions(): UseSessionsResult {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef(false);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -42,11 +42,17 @@ export function useSessions(): UseSessionsResult {
         setSessions((prev) => prev.filter((s) => s.id !== id));
       }
     } catch (err) {
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const enhancedError = new Error(
+        `Failed to delete session "${id}": ${errorMessage}`
+      );
+      enhancedError.cause = err;
+      throw enhancedError;
     }
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };

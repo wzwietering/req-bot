@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback } from 'react';
+
 interface SessionFiltersProps {
   filter: 'all' | 'active' | 'completed';
   sort: 'newest' | 'oldest' | 'name';
@@ -8,19 +10,21 @@ interface SessionFiltersProps {
 }
 
 export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: SessionFiltersProps) {
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (value === 'all' || value === 'active' || value === 'completed') {
+  const handleFilterChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value as typeof filter;
       onFilterChange(value);
-    }
-  };
+    },
+    [onFilterChange]
+  );
 
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (value === 'newest' || value === 'oldest' || value === 'name') {
+  const handleSortChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value as typeof sort;
       onSortChange(value);
-    }
-  };
+    },
+    [onSortChange]
+  );
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 mb-6">
