@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionSummary } from '@/lib/api/types';
 import { Card } from '@/components/ui/Card';
@@ -9,6 +8,8 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatDate } from '@/lib/utils/dates';
+import { getSessionBadgeVariant, getSessionStatusText, getSessionButtonText } from '../utils/sessionStatus';
+import { useSessionDelete } from '../hooks/useSessionDelete';
 
 interface SessionCardProps {
   session: SessionSummary;
@@ -17,43 +18,14 @@ interface SessionCardProps {
 
 export function SessionCard({ session, onDelete }: SessionCardProps) {
   const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const getBadgeVariant = () => {
-    if (session.conversation_state === 'failed') return 'failed';
-    if (session.conversation_complete) return 'completed';
-    if (session.conversation_state === 'processing_answer' || session.conversation_state === 'generating_questions') {
-      return 'processing';
-    }
-    return 'active';
-  };
-
-  const getStatusText = () => {
-    if (session.conversation_complete) return 'Completed';
-    if (session.conversation_state === 'failed') return 'Failed';
-    return 'Active';
-  };
-
-  const getButtonText = () => {
-    if (session.conversation_complete) return 'View Details';
-    return 'Continue';
-  };
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await onDelete(session.id);
-    } catch {
-      alert('Failed to delete session');
-    } finally {
-      setIsDeleting(false);
-      setShowConfirm(false);
-    }
-  };
+  const { isDeleting, deleteError, showConfirm, handleDelete, setShowConfirm } = useSessionDelete();
 
   const handleCardClick = () => {
-    localStorage.setItem('current-interview-session', session.id);
+    try {
+      localStorage.setItem('current-interview-session', session.id);
+    } catch (error) {
+      console.error('Failed to save session to localStorage:', error);
+    }
     router.push('/interview/new');
   };
 
@@ -63,7 +35,7 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-lg font-semibold text-deep-indigo-500 truncate">{session.project}</h3>
-            <Badge variant={getBadgeVariant()}>{getStatusText()}</Badge>
+            <Badge variant={getSessionBadgeVariant(session)}>{getSessionStatusText(session)}</Badge>
           </div>
 
           <div className="text-sm text-deep-indigo-400 space-y-1">
@@ -83,7 +55,7 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
 
           <div className="flex gap-2 pt-2">
             <Button onClick={handleCardClick} variant="secondary" size="md" className="flex-1">
-              {getButtonText()}
+              {getSessionButtonText(session)}
             </Button>
             <Button
               onClick={(e) => {
@@ -106,8 +78,10 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
         message={`Are you sure you want to delete "${session.project}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
-        onConfirm={handleDelete}
+        onConfirm={() => handleDelete(onDelete, session.id)}
         onCancel={() => setShowConfirm(false)}
+        error={deleteError}
+        isLoading={isDeleting}
       />
     </>
   );

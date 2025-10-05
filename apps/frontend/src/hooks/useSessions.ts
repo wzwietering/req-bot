@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { sessionsApi } from '@/lib/api/sessions';
 import { SessionSummary } from '@/lib/api/types';
 
@@ -14,27 +14,42 @@ export function useSessions(): UseSessionsResult {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   const loadSessions = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       const data = await sessionsApi.listSessions();
-      setSessions(data);
+      if (isMountedRef.current) {
+        setSessions(data);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sessions');
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to load sessions');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   const deleteSession = useCallback(async (id: string) => {
     try {
       await sessionsApi.deleteSession(id);
-      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (isMountedRef.current) {
+        setSessions((prev) => prev.filter((s) => s.id !== id));
+      }
     } catch (err) {
       throw err;
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   return {

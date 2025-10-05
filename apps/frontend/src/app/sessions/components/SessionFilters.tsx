@@ -8,6 +8,20 @@ interface SessionFiltersProps {
 }
 
 export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: SessionFiltersProps) {
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === 'all' || value === 'active' || value === 'completed') {
+      onFilterChange(value);
+    }
+  };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === 'newest' || value === 'oldest' || value === 'name') {
+      onSortChange(value);
+    }
+  };
+
   return (
     <div className="flex flex-col sm:flex-row gap-4 mb-6">
       <div className="flex-1">
@@ -17,7 +31,7 @@ export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: S
         <select
           id="filter"
           value={filter}
-          onChange={(e) => onFilterChange(e.target.value as 'all' | 'active' | 'completed')}
+          onChange={handleFilterChange}
           className="w-full px-4 py-2 border border-deep-indigo-200 rounded-lg text-deep-indigo-500 bg-white focus:outline-none focus:ring-2 focus:ring-benzol-green-500"
         >
           <option value="all">All Sessions</option>
@@ -33,7 +47,7 @@ export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: S
         <select
           id="sort"
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as 'newest' | 'oldest' | 'name')}
+          onChange={handleSortChange}
           className="w-full px-4 py-2 border border-deep-indigo-200 rounded-lg text-deep-indigo-500 bg-white focus:outline-none focus:ring-2 focus:ring-benzol-green-500"
         >
           <option value="newest">Newest First</option>
