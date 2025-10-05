@@ -4,13 +4,19 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Container } from '../ui';
 import { AuthButtons, AuthButtonsMobile } from '../auth/AuthButtons';
+import { useAuth } from '../auth/AuthProvider';
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   const navItems = [
     { href: '/#features', label: 'Features' },
     { href: '/#how-it-works', label: 'How It Works' }
+  ];
+
+  const authNavItems = [
+    { href: '/sessions', label: 'My Sessions' }
   ];
 
   return (
@@ -30,6 +36,15 @@ export function Navigation() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-deep-indigo-400 hover:text-deep-indigo-500 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+            {isAuthenticated && authNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -88,6 +103,16 @@ export function Navigation() {
           >
             <div className="flex flex-col space-y-4">
               {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-deep-indigo-400 hover:text-deep-indigo-500 transition-colors px-4 py-3 -mx-2 rounded-lg hover:bg-deep-indigo-50 min-h-[44px] flex items-center"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              {isAuthenticated && authNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
