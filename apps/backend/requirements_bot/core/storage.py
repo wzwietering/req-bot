@@ -6,12 +6,14 @@ from pathlib import Path
 from sqlalchemy import create_engine, func, inspect, select
 from sqlalchemy.orm import joinedload, sessionmaker
 
+from .constants import CLI_USER_ID
 from .database_models import (
     AnswerTable,
     Base,  # SQLAlchemy ORM models
     QuestionTable,
     RequirementTable,
     SessionTable,
+    UserTable,
     enable_sqlite_foreign_keys,
 )
 from .logging import span
@@ -81,6 +83,9 @@ class DatabaseManager(StorageInterface):
             # Database not managed by alembic, create tables directly
             # This maintains backward compatibility for development/test scenarios
             Base.metadata.create_all(bind=self.engine)
+
+        # Ensure CLI user exists to support CLI operations
+        self._ensure_cli_user_exists()
 
     def _validate_db_path(self, db_path: str) -> str:
         """Validate database path to prevent path traversal attacks."""
@@ -330,6 +335,28 @@ class DatabaseManager(StorageInterface):
                 except Exception as e:
                     db_session.rollback()
                     raise SessionDeleteError(f"Failed to delete session {session_id}: {str(e)}") from e
+
+    def _ensure_cli_user_exists(self) -> None:
+        """Ensure the CLI user exists in the database to support CLI operations."""
+        with self.SessionLocal() as db_session:
+            try:
+                # Check if CLI user already exists
+                cli_user = db_session.get(UserTable, CLI_USER_ID)
+                if not cli_user:
+                    # Create CLI user to support CLI-based sessions
+                    cli_user = UserTable(
+                        id=CLI_USER_ID,
+                        email="cli@localhost",
+                        provider="cli",
+                        provider_id="cli",
+                        name="CLI User",
+                    )
+                    db_session.add(cli_user)
+                    db_session.commit()
+            except Exception:
+                # If CLI user creation fails, roll back but don't raise
+                # This allows the application to continue functioning
+                db_session.rollback()
 
     def close(self) -> None:
         """Close the database engine and clean up resources."""

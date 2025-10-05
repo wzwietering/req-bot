@@ -23,6 +23,8 @@ from requirements_bot.api.exceptions import (
 )
 from requirements_bot.core.logging import log_event, set_request_id, span
 from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
+from requirements_bot.core.services.token_config import TokenConfig
+from requirements_bot.core.services.user_service import UserService
 from requirements_bot.core.storage import (
     SessionDeleteError,
     SessionLoadError,
@@ -206,9 +208,11 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
 class AuthenticationMiddleware(BaseHTTPMiddleware):
     """Middleware for JWT token authentication."""
 
-    def __init__(self, app, jwt_service):
+    def __init__(self, app, jwt_service, refresh_token_service=None, db_session_factory=None):
         super().__init__(app)
         self.jwt_service = jwt_service
+        self.refresh_token_service = refresh_token_service
+        self.db_session_factory = db_session_factory
         self.cookie_config = SessionCookieConfig()
         # Public routes that don't require authentication
         self.public_routes = {
@@ -286,6 +290,27 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 return response
 
             except Exception as exc:
+                # If token extraction failed, try auto-refresh with refresh token
+                if "No authentication token found" in str(exc):
+                    refresh_result = self._try_refresh_token(request)
+                    if refresh_result:
+                        access_token, new_refresh_token, user_email = refresh_result
+
+                        # Verify the new access token and extract user info
+                        user_info = self.jwt_service.verify_token(access_token)
+
+                        # Add user info to request state
+                        request.state.user_id = user_info["user_id"]
+                        request.state.user_email = user_info["email"]
+
+                        # Process the request with the refreshed token
+                        response = await call_next(request)
+
+                        # Set new tokens in response cookies
+                        self._set_auth_cookies(response, access_token, new_refresh_token)
+                        self._add_security_headers(response)
+                        return response
+
                 log_event(
                     "auth.authentication_failed",
                     level=logging.WARNING,
@@ -375,6 +400,115 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             available_cookies=list(request.cookies.keys()),
         )
         raise Exception("No authentication token found")
+
+    def _try_refresh_token(self, request: Request) -> tuple[str, str, str] | None:
+        """Try to refresh access token using refresh token from cookie.
+
+        Returns:
+            Tuple of (access_token, new_refresh_token, user_email) if successful, None otherwise
+        """
+        if not self.refresh_token_service or not self.db_session_factory:
+            return None
+
+        refresh_token = request.cookies.get("refresh_token")
+        if not refresh_token:
+            return None
+
+        log_event(
+            "auth.attempting_auto_refresh",
+            level=logging.INFO,
+            component="auth",
+            operation="auto_refresh",
+            path=request.url.path,
+        )
+
+        with span(
+            "auth.auto_refresh_token",
+            component="auth",
+            operation="auto_refresh",
+        ):
+            try:
+                # Rotate refresh token (revoke old, issue new)
+                rotation_result = self.refresh_token_service.refresh_and_rotate(refresh_token)
+
+                if not rotation_result:
+                    log_event(
+                        "auth.auto_refresh_failed",
+                        level=logging.WARNING,
+                        component="auth",
+                        operation="auto_refresh",
+                        reason="Invalid or expired refresh token",
+                    )
+                    return None
+
+                user_id, new_refresh_token = rotation_result
+
+                # Get user info for new access token
+                with self.db_session_factory() as db_session:
+                    user_service = UserService(db_session)
+                    user = user_service.get_user_by_id(user_id)
+
+                    if not user:
+                        log_event(
+                            "auth.auto_refresh_failed",
+                            level=logging.WARNING,
+                            component="auth",
+                            operation="auto_refresh",
+                            reason="User not found",
+                            user_id=user_id,
+                        )
+                        return None
+
+                    # Create new access token
+                    access_token = self.jwt_service.create_access_token(user.id, user.email)
+
+                    log_event(
+                        "auth.auto_refresh_success",
+                        level=logging.INFO,
+                        component="auth",
+                        operation="auto_refresh",
+                        user_id=user.id,
+                    )
+
+                    return (access_token, new_refresh_token, user.email)
+
+            except Exception as exc:
+                log_event(
+                    "auth.auto_refresh_error",
+                    level=logging.ERROR,
+                    component="auth",
+                    operation="auto_refresh",
+                    error_type=type(exc).__name__,
+                    error_msg=str(exc),
+                )
+                return None
+
+    def _set_auth_cookies(self, response: Response, access_token: str, refresh_token: str) -> None:
+        """Set authentication cookies on response."""
+        token_config = TokenConfig()
+        cookie_settings = self.cookie_config.get_cookie_settings()
+
+        # Set access token cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=self.jwt_service.access_token_expire_minutes * 60,
+            httponly=True,
+            secure=cookie_settings["secure"],
+            samesite=cookie_settings["samesite"],
+            path=cookie_settings["path"],
+        )
+
+        # Set refresh token cookie
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            max_age=token_config.get_refresh_token_max_age_seconds(),
+            httponly=True,
+            secure=cookie_settings["secure"],
+            samesite=cookie_settings["samesite"],
+            path=cookie_settings["path"],
+        )
 
     def _add_security_headers(self, response: Response) -> None:
         """Add security headers to response."""

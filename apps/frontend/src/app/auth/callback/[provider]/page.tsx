@@ -65,7 +65,7 @@ export default function CallbackPage({ params }: CallbackPageProps) {
         // Note: We can't check for HttpOnly cookies via document.cookie - they're only sent in HTTP requests
         try {
           await checkAuthStatus();
-        } catch (error) {
+        } catch {
           // If checkAuthStatus fails, it likely means cookies weren't set or are blocked
           setErrorMessage('Authentication failed. Please check your browser settings and ensure cookies are enabled.');
           setStatus('error');

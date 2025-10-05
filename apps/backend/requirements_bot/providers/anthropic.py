@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from anthropic import Anthropic
 
@@ -65,7 +66,16 @@ class ProviderImpl(Provider):
                         "model": self.model,
                     },
                 )
-                return [Question(**q) for q in questions_data]
+                # Generate UUIDs for questions to ensure global uniqueness
+                return [
+                    Question(
+                        id=str(uuid.uuid4()),
+                        text=q["text"],
+                        category=q["category"],
+                        required=q["required"],
+                    )
+                    for q in questions_data
+                ]
 
         return handle_provider_operation(
             operation="generate_questions",

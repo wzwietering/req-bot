@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_201_CREATED
 
 from requirements_bot.api.dependencies import (
+    get_api_interview_service,
     get_current_user_id,
     get_session_service,
     get_validated_session_id,
@@ -16,6 +17,7 @@ from requirements_bot.api.schemas import (
     SessionListResponse,
     SessionSummary,
 )
+from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.services import SessionResponseBuilder, SessionService
 from requirements_bot.core.services.session_service import SessionValidationError
 
@@ -25,11 +27,11 @@ router = APIRouter()
 @router.post("/sessions", response_model=SessionCreateResponse, status_code=HTTP_201_CREATED)
 async def create_session(
     request: SessionCreateRequest,
-    session_service: Annotated[SessionService, Depends(get_session_service)],
+    interview_service: Annotated[APIInterviewService, Depends(get_api_interview_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> SessionCreateResponse:
-    """Create a new requirements gathering session."""
-    session = session_service.get_or_create_session(request.project, user_id)
+    """Create a new requirements gathering session with LLM-generated questions."""
+    session = interview_service.create_session(request.project, user_id)
     response_data = SessionResponseBuilder.build_session_create_response(session)
 
     return SessionCreateResponse(**response_data)

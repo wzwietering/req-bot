@@ -156,12 +156,12 @@ Requirements Bot provides two main commands:
 
 #### Basic Interview Mode
 ```bash
-python -m requirements_bot.cli interview --project "My Web App" --out "requirements.md" --model "anthropic:claude-3-haiku-20240307"
+python -m requirements_bot.cli interview --project "My Web App" --out "requirements.md" --model "anthropic:claude-3-5-haiku-20241022"
 ```
 
 #### Conversational Interview Mode (Recommended)
 ```bash
-python -m requirements_bot.cli conversational --project "My Web App" --out "requirements.md" --model "anthropic:claude-3-haiku-20240307" --max-questions 25
+python -m requirements_bot.cli conversational --project "My Web App" --out "requirements.md" --model "anthropic:claude-3-5-haiku-20241022" --max-questions 25
 ```
 
 ### Command Options
@@ -169,7 +169,7 @@ python -m requirements_bot.cli conversational --project "My Web App" --out "requ
 #### Common Options
 - `--project`: Project name/title (required, will prompt if not provided)
 - `--out`: Output file path (default: "requirements.md")
-- `--model`: AI provider and model identifier (default: "anthropic:claude-3-haiku-20240307")
+- `--model`: AI provider and model identifier (default: "anthropic:claude-3-5-haiku-20241022")
 - `--db-path`: Database file path (default: "requirements_bot.db")
 
 #### Conversational Mode Options

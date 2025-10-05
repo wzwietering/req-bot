@@ -55,7 +55,7 @@ def _init_logging_from_cli(
 def interview(
     project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
-    model: str = typer.Option("anthropic:claude-3-haiku-20240307", help="Provider:model identifier"),
+    model: str = typer.Option("anthropic:claude-3-5-haiku-20241022", help="Provider:model identifier"),
     session_id: str | None = typer.Option(None, "--session-id", help="Resume existing session by ID"),
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
     log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
@@ -74,7 +74,7 @@ def interview(
 def conversational(
     project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
-    model: str = typer.Option("anthropic:claude-3-haiku-20240307", help="Provider:model identifier"),
+    model: str = typer.Option("anthropic:claude-3-5-haiku-20241022", help="Provider:model identifier"),
     max_questions: int = typer.Option(25, help="Maximum number of questions to ask"),
     session_id: str | None = typer.Option(None, "--session-id", help="Resume existing session by ID"),
     db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),

@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import os
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
@@ -12,6 +13,10 @@ from jose import jwt
 
 from requirements_bot.api.auth import JWTService, get_jwt_service
 from requirements_bot.api.error_responses import AuthenticationError
+from requirements_bot.core.models import UserCreate
+from requirements_bot.core.services.refresh_token_service import RefreshTokenService
+from requirements_bot.core.services.user_service import UserService
+from requirements_bot.core.storage import DatabaseManager
 
 
 class TestJWTTokens:
@@ -235,3 +240,142 @@ class TestAuthSecurity:
             # Should not contain sensitive configuration details
             assert "client_secret" not in str(data)
             assert "secret_key" not in str(data)
+
+
+class TestTokenRevocation:
+    """Test token revocation on new login for security."""
+
+    @pytest.fixture
+    def token_test_setup(self, test_db):
+        """Setup JWT service and create test user."""
+        db_manager = DatabaseManager(db_path=test_db)
+        db_session_factory = db_manager.SessionLocal
+        refresh_service = RefreshTokenService(db_session_factory)
+        jwt_service = JWTService("a" * 32, refresh_token_service=refresh_service)
+
+        # Create user to satisfy foreign key constraint
+        with db_session_factory() as db:
+            user_service = UserService(db)
+            user = user_service.create_user(
+                UserCreate(email="test@example.com", provider="google", provider_id="test123", name="Test User")
+            )
+            db.commit()
+            user_id = user.id
+            email = user.email
+
+        return {
+            "jwt_service": jwt_service,
+            "refresh_service": refresh_service,
+            "user_id": user_id,
+            "email": email,
+            "db_session_factory": db_session_factory,
+        }
+
+    def test_create_token_pair_revokes_existing_tokens_by_default(self, token_test_setup):
+        """Test that creating a new token pair revokes all existing tokens by default."""
+        jwt_service = token_test_setup["jwt_service"]
+        refresh_service = token_test_setup["refresh_service"]
+        user_id = token_test_setup["user_id"]
+        email = token_test_setup["email"]
+
+        # Create first token pair
+        first_tokens = jwt_service.create_token_pair(user_id, email)
+        first_refresh_token = first_tokens["refresh_token"]
+
+        # Verify first token is valid
+        assert refresh_service.verify_refresh_token(first_refresh_token) == user_id
+
+        # Create second token pair (should revoke first)
+        second_tokens = jwt_service.create_token_pair(user_id, email)
+        second_refresh_token = second_tokens["refresh_token"]
+
+        # Verify first token is now revoked
+        assert refresh_service.verify_refresh_token(first_refresh_token) is None
+
+        # Verify second token is valid
+        assert refresh_service.verify_refresh_token(second_refresh_token) == user_id
+
+    def test_create_token_pair_with_revoke_disabled(self, token_test_setup):
+        """Test that tokens are not revoked when revoke_existing=False."""
+        jwt_service = token_test_setup["jwt_service"]
+        refresh_service = token_test_setup["refresh_service"]
+        user_id = token_test_setup["user_id"]
+        email = token_test_setup["email"]
+
+        # Create first token pair
+        first_tokens = jwt_service.create_token_pair(user_id, email, revoke_existing=False)
+        first_refresh_token = first_tokens["refresh_token"]
+
+        # Create second token pair without revoking
+        second_tokens = jwt_service.create_token_pair(user_id, email, revoke_existing=False)
+        second_refresh_token = second_tokens["refresh_token"]
+
+        # Both tokens should still be valid
+        assert refresh_service.verify_refresh_token(first_refresh_token) == user_id
+        assert refresh_service.verify_refresh_token(second_refresh_token) == user_id
+
+    def test_multiple_logins_only_latest_token_valid(self, token_test_setup):
+        """Test that multiple logins result in only the latest token being valid."""
+        jwt_service = token_test_setup["jwt_service"]
+        refresh_service = token_test_setup["refresh_service"]
+        user_id = token_test_setup["user_id"]
+        email = token_test_setup["email"]
+
+        # Simulate 3 logins
+        token1 = jwt_service.create_token_pair(user_id, email)["refresh_token"]
+        token2 = jwt_service.create_token_pair(user_id, email)["refresh_token"]
+        token3 = jwt_service.create_token_pair(user_id, email)["refresh_token"]
+
+        # Only the latest token should be valid
+        assert refresh_service.verify_refresh_token(token1) is None
+        assert refresh_service.verify_refresh_token(token2) is None
+        assert refresh_service.verify_refresh_token(token3) == user_id
+
+    def test_revocation_logs_count(self, token_test_setup, caplog):
+        """Test that token revocation logs the number of revoked tokens."""
+        caplog.set_level(logging.INFO)
+
+        jwt_service = token_test_setup["jwt_service"]
+        user_id = token_test_setup["user_id"]
+        email = token_test_setup["email"]
+
+        # Create 3 tokens without revocation
+        jwt_service.create_token_pair(user_id, email, revoke_existing=False)
+        jwt_service.create_token_pair(user_id, email, revoke_existing=False)
+        jwt_service.create_token_pair(user_id, email, revoke_existing=False)
+
+        # Next login should revoke all 3
+        jwt_service.create_token_pair(user_id, email, revoke_existing=True)
+
+        # Check logs for revocation event
+        assert any("auth.previous_tokens_revoked" in record.message for record in caplog.records)
+
+    def test_token_revocation_different_users(self, token_test_setup):
+        """Test that revoking tokens for one user doesn't affect other users."""
+        jwt_service = token_test_setup["jwt_service"]
+        refresh_service = token_test_setup["refresh_service"]
+        db_session_factory = token_test_setup["db_session_factory"]
+        user1_id = token_test_setup["user_id"]
+        email = token_test_setup["email"]
+
+        # Create a second user
+        with db_session_factory() as db:
+            user_service = UserService(db)
+            user2 = user_service.create_user(
+                UserCreate(email="test2@example.com", provider="google", provider_id="test456", name="Test User 2")
+            )
+            db.commit()
+            user2_id = user2.id
+
+        # Create tokens for both users
+        user1_token = jwt_service.create_token_pair(user1_id, email)["refresh_token"]
+        user2_token = jwt_service.create_token_pair(user2_id, email)["refresh_token"]
+
+        # Login again as user1 (should only revoke user1's tokens)
+        jwt_service.create_token_pair(user1_id, email)
+
+        # User1's old token should be revoked
+        assert refresh_service.verify_refresh_token(user1_token) is None
+
+        # User2's token should still be valid
+        assert refresh_service.verify_refresh_token(user2_token) == user2_id

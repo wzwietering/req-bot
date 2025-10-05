@@ -8,7 +8,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', variant = 'primary', size = 'md', children, asChild = false, ...props }, ref) => {
+  ({ className = '', variant = 'primary', size = 'md', children, asChild = false, disabled = false, ...props }, ref) => {
     const baseClasses = 'btn-base';
     const variantClasses = {
       primary: 'btn-primary',
@@ -35,6 +35,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         className={classes}
         ref={ref}
+        disabled={disabled}
         {...props}
       >
         {children}

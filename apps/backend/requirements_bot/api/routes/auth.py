@@ -119,6 +119,16 @@ async def oauth_callback(
             token = await exchange_oauth_token(oauth_client, request, provider, oauth_providers)
             result = await process_oauth_user(oauth_providers, provider, token, db_session, jwt_service)
 
+            # Security audit log for new login session
+            user = result["user"]
+            audit_log(
+                "auth.new_login_session_created",
+                user_id=user.id,
+                client_ip=client_ip,
+                provider=provider,
+                user_email=mask_text(user.email) if user.email else None,
+            )
+
             # Redirect to frontend with tokens in httpOnly cookies
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             frontend_callback = f"{frontend_url}/auth/callback/{provider}?success=true"

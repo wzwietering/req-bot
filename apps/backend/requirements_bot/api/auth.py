@@ -42,14 +42,36 @@ class JWTService:
         self.access_token_expire_minutes = self._token_config.access_token_expire_minutes
         self.refresh_token_service = refresh_token_service
 
-    def create_token_pair(self, user_id: str, email: str) -> dict:
-        """Create both access and refresh tokens."""
-        access_token = self.create_access_token(user_id, email)
+    def create_token_pair(self, user_id: str, email: str, revoke_existing: bool = True) -> dict:
+        """Create both access and refresh tokens.
 
-        if self.refresh_token_service:
-            refresh_token = self.refresh_token_service.create_refresh_token(user_id)
-        else:
+        Args:
+            user_id: The user's unique identifier
+            email: The user's email address
+            revoke_existing: If True, revokes all existing refresh tokens for this user
+                           before creating new ones (recommended for security)
+
+        Returns:
+            Dictionary containing access_token, refresh_token, token_type, and expires_in
+        """
+        if not self.refresh_token_service:
             raise ValueError("Refresh token service not configured")
+
+        # Security: Revoke all existing tokens before creating new ones
+        # This ensures only the most recent login session is valid
+        if revoke_existing:
+            revoked_count = self.refresh_token_service.revoke_all_user_tokens(user_id)
+            log_event(
+                "auth.previous_tokens_revoked",
+                level=logging.INFO,
+                component="auth",
+                operation="create_token_pair",
+                user_id=user_id,
+                tokens_revoked=revoked_count,
+            )
+
+        access_token = self.create_access_token(user_id, email)
+        refresh_token = self.refresh_token_service.create_refresh_token(user_id)
 
         return {
             "access_token": access_token,
