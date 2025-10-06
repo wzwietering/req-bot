@@ -52,6 +52,11 @@ class APIInterviewService:
         if analysis.follow_up_questions:
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_FOLLOWUPS)
             pipeline.question_queue_manager.insert_followups(analysis.follow_up_questions, current_question, session)
+        else:
+            # Just-in-time generation: Check if we need to generate next question
+            next_question = pipeline.question_generation.generate_next_question_if_needed(session)
+            if next_question:
+                session.questions.append(next_question)
 
         self.storage.save_session(session)
 
@@ -73,6 +78,9 @@ class APIInterviewService:
 
     def _assess_and_finalize(self, session: Session, pipeline: ConversationalInterviewPipeline) -> Session:
         """Assess completeness and finalize if ready."""
+        # Need to be in PROCESSING_ANSWER state to transition to ASSESSING_COMPLETENESS
+        pipeline.session_manager.state_manager.transition_to(session, ConversationState.PROCESSING_ANSWER)
+
         question_queue = []
         pipeline.completeness_assessment.assess_and_handle_completeness(session, question_queue)
 

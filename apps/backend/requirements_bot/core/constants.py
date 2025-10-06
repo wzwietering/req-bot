@@ -1,7 +1,9 @@
-# Interview Question Limits
-MAX_ADDITIONAL_QUESTIONS = 5
-MAX_INITIAL_QUESTIONS = 3
-MAX_MISSING_AREA_QUESTIONS = 3
+# Interview Question Limits - Just-in-time generation strategy
+MAX_INITIAL_QUESTIONS = 1  # Start with just 1 question
+MAX_QUEUED_QUESTIONS = 2  # Never queue more than 2 questions ahead
+MAX_FOLLOWUPS_PER_ANSWER = 2  # Max 2 follow-ups per answer
+MIN_QUEUE_SIZE = 1  # Generate new question when queue drops below this
+QUESTIONS_PER_AREA = 3  # Target number of questions per requirement area
 
 # Retry Configuration
 DEFAULT_MAX_RETRIES = 3

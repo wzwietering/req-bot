@@ -45,8 +45,8 @@ class CompletenessAssessmentService:
             session.conversation_complete = True
         else:
             self.conductor.handle_missing_areas(completeness)
-            if len(question_queue) == 0:
-                question_queue = self.question_generation_service.generate_missing_area_questions(session)
+            # With just-in-time generation, the interview loop will generate
+            # the next question when needed based on area coverage
             # Transition back to waiting for input to continue interview
             self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
 

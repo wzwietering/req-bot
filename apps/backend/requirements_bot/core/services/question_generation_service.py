@@ -1,20 +1,17 @@
 import logging
+import uuid
 
-from requirements_bot.core.constants import (
-    MAX_ADDITIONAL_QUESTIONS,
-    MAX_INITIAL_QUESTIONS,
-    MAX_MISSING_AREA_QUESTIONS,
-)
 from requirements_bot.core.conversation_state import ConversationState
-from requirements_bot.core.interview.question_queue import QuestionQueue
+from requirements_bot.core.interview.question_queue import REQUIREMENT_AREAS, QuestionQueue
 from requirements_bot.core.logging import log_event, span
-from requirements_bot.core.models import Session
+from requirements_bot.core.models import Question, Session
+from requirements_bot.core.prompts import generate_single_question_prompt
 from requirements_bot.core.session_manager import SessionManager
 from requirements_bot.providers.base import Provider
 
 
 class QuestionGenerationService:
-    """Handles all question generation logic for interviews."""
+    """Handles all question generation logic for interviews with just-in-time generation."""
 
     def __init__(
         self,
@@ -29,74 +26,81 @@ class QuestionGenerationService:
         self.model_id = model_id
 
     def setup_initial_session_questions(self, session: Session, project: str) -> None:
-        """Generate and add initial questions to a new session."""
+        """Generate just the first question to start the interview."""
         self.session_manager.state_manager.create_checkpoint(session, "generate_initial_questions")
 
-        seed_questions = self.question_queue_manager.initialize_from_seeds(shuffled=True)
+        # Start with the first area (scope)
+        first_question = self._generate_single_question(project=project, target_area=REQUIREMENT_AREAS[0], context="")
 
-        llm_questions = self._generate_questions_with_fallback(project, seed_questions, "generate_questions")
-
-        session.questions = seed_questions + llm_questions[:MAX_INITIAL_QUESTIONS]
-        self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-
-    def generate_additional_questions(self, session: Session) -> list:
-        """Generate additional questions when queue is empty."""
-        print("   → Generating new questions to continue the conversation")
-        self.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_QUESTIONS)
-        self.session_manager.state_manager.create_checkpoint(session, "generate_additional_questions")
-
-        seed_questions = self.question_queue_manager.initialize_from_seeds(shuffled=False)
-
-        additional_questions = self._generate_questions_with_fallback(
-            session.project, seed_questions, "generate_additional_questions"
-        )
-
-        new_questions = self.question_queue_manager.filter_asked_questions(additional_questions, session)
-        question_queue = new_questions[:MAX_ADDITIONAL_QUESTIONS]
+        if first_question:
+            session.questions = [first_question]
+        else:
+            # Fallback: create a basic scope question
+            session.questions = [
+                Question(
+                    id=str(uuid.uuid4()),
+                    text="What problem are you trying to solve with this project?",
+                    category="scope",
+                    required=True,
+                )
+            ]
 
         self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-        return question_queue
 
-    def generate_missing_area_questions(self, session: Session) -> list:
-        """Generate questions for missing areas identified during completeness assessment."""
-        print("   → Generating additional questions for missing areas")
-        self.session_manager.state_manager.create_checkpoint(session, "generate_missing_area_questions")
+    def generate_next_question_if_needed(self, session: Session) -> Question | None:
+        """Generate one question only if queue is low and areas need coverage."""
+        if not self.question_queue_manager.should_generate_more(session):
+            return None
 
-        seed_questions = self.question_queue_manager.initialize_from_seeds(shuffled=False)
+        target_area = self.question_queue_manager.get_next_target_area(session)
+        if not target_area:
+            return None  # All areas covered
 
-        additional_questions = self._generate_questions_with_fallback(
-            session.project, seed_questions, "generate_missing_area_questions"
-        )
+        context = self._get_recent_context(session, last_n=5)
+        return self._generate_single_question(session.project, target_area, context)
 
-        new_questions = self.question_queue_manager.filter_asked_questions(additional_questions, session)
-        return new_questions[:MAX_MISSING_AREA_QUESTIONS]
-
-    def _generate_questions_with_fallback(self, project: str, seed_questions: list, operation: str) -> list:
-        """Generate questions with proper error handling and fallback."""
+    def _generate_single_question(self, project: str, target_area: str, context: str) -> Question | None:
+        """Generate ONE question for a specific area with full context."""
         try:
+            prompt = generate_single_question_prompt(project, target_area, context)
+
             with span(
-                "llm.generate_questions",
+                "llm.generate_single_question",
                 component="pipeline",
-                operation="generate_questions",
+                operation="generate_single_question",
                 provider_model=self.model_id,
-                seed_count=len(seed_questions),
+                target_area=target_area,
             ):
-                return self.provider.generate_questions(project, seed_questions=seed_questions)
+                question = self.provider.generate_single_question(prompt)
+                return question
+
         except Exception as e:
             log_event(
-                "llm.generate_questions_failed",
+                "llm.generate_single_question_failed",
                 component="pipeline",
-                operation=operation,
+                operation="generate_single_question",
                 provider_model=self.model_id,
+                target_area=target_area,
                 error=str(e),
                 error_type=type(e).__name__,
                 level=logging.WARNING,
             )
-            print(f"⚠ LLM question generation failed: {e}")
+            print(f"⚠ LLM question generation failed for {target_area}: {e}")
+            return None
 
-            if operation == "generate_questions":
-                print("⚠ Continuing with seed questions only")
-            else:
-                print(f"⚠ Unable to generate questions for {operation}")
+    def _get_recent_context(self, session: Session, last_n: int = 5) -> str:
+        """Get recent Q&A pairs for context."""
+        if not session.answers:
+            return ""
 
-            return []
+        answer_map = {a.question_id: a.text for a in session.answers}
+        qa_pairs = []
+
+        # Get the last N answered questions
+        answered_questions = [q for q in session.questions if q.id in answer_map][-last_n:]
+
+        for q in answered_questions:
+            answer_text = answer_map.get(q.id, "")
+            qa_pairs.append(f"Q: {q.text}\nA: {answer_text}")
+
+        return "\n\n".join(qa_pairs)

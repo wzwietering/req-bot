@@ -1,9 +1,12 @@
 import logging
 import threading
+import uuid
 
 from requirements_bot.core.conversation_state import ConversationState
+from requirements_bot.core.interview.question_queue import REQUIREMENT_AREAS
 from requirements_bot.core.logging import log_event
-from requirements_bot.core.models import Session
+from requirements_bot.core.models import Question, Session
+from requirements_bot.core.prompts import generate_single_question_prompt
 
 
 class StateRecoveryManager:
@@ -72,11 +75,23 @@ class StateRecoveryManager:
     def _retry_question_generation(self, session: Session) -> bool:
         """Retry question generation from last checkpoint."""
         try:
-            # Clear any partial questions and regenerate
+            # If no questions exist, generate just one to get started
             if not session.questions:
-                seed_questions = self.question_queue_manager.initialize_from_seeds(shuffled=False)
-                llm_questions = self.provider.generate_questions(session.project, seed_questions=seed_questions)
-                session.questions = seed_questions + llm_questions
+                # Try to generate a single question
+                prompt = generate_single_question_prompt(session.project, REQUIREMENT_AREAS[0], "")
+                question = self.provider.generate_single_question(prompt)
+                if question:
+                    session.questions = [question]
+                else:
+                    # If LLM generation fails completely, try basic fallback
+                    session.questions = [
+                        Question(
+                            id=str(uuid.uuid4()),
+                            text="What problem are you trying to solve with this project?",
+                            category="scope",
+                            required=True,
+                        )
+                    ]
 
             self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
             return True

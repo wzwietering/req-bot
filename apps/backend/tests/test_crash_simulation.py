@@ -99,13 +99,10 @@ class TestCrashSimulation:
         """Test recovery from interrupted question generation."""
         sample_session.conversation_state = ConversationState.GENERATING_QUESTIONS
 
-        # Mock successful question generation
-        recovery_manager.provider.generate_questions.return_value = [
-            Question(id="q3", text="Generated question", category="scope")
-        ]
-        recovery_manager.question_queue_manager.initialize_from_seeds.return_value = [
-            Question(id="seed1", text="Seed question", category="scope")
-        ]
+        # Mock successful question generation (using the new single question method)
+        recovery_manager.provider.generate_single_question.return_value = Question(
+            id="q3", text="Generated question", category="scope"
+        )
 
         result = recovery_manager.attempt_recovery(sample_session)
         assert result is True
@@ -160,9 +157,8 @@ class TestCrashSimulation:
         sample_session.conversation_state = ConversationState.GENERATING_QUESTIONS
         sample_session.questions = []  # No existing questions to fall back to
 
-        # Make question generation fail
-        recovery_manager.provider.generate_questions.side_effect = Exception("Generation failed")
-        recovery_manager.question_queue_manager.initialize_from_seeds.side_effect = Exception("Seed generation failed")
+        # Make question generation fail (including the new single question method)
+        recovery_manager.provider.generate_single_question.side_effect = Exception("Generation failed")
 
         result = recovery_manager.attempt_recovery(sample_session)
         assert result is False  # Recovery failed
@@ -216,9 +212,8 @@ class TestCrashSimulation:
         sample_session.state_context.llm_operation_id = "failed_llm_call"
         sample_session.questions = []  # No existing questions to fall back to
 
-        # Simulate network failure in provider call
-        recovery_manager.provider.generate_questions.side_effect = Exception("Network timeout")
-        recovery_manager.question_queue_manager.initialize_from_seeds.side_effect = Exception("Network timeout")
+        # Simulate network failure in provider call (including the new single question method)
+        recovery_manager.provider.generate_single_question.side_effect = Exception("Network timeout")
 
         # Recovery should handle this gracefully
         result = recovery_manager.attempt_recovery(sample_session)

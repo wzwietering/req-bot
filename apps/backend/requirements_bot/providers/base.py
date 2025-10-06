@@ -33,7 +33,9 @@ class Provider:
         impl = provider_map[vendor]()
         return impl.ProviderImpl(model)
 
-    def generate_questions(self, project: str, seed_questions: list[Question]) -> list[Question]: ...
+    def generate_single_question(self, prompt: str) -> Question | None:
+        """Generate a single question using a custom prompt."""
+        ...
 
     def summarize_requirements(
         self, project: str, questions: list[Question], answers: list[Answer]
