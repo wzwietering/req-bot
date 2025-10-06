@@ -1,0 +1,65 @@
+'use client';
+
+import { useCallback } from 'react';
+
+interface SessionFiltersProps {
+  filter: 'all' | 'active' | 'completed';
+  sort: 'newest' | 'oldest' | 'name-asc' | 'name-desc';
+  onFilterChange: (filter: 'all' | 'active' | 'completed') => void;
+  onSortChange: (sort: 'newest' | 'oldest' | 'name-asc' | 'name-desc') => void;
+}
+
+export function SessionFilters({ filter, sort, onFilterChange, onSortChange }: SessionFiltersProps) {
+  const handleFilterChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value as typeof filter;
+      onFilterChange(value);
+    },
+    [onFilterChange]
+  );
+
+  const handleSortChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value as typeof sort;
+      onSortChange(value);
+    },
+    [onSortChange]
+  );
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex-1">
+        <label htmlFor="filter" className="block text-sm font-medium text-deep-indigo-500 mb-2">
+          Filter
+        </label>
+        <select
+          id="filter"
+          value={filter}
+          onChange={handleFilterChange}
+          className="w-full px-4 py-2 border border-deep-indigo-200 rounded-lg text-deep-indigo-500 bg-white focus:outline-none focus:ring-2 focus:ring-benzol-green-500"
+        >
+          <option value="all">All Sessions</option>
+          <option value="active">Active Only</option>
+          <option value="completed">Completed Only</option>
+        </select>
+      </div>
+
+      <div className="flex-1">
+        <label htmlFor="sort" className="block text-sm font-medium text-deep-indigo-500 mb-2">
+          Sort By
+        </label>
+        <select
+          id="sort"
+          value={sort}
+          onChange={handleSortChange}
+          className="w-full px-4 py-2 border border-deep-indigo-200 rounded-lg text-deep-indigo-500 bg-white focus:outline-none focus:ring-2 focus:ring-benzol-green-500"
+        >
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="name-asc">Project Name (A-Z)</option>
+          <option value="name-desc">Project Name (Z-A)</option>
+        </select>
+      </div>
+    </div>
+  );
+}

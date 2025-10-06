@@ -50,6 +50,19 @@
   --color-jasper-red-900: #700D00;
   --color-jasper-red-950: #470700;
 
+  /* Amber Colors for Processing/Warning States */
+  --color-amber-50: #FFFBEB;
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #F59E0B;
+  --color-amber-600: #D97706;
+  --color-amber-700: #B45309;
+  --color-amber-800: #92400E;
+  --color-amber-900: #78350F;
+  --color-amber-950: #451A03;
+
   /* Typography Scale */
   --font-size-xs: 0.75rem;     /* 12px */
   --font-size-sm: 0.875rem;    /* 14px */
@@ -165,6 +178,18 @@ body {
   box-shadow: 0 4px 12px rgba(250, 43, 0, 0.2);
 }
 
+.btn-danger {
+  background-color: var(--color-jasper-red-500);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background-color: var(--color-jasper-red-600);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(250, 43, 0, 0.3);
+}
+
 /* Focus states for accessibility */
 .btn-base:focus {
   outline: 2px solid var(--color-benzol-green-500);
@@ -209,6 +234,17 @@ body {
   color: var(--color-deep-indigo-300);
   transform: none;
   box-shadow: none;
+}
+
+.btn-danger:disabled {
+  background-color: var(--color-deep-indigo-200);
+  color: var(--color-deep-indigo-400);
+}
+
+.btn-danger:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background-color: var(--color-deep-indigo-200);
 }
 
 /* Screen reader only utility */
