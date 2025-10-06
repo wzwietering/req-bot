@@ -52,25 +52,6 @@ def _init_logging_from_cli(
 
 
 @app.command()
-def interview(
-    project: str | None = typer.Option(None, help="Project name/title"),
-    out: str = typer.Option("requirements.md", help="Output requirements file"),
-    model: str = typer.Option("anthropic:claude-3-5-haiku-20241022", help="Provider:model identifier"),
-    session_id: str | None = typer.Option(None, "--session-id", help="Resume existing session by ID"),
-    db_path: str = typer.Option(DEFAULT_DB_PATH, help="Database file path"),
-    log_level: str | None = typer.Option(None, help="Log level (DEBUG, INFO, ...)"),
-    log_file: str | None = typer.Option(None, help="Log file path (default stdout)"),
-    log_format: str = typer.Option("json", help="Log format: json|text"),
-    log_mask: bool = typer.Option(False, help="Mask sensitive text in logs"),
-):
-    """
-    Runs an interactive interview in the console and writes a requirements document when done.
-    """
-    _init_logging_from_cli(log_level, log_file, log_format, log_mask, session_id)
-    _run(project, out, model, session_id, db_path)
-
-
-@app.command()
 def conversational(
     project: str | None = typer.Option(None, help="Project name/title"),
     out: str = typer.Option("requirements.md", help="Output requirements file"),
@@ -189,17 +170,6 @@ def show_session(
     except Exception as e:
         typer.echo(f"Error showing session: {e}", err=True)
         raise typer.Exit(1)
-
-
-def _run(
-    project: str | None,
-    out: str,
-    model: str,
-    session_id: str | None = None,
-    db_path: str = DEFAULT_DB_PATH,
-):
-    runner = InterviewRunner(db_path)
-    runner.run_simple_interview(project, out, model, session_id)
 
 
 def _run_conversational(

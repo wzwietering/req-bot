@@ -175,7 +175,7 @@ Requirements Bot is a Python-based console application that conducts AI-powered 
 ### 3. Template Method Pattern
 
 - **Implementation**: Interview flow templates
-- **Variations**: Fixed vs. conversational interview modes
+- **Variations**: Conversational interview with adaptive question flow
 - **Location**: `pipeline.py`
 
 ### 4. Factory Pattern
@@ -231,10 +231,10 @@ The system organizes questions into eight categories:
 - **Benefit**: Consistent parsing and error handling
 - **Risk**: Dependency on AI model JSON compliance
 
-### 4. Conversational vs. Fixed Interview Modes
+### 4. Conversational Interview Mode
 
-- **Fixed Mode**: Predictable, faster execution
-- **Conversational Mode**: Adaptive, higher quality output
+- **Adaptive Flow**: Dynamic question generation based on user answers
+- **Quality Focus**: Context-aware follow-up questions for better requirements
 - **Design**: Template method pattern for extensibility
 
 ### 5. Error Handling Strategy

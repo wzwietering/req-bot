@@ -53,16 +53,13 @@ class SessionService:
 
         return session_id
 
-    def get_or_create_session(
-        self, project: str, user_id: str, session_id: str | None = None, interview_type: str = "conversational"
-    ) -> Session:
+    def get_or_create_session(self, project: str, user_id: str, session_id: str | None = None) -> Session:
         """Get existing session or create new one with basic setup.
 
         Args:
             project: Project name for the session
             user_id: ID of the user creating/accessing the session
             session_id: Optional existing session ID
-            interview_type: Type of interview to conduct
 
         Returns:
             Session: The session object
@@ -81,7 +78,7 @@ class SessionService:
             return session
 
         # Create new session
-        session, _ = self.setup_manager.setup_session(project, None, interview_type, user_id)
+        session, _ = self.setup_manager.setup_session(project, None, user_id)
 
         # Add basic questions for new sessions
         if not session.questions:
