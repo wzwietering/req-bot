@@ -30,13 +30,13 @@ class SessionManager:
                 set_run_id(rid)
             set_trace_id(rid)
 
-    def load_existing_session(self, session_id: str, mode: str) -> Session | None:
+    def load_existing_session(self, session_id: str) -> Session | None:
         if not self.storage:
             return None
 
         session = self.storage.load_session(session_id)
         if session:
-            print(f"\n=== Resuming {mode} interview for '{session.project}' ===")
+            print(f"\n=== Resuming interview for '{session.project}' ===")
             print(f"   → Current state: {session.conversation_state.value}")
 
             # Check if recovery is needed
@@ -51,21 +51,18 @@ class SessionManager:
                 operation="resume",
                 session_id=session.id,
                 project=session.project,
-                mode=mode,
                 conversation_state=session.conversation_state.value,
             )
         return session
 
-    def create_new_session(
-        self, project: str, questions: list[Question], mode: str, user_id: str = CLI_USER_ID
-    ) -> Session:
+    def create_new_session(self, project: str, questions: list[Question], user_id: str = CLI_USER_ID) -> Session:
         session = Session(
             project=project,
             user_id=user_id,
             questions=questions,
             answers=[],
             requirements=[],
-            conversation_complete=mode == "interview",
+            conversation_complete=False,
         )
 
         # Transition to generating questions state
@@ -78,7 +75,6 @@ class SessionManager:
             operation="start",
             session_id=session.id,
             project=project,
-            mode=mode,
         )
         return session
 

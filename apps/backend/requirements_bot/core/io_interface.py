@@ -29,15 +29,12 @@ class IOInterface(ABC):
         """Get input from the user with a prompt."""
         pass
 
-    def print_interview_header(self, mode: str, remaining_questions: int = 0) -> None:
-        """Print interview start header with mode-specific messaging."""
-        if mode == "conversational":
-            self.print("\n=== Starting conversational interview ===")
-            self.print(
-                "I'll ask questions to understand your requirements. I may ask follow-up questions using your answers."
-            )
-        else:
-            self.print(f"\n=== Starting interview with {remaining_questions} remaining questions ===")
+    def print_interview_header(self, remaining_questions: int = 0) -> None:
+        """Print interview start header."""
+        self.print("\n=== Starting conversational interview ===")
+        self.print(
+            "I'll ask questions to understand your requirements. I may ask follow-up questions using your answers."
+        )
         self.print_info("💡 Tip: Type 'exit', 'quit', or 'done' to save your progress and exit anytime.")
 
     def print_requirements_generation(self, answer_count: int) -> None:
@@ -228,32 +225,22 @@ class RichConsoleIO(IOInterface):
         else:
             print(f"ℹ {message}")
 
-    def print_interview_header(self, mode: str, remaining_questions: int = 0) -> None:
+    def print_interview_header(self, remaining_questions: int = 0) -> None:
         """Print rich interview start header."""
         if self.console:
-            if mode == "conversational":
-                header_panel = Panel(
-                    "🤖 [bold blue]Conversational Interview Mode[/bold blue]\n\n"
-                    "I'll ask questions to understand your requirements.\n"
-                    "I may ask follow-up questions based on your answers.\n\n"
-                    "[dim]💡 Tip: Type 'exit', 'quit', or 'done' to save and exit anytime[/dim]",
-                    title="🚀 Starting Interview",
-                    border_style="bright_blue",
-                    padding=(1, 2),
-                )
-            else:
-                header_panel = Panel(
-                    f"📋 [bold blue]Standard Interview Mode[/bold blue]\n\n"
-                    f"Questions remaining: [bold yellow]{remaining_questions}[/bold yellow]\n\n"
-                    "[dim]💡 Tip: Type 'exit', 'quit', or 'done' to save and exit anytime[/dim]",
-                    title="🚀 Starting Interview",
-                    border_style="bright_blue",
-                    padding=(1, 2),
-                )
+            header_panel = Panel(
+                "🤖 [bold blue]Conversational Interview Mode[/bold blue]\n\n"
+                "I'll ask questions to understand your requirements.\n"
+                "I may ask follow-up questions based on your answers.\n\n"
+                "[dim]💡 Tip: Type 'exit', 'quit', or 'done' to save and exit anytime[/dim]",
+                title="🚀 Starting Interview",
+                border_style="bright_blue",
+                padding=(1, 2),
+            )
             self.console.print(header_panel)
         else:
             # Fallback to parent implementation
-            super().print_interview_header(mode, remaining_questions)
+            super().print_interview_header(remaining_questions)
 
     def print_requirements_generation(self, answer_count: int) -> None:
         """Print rich requirements generation message."""

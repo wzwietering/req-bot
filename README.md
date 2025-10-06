@@ -31,7 +31,7 @@ See `.env.example` files for all options.
 
 ## Features
 
-- **Two interview modes**: conversational (recommended) and structured
+- **Conversational interview mode**: natural, adaptive question flow
 - **Multi-provider**: Anthropic Claude, OpenAI, Google Gemini
 - **Three interfaces**: Web UI, CLI, REST API
 - **Auto-generated TypeScript types** from backend OpenAPI spec
@@ -69,11 +69,10 @@ poetry run python -m requirements_bot.cli load <session-id>
 
 | Command | Description |
 |---------|-------------|
-| `conversational` | Natural conversation mode (recommended) |
-| `interview` | Structured question-by-question mode |
-| `sessions list` | Show all saved sessions |
-| `sessions load <id>` | Continue a session |
-| `sessions delete <id>` | Delete a session |
+| `conversational` | Natural conversation mode |
+| `list-sessions` | Show all saved sessions |
+| `show-session <id>` | Display session details and export |
+| `delete-session <id>` | Delete a session |
 
 #### Common Options
 

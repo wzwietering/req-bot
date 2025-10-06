@@ -3,7 +3,7 @@ import typer
 from requirements_bot.core.constants import DEFAULT_DB_PATH
 from requirements_bot.core.io_interface import RichConsoleIO
 from requirements_bot.core.models import Session
-from requirements_bot.core.pipeline import run_conversational_interview, run_interview
+from requirements_bot.core.pipeline import run_conversational_interview
 from requirements_bot.core.services import SessionService
 from requirements_bot.core.services.session_service import SessionValidationError
 from requirements_bot.core.storage import DatabaseManager
@@ -31,27 +31,6 @@ class InterviewRunner:
         """Write document and display completion message."""
         self.session_service.finalize_session_with_document(session, out, self.io)
 
-    def run_simple_interview(
-        self,
-        project: str | None,
-        out: str,
-        model: str,
-        session_id: str | None = None,
-    ) -> None:
-        """Run a simple interview with error handling and fallback."""
-        try:
-            project, db_manager = self.setup_project_and_session(project, session_id)
-
-            session = run_interview(
-                project=project,
-                model_id=model,
-                session_id=session_id,
-                storage=db_manager,
-            )
-            self.finalize_session(session, out)
-        except Exception as e:
-            self._handle_fallback(e, project, out, model, "interview")
-
     def run_conversational_interview_with_fallback(
         self,
         project: str | None,
@@ -73,7 +52,7 @@ class InterviewRunner:
             )
             self.finalize_session(session, out)
         except Exception as e:
-            self._handle_fallback(e, project, out, model, "conversational interview", max_questions)
+            self._handle_fallback(e, project, out, model, max_questions)
 
     def _handle_fallback(
         self,
@@ -81,19 +60,14 @@ class InterviewRunner:
         project: str | None,
         out: str,
         model: str,
-        interview_type: str,
-        max_questions: int = None,
+        max_questions: int,
     ) -> None:
         """Handle fallback to non-persistent mode."""
-        typer.echo(f"Error during {interview_type}: {error}", err=True)
+        typer.echo(f"Error during conversational interview: {error}", err=True)
         typer.echo("Falling back to non-persistent mode...")
 
         if not project:
             project = self.io.input("Project name/title: ")
 
-        if interview_type == "conversational interview":
-            session = run_conversational_interview(project=project, model_id=model, max_questions=max_questions)
-        else:
-            session = run_interview(project=project, model_id=model)
-
+        session = run_conversational_interview(project=project, model_id=model, max_questions=max_questions)
         self.session_service.finalize_session_with_document(session, out, self.io)
