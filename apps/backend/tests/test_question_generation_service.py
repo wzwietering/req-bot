@@ -5,7 +5,7 @@ import pytest
 from requirements_bot.core.conversation_state import (
     ConversationState,
 )
-from requirements_bot.core.models import Session
+from requirements_bot.core.models import Question, Session
 from requirements_bot.core.services.question_generation_service import (
     QuestionGenerationService,
 )
@@ -72,7 +72,6 @@ class TestQuestionGenerationService:
         2. No batch generation happens
         3. Questions are context-aware
         """
-        from requirements_bot.core.models import Question
 
         # Mock queue manager to say we need more questions
         mock_question_queue_manager.should_generate_more.return_value = True
