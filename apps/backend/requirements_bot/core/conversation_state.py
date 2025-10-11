@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from enum import Enum
 
 from pydantic import BaseModel
@@ -126,7 +127,7 @@ def validate_context_for_state(state: ConversationState, context: StateContext) 
     if not isinstance(context, StateContext):
         raise ValueError(f"Invalid context type: {type(context)}")
 
-    validators = {
+    validators: dict[ConversationState, Callable[[StateContext], list[str]]] = {
         ConversationState.WAITING_FOR_INPUT: _validate_waiting_context,
         ConversationState.PROCESSING_ANSWER: _validate_processing_context,
         ConversationState.GENERATING_FOLLOWUPS: _validate_followups_context,

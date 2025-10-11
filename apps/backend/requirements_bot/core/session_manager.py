@@ -98,7 +98,7 @@ class SessionManager:
                     final=is_final,
                     attempt=attempt + 1,
                 ):
-                    self.storage.save_session(session)
+                    self.storage.save_session(session)  # type: ignore[union-attr]
                 return  # Success, exit early
             except Exception as e:
                 if attempt < max_retries - 1:

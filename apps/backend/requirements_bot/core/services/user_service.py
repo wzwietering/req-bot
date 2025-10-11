@@ -1,3 +1,5 @@
+from typing import Literal, cast
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
@@ -97,10 +99,12 @@ class UserService:
 
     def _table_to_model(self, user_table: UserTable) -> User:
         """Convert UserTable to User model."""
+        # Cast provider to the correct Literal type since database only validates at runtime
+        provider = cast(Literal["google", "github", "microsoft"], user_table.provider)
         return User(
             id=user_table.id,
             email=user_table.email,
-            provider=user_table.provider,
+            provider=provider,
             provider_id=user_table.provider_id,
             name=user_table.name,
             avatar_url=user_table.avatar_url,

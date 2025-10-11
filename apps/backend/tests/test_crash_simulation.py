@@ -15,7 +15,7 @@ class CrashSimulator:
 
     def __init__(self, state_manager: ConversationStateManager):
         self.state_manager = state_manager
-        self.crash_at_state = None
+        self.crash_at_state: ConversationState | None = None
         self.crashed = False
 
     def set_crash_point(self, state: ConversationState):

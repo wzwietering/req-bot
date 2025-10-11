@@ -153,7 +153,7 @@ class MigrationTestFramework:
                 for check_name, query in integrity_checks:
                     result = session.execute(text(query))
                     count = result.scalar()
-                    if count > 0:
+                    if count and count > 0:
                         issues.append(f"{check_name}: {count} records")
 
                 return len(issues) == 0, issues

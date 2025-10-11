@@ -117,7 +117,9 @@ class TestSessionCreation:
 
     def test_create_session_invalid_json(self, client: TestClient):
         """Test session creation with invalid JSON fails."""
-        response = client.post("/api/v1/sessions", data="invalid json", headers={"Content-Type": "application/json"})
+        response = client.post(
+            "/api/v1/sessions", content=b"invalid json", headers={"Content-Type": "application/json"}
+        )
 
         assert response.status_code == 422
 

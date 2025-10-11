@@ -1,8 +1,11 @@
 """Service for generating and managing questions."""
 
 import uuid
+from typing import Literal
 
 from requirements_bot.core.models import Question
+
+QuestionCategory = Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"]
 
 
 class QuestionService:
@@ -11,7 +14,7 @@ class QuestionService:
     @staticmethod
     def generate_basic_questions(project: str) -> list[Question]:
         """Generate basic questions for a new project session."""
-        basic_questions = [
+        basic_questions: list[tuple[str, QuestionCategory]] = [
             ("What is the main purpose of this project?", "scope"),
             ("Who are the target users or stakeholders?", "users"),
             ("What are the key features you want to include?", "scope"),

@@ -46,14 +46,14 @@ class TestGeneralErrorHandling:
     def test_malformed_json_request(self, client: TestClient):
         """Test malformed JSON in request body."""
         response = client.post(
-            "/api/v1/sessions", data="{ invalid json }", headers={"Content-Type": "application/json"}
+            "/api/v1/sessions", content=b"{ invalid json }", headers={"Content-Type": "application/json"}
         )
 
         assert response.status_code == 422
 
     def test_missing_content_type_header(self, client: TestClient):
         """Test request without proper content type."""
-        response = client.post("/api/v1/sessions", data='{"project": "test"}')
+        response = client.post("/api/v1/sessions", content=b'{"project": "test"}')
 
         # Should still work as FastAPI is flexible
         assert response.status_code in [200, 201, 422]

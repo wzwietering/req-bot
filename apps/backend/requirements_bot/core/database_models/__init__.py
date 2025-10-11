@@ -1,22 +1,24 @@
 from datetime import UTC, datetime
+from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import (
-    Boolean,
-    Column,
     DateTime,
     Engine,
     ForeignKey,
     Index,
-    Integer,
     String,
     Text,
     event,
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# Single unified Base for all models
-Base = declarative_base()
+
+# Single unified Base for all models using SQLAlchemy 2.0 style
+class Base(DeclarativeBase):
+    """Base class for all database models with proper typing support."""
+
+    pass
 
 
 # Function to enable foreign key enforcement - to be called by engines
@@ -37,17 +39,19 @@ class UserTable(Base):
 
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    email = Column(String, nullable=False, unique=True)
-    provider = Column(String, nullable=False)  # 'google', 'github', 'microsoft'
-    provider_id = Column(String, nullable=False)  # OAuth provider's user ID
-    name = Column(String, nullable=True)
-    avatar_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    email: Mapped[str] = mapped_column(String, unique=True)
+    provider: Mapped[str] = mapped_column(String)  # 'google', 'github', 'microsoft'
+    provider_id: Mapped[str] = mapped_column(String)  # OAuth provider's user ID
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
 
     # Relationships
-    sessions = relationship("SessionTable", back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[list["SessionTable"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     # Unique constraint on provider + provider_id
     __table_args__ = (
@@ -61,32 +65,28 @@ class SessionTable(Base):
 
     __tablename__ = "sessions"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    project = Column(String, nullable=False)
-    conversation_complete = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    project: Mapped[str] = mapped_column(String)
+    conversation_complete: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
 
     # Conversation state tracking
-    conversation_state = Column(String, nullable=False, default="initializing")
-    state_context = Column(Text, nullable=True)  # JSON serialized StateContext
-    last_state_change = Column(DateTime, default=lambda: datetime.now(UTC))
+    conversation_state: Mapped[str] = mapped_column(String, default="initializing")
+    state_context: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON serialized StateContext
+    last_state_change: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
-    user = relationship("UserTable", back_populates="sessions")
-    questions = relationship(
-        "QuestionTable",
-        back_populates="session",
-        cascade="all, delete-orphan",
-        order_by="QuestionTable.order_index",
+    user: Mapped["UserTable"] = relationship(back_populates="sessions")
+    questions: Mapped[list["QuestionTable"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="QuestionTable.order_index"
     )
-    answers = relationship("AnswerTable", back_populates="session", cascade="all, delete-orphan")
-    requirements = relationship(
-        "RequirementTable",
-        back_populates="session",
-        cascade="all, delete-orphan",
-        order_by="RequirementTable.order_index",
+    answers: Mapped[list["AnswerTable"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    requirements: Mapped[list["RequirementTable"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="RequirementTable.order_index"
     )
 
 
@@ -95,16 +95,16 @@ class QuestionTable(Base):
 
     __tablename__ = "questions"
 
-    id = Column(String, primary_key=True)
-    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
-    text = Column(Text, nullable=False)
-    category = Column(String, nullable=False)
-    required = Column(Boolean, default=True)
-    order_index = Column(Integer, nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String)
+    required: Mapped[bool] = mapped_column(default=True)
+    order_index: Mapped[int] = mapped_column()
 
     # Relationships
-    session = relationship("SessionTable", back_populates="questions")
-    answer = relationship("AnswerTable", back_populates="question", uselist=False)
+    session: Mapped["SessionTable"] = relationship(back_populates="questions")
+    answer: Mapped[Optional["AnswerTable"]] = relationship(back_populates="question")
 
     # Indexes
     __table_args__ = (Index("ix_questions_session_id", "session_id"),)
@@ -115,22 +115,17 @@ class AnswerTable(Base):
 
     __tablename__ = "answers"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
-    question_id = Column(
-        String,
-        ForeignKey("questions.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-    )
-    text = Column(Text, nullable=False)
-    is_vague = Column(Boolean, default=False)
-    needs_followup = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"))
+    question_id: Mapped[str] = mapped_column(ForeignKey("questions.id", ondelete="CASCADE"), unique=True)
+    text: Mapped[str] = mapped_column(Text)
+    is_vague: Mapped[bool] = mapped_column(default=False)
+    needs_followup: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
-    session = relationship("SessionTable", back_populates="answers")
-    question = relationship("QuestionTable", back_populates="answer")
+    session: Mapped["SessionTable"] = relationship(back_populates="answers")
+    question: Mapped["QuestionTable"] = relationship(back_populates="answer")
 
     # Indexes
     __table_args__ = (
@@ -144,15 +139,15 @@ class RequirementTable(Base):
 
     __tablename__ = "requirements"
 
-    id = Column(String, primary_key=True)
-    session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
-    title = Column(String, nullable=False)
-    rationale = Column(Text)
-    priority = Column(String, nullable=False, default="MUST")
-    order_index = Column(Integer, nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority: Mapped[str] = mapped_column(String, default="MUST")
+    order_index: Mapped[int] = mapped_column()
 
     # Relationships
-    session = relationship("SessionTable", back_populates="requirements")
+    session: Mapped["SessionTable"] = relationship(back_populates="requirements")
 
     # Indexes
     __table_args__ = (Index("ix_requirements_session_id", "session_id"),)
@@ -163,9 +158,9 @@ class OAuthStateTable(Base):
 
     __tablename__ = "oauth_states"
 
-    state = Column(String, primary_key=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
-    expires_at = Column(DateTime, nullable=False)
+    state: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
 
     # Index for cleanup queries
     __table_args__ = (Index("ix_oauth_states_expires_at", "expires_at"),)
@@ -176,15 +171,15 @@ class RefreshTokenTable(Base):
 
     __tablename__ = "refresh_tokens"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    token_hash = Column(String, nullable=False, unique=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
-    expires_at = Column(DateTime, nullable=False)
-    revoked = Column(Boolean, default=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    revoked: Mapped[bool] = mapped_column(default=False)
 
     # Relationships
-    user = relationship("UserTable")
+    user: Mapped["UserTable"] = relationship()
 
     # Indexes
     __table_args__ = (

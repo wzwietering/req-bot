@@ -24,8 +24,16 @@ class OAuthCallbackValidator:
             self._validate_error_param(params["error"], provider)
             raise OAuthError(f"OAuth error: {params['error']}", provider)
 
-        code = self._validate_code_param(params.get("code"), provider)
-        state = self._validate_state_param(params.get("state"), provider)
+        code_param = params.get("code")
+        state_param = params.get("state")
+
+        if not code_param:
+            raise ValidationError("Missing authorization code", "code")
+        if not state_param:
+            raise ValidationError("Missing state parameter", "state")
+
+        code = self._validate_code_param(code_param, provider)
+        state = self._validate_state_param(state_param, provider)
 
         return {"code": code, "state": state}
 

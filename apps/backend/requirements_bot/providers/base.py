@@ -39,16 +39,17 @@ class Provider:
 
     def generate_single_question(self, prompt: str) -> Question | None:
         """Generate a single question using a custom prompt."""
-        ...
+        raise NotImplementedError
 
     def summarize_requirements(
         self, project: str, questions: list[Question], answers: list[Answer]
-    ) -> list[Requirement]: ...
+    ) -> list[Requirement]:
+        raise NotImplementedError
 
     def analyze_answer(self, question: Question, answer: Answer, context: str = "") -> AnswerAnalysis:
         """Analyze answer quality and generate follow-up questions if needed."""
-        ...
+        raise NotImplementedError
 
     def assess_completeness(self, session: Session) -> CompletenessAssessment:
         """Assess if enough information has been gathered."""
-        ...
+        raise NotImplementedError

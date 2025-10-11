@@ -33,7 +33,7 @@ class MockProvider(Provider):
         return Question(
             id=str(uuid.uuid4()),
             text=f"Mock question {self.question_counter}: What are your requirements for {category}?",
-            category=category,
+            category=category,  # type: ignore[arg-type]
             required=True,
         )
 
@@ -89,7 +89,7 @@ class MockProvider(Provider):
         confidence_score = min(0.95, qa_count * 0.25)
 
         missing_areas = []
-        covered_categories = {a.category for q in session.questions for a in session.answers if a.question_id == q.id}
+        covered_categories = {q.category for q in session.questions for a in session.answers if a.question_id == q.id}
 
         required_categories = {"scope", "functionality", "constraints"}
         for cat in required_categories:

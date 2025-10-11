@@ -87,7 +87,7 @@ class ConversationStateManager:
 
         if self.storage:
             try:
-                self.storage.save_session(session)
+                self.storage.save_session(session)  # type: ignore[union-attr]
             except Exception as e:
                 log_event(
                     "conversation.checkpoint_creation_failed",
@@ -134,7 +134,7 @@ class ConversationStateManager:
                     state=state.value,
                     attempt=attempt + 1,
                 ):
-                    self.storage.save_session(session)
+                    self.storage.save_session(session)  # type: ignore[union-attr]
                 return  # Success, exit early
             except Exception as e:
                 if attempt < max_retries - 1:
