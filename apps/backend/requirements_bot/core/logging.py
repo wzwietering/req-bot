@@ -181,6 +181,7 @@ def init_logging(
         stream = sys.stderr if resolved_stderr else sys.stdout
         handler = logging.StreamHandler(stream)
 
+    formatter: logging.Formatter
     if resolved_format == "json":
         formatter = JsonFormatter()
     else:

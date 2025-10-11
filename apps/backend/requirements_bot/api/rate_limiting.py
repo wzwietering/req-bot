@@ -48,7 +48,7 @@ class RateLimiter:
 class RateLimitMiddleware:
     """Rate limiting middleware for specific endpoints."""
 
-    def __init__(self, oauth_rate_limiter: RateLimiter, refresh_rate_limiter: RateLimiter = None):
+    def __init__(self, oauth_rate_limiter: RateLimiter, refresh_rate_limiter: RateLimiter | None = None):
         self.oauth_rate_limiter = oauth_rate_limiter
         self.refresh_rate_limiter = refresh_rate_limiter or refresh_token_rate_limiter
         self.trusted_proxies = self._get_trusted_proxies()
@@ -64,7 +64,7 @@ class RateLimitMiddleware:
         """Get client identifier for rate limiting with proxy spoofing protection."""
         # Only use X-Forwarded-For if request comes from trusted proxy
         if self.trusted_proxies and hasattr(request.client, "host"):
-            client_host = request.client.host
+            client_host = request.client.host if request.client else "unknown"  # type: ignore[union-attr]
             if client_host in self.trusted_proxies:
                 forwarded_for = request.headers.get("X-Forwarded-For")
                 if forwarded_for:

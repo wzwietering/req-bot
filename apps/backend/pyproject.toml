@@ -28,6 +28,9 @@ coverage = "7.10.6"
 ruff = "0.13.1"
 pre-commit = "4.3.0"
 httpx = "0.28.1"
+mypy = "1.18.2"
+types-authlib = "^1.6.5.20251005"
+types-python-jose = "^3.5.0.20250531"
 
 [tool.coverage.run]
 source = ["requirements_bot"]

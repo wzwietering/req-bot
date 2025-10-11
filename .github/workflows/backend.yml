@@ -72,6 +72,9 @@ jobs:
         poetry run ruff check .
         poetry run ruff format --check .
 
+    - name: Type check with mypy
+      run: poetry run mypy .
+
     - name: Test with pytest and coverage
       run: |
         poetry run coverage run -m pytest

@@ -318,7 +318,7 @@ def assert_security_headers(response, production=False):
 
 
 # Export helper functions to make them available in tests
-pytest.create_mock_request = create_mock_request
-pytest.assert_validation_error = assert_validation_error
-pytest.assert_rate_limit_error = assert_rate_limit_error
-pytest.assert_security_headers = assert_security_headers
+pytest.create_mock_request = create_mock_request  # type: ignore[attr-defined]
+pytest.assert_validation_error = assert_validation_error  # type: ignore[attr-defined]
+pytest.assert_rate_limit_error = assert_rate_limit_error  # type: ignore[attr-defined]
+pytest.assert_security_headers = assert_security_headers  # type: ignore[attr-defined]

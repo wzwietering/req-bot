@@ -33,7 +33,7 @@ class JWTService:
         self,
         secret_key: str,
         algorithm: str = "HS256",
-        refresh_token_service: RefreshTokenService = None,
+        refresh_token_service: RefreshTokenService | None = None,
         token_config: TokenConfig | None = None,
     ):
         self.secret_key = secret_key
@@ -108,9 +108,9 @@ class JWTService:
                 )
 
                 payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-                user_id: str = payload.get("sub")
-                email: str = payload.get("email")
-                exp: int = payload.get("exp")
+                user_id: str | None = payload.get("sub")
+                email: str | None = payload.get("email")
+                exp: int | None = payload.get("exp")
 
                 log_event(
                     "auth.jwt_decoded",
@@ -375,7 +375,7 @@ class OAuth2Providers:
 
 
 # Global instances
-def get_jwt_service(refresh_token_service: RefreshTokenService = None) -> JWTService:
+def get_jwt_service(refresh_token_service: RefreshTokenService | None = None) -> JWTService:
     secret_key = os.getenv("JWT_SECRET_KEY")
     if not secret_key:
         raise ValueError("JWT_SECRET_KEY environment variable is not set. Please configure a secure JWT secret key.")

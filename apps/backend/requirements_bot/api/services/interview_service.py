@@ -34,6 +34,9 @@ class APIInterviewService:
     def process_answer(self, session_id: str, answer_text: str) -> Session:
         """Process answer using pipeline's intelligent logic."""
         session = self.storage.load_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
         pipeline = self._create_pipeline(session)
 
         current_question = self._get_current_question(session)
@@ -116,7 +119,7 @@ class APIInterviewService:
         # Need to be in PROCESSING_ANSWER state to transition to ASSESSING_COMPLETENESS
         pipeline.session_manager.state_manager.transition_to(session, ConversationState.PROCESSING_ANSWER)
 
-        question_queue = []
+        question_queue: list[Question] = []
         pipeline.completeness_assessment.assess_and_handle_completeness(session, question_queue)
 
         if session.conversation_complete:

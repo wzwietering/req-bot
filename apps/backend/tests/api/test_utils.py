@@ -5,7 +5,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 
-def create_test_session(client: TestClient, session_data: dict[str, Any] = None) -> dict[str, Any]:
+def create_test_session(client: TestClient, session_data: dict[str, Any] | None = None) -> dict[str, Any]:
     """Create a test session and return the response data."""
     if session_data is None:
         session_data = {"project": "Test Project"}

@@ -74,7 +74,7 @@ class SessionResponseBuilder:
 
     @staticmethod
     def build_session_continue_response(
-        session: Session, next_question=None, conversation_complete: bool = None
+        session: Session, next_question=None, conversation_complete: bool | None = None
     ) -> dict:
         """Create a session continue response.
 

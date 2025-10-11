@@ -4,7 +4,7 @@ from requirements_bot.core.constants import CLI_USER_ID
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.document import write_document
 from requirements_bot.core.io_interface import IOInterface
-from requirements_bot.core.models import Session
+from requirements_bot.core.models import Question, Session
 from requirements_bot.core.services.question_service import QuestionService
 from requirements_bot.core.services.session_answer_service import SessionAnswerService
 from requirements_bot.core.services.session_setup_manager import SessionSetupManager
@@ -148,7 +148,7 @@ class SessionService:
 
         return self.answer_service.process_answer(session, current_question, answer_text)
 
-    def _get_current_question_or_complete(self, session: Session) -> object | None:
+    def _get_current_question_or_complete(self, session: Session) -> Question | None:
         """Get current question or mark session complete if none available.
 
         Args:
@@ -278,8 +278,8 @@ class SessionService:
             list[dict]: List of session summary data
         """
         if user_id:
-            return self.storage.get_session_summaries_for_user(user_id)
-        return self.storage.get_session_summaries()
+            return self.storage.get_session_summaries_for_user(user_id)  # type: ignore[attr-defined]
+        return self.storage.get_session_summaries()  # type: ignore[attr-defined]
 
     def finalize_session_with_document(self, session: Session, output_path: str, io: IOInterface) -> str:
         """Finalize session and write document with consistent messaging.

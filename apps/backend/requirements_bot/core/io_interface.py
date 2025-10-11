@@ -29,6 +29,18 @@ class IOInterface(ABC):
         """Get input from the user with a prompt."""
         pass
 
+    def print_info(self, message: str) -> None:
+        """Print an informational message."""
+        self.print(message)
+
+    def print_success(self, message: str) -> None:
+        """Print a success message."""
+        self.print(message)
+
+    def print_error(self, message: str) -> None:
+        """Print an error message."""
+        self.print(message)
+
     def print_interview_header(self, remaining_questions: int = 0) -> None:
         """Print interview start header."""
         self.print("\n=== Starting conversational interview ===")
@@ -51,7 +63,7 @@ class IOInterface(ABC):
             progress_info = f"[{question_number}/{total_questions}]"
         self.print(f"\n{progress_info} {question_text}")
 
-    def print_assessment_feedback(self, reasoning: str, missing_areas: list[str] = None) -> None:
+    def print_assessment_feedback(self, reasoning: str, missing_areas: list[str] | None = None) -> None:
         """Print completeness assessment feedback."""
         self.print_success(f"Assessment: {reasoning}")
         if missing_areas:
@@ -279,7 +291,7 @@ class RichConsoleIO(IOInterface):
         else:
             super().print_question_with_progress(question_text, question_number, total_questions, category)
 
-    def print_assessment_feedback(self, reasoning: str, missing_areas: list[str] = None) -> None:
+    def print_assessment_feedback(self, reasoning: str, missing_areas: list[str] | None = None) -> None:
         """Print rich assessment feedback."""
         if self.console:
             feedback_content = f"[bold green]✓[/bold green] {reasoning}"

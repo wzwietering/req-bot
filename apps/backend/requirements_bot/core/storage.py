@@ -191,7 +191,7 @@ class DatabaseManager(StorageInterface):
                     sessions_query = select(SessionTable).order_by(SessionTable.updated_at.desc())
                     sessions = db_session.execute(sessions_query).scalars().all()
 
-                    return [(s.id, s.project, s.updated_at, s.conversation_complete) for s in sessions]
+                    return [(s.id, s.project, s.updated_at, s.conversation_complete) for s in sessions]  # type: ignore[misc]
 
                 except Exception as e:
                     raise StorageError(f"Failed to list sessions: {str(e)}") from e

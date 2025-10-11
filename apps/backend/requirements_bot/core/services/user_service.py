@@ -64,9 +64,9 @@ class UserService:
         if not user_table:
             return None
 
-        user_table.email = user_update.email
-        user_table.name = user_update.name
-        user_table.avatar_url = user_update.avatar_url
+        user_table.email = user_update.email  # type: ignore[assignment]
+        user_table.name = user_update.name  # type: ignore[assignment]
+        user_table.avatar_url = user_update.avatar_url  # type: ignore[assignment]
 
         self.db_session.flush()
         self.db_session.refresh(user_table)
@@ -83,12 +83,12 @@ class UserService:
         if not user_table:
             return None
 
-        user_table.provider = provider
-        user_table.provider_id = provider_id
+        user_table.provider = provider  # type: ignore[assignment]
+        user_table.provider_id = provider_id  # type: ignore[assignment]
         if name:
-            user_table.name = name
+            user_table.name = name  # type: ignore[assignment]
         if avatar_url:
-            user_table.avatar_url = avatar_url
+            user_table.avatar_url = avatar_url  # type: ignore[assignment]
 
         self.db_session.flush()
         self.db_session.refresh(user_table)
@@ -98,14 +98,14 @@ class UserService:
     def _table_to_model(self, user_table: UserTable) -> User:
         """Convert UserTable to User model."""
         return User(
-            id=user_table.id,
-            email=user_table.email,
-            provider=user_table.provider,
-            provider_id=user_table.provider_id,
-            name=user_table.name,
-            avatar_url=user_table.avatar_url,
-            created_at=user_table.created_at,
-            updated_at=user_table.updated_at,
+            id=user_table.id,  # type: ignore[arg-type]
+            email=user_table.email,  # type: ignore[arg-type]
+            provider=user_table.provider,  # type: ignore[arg-type]
+            provider_id=user_table.provider_id,  # type: ignore[arg-type]
+            name=user_table.name,  # type: ignore[arg-type]
+            avatar_url=user_table.avatar_url,  # type: ignore[arg-type]
+            created_at=user_table.created_at,  # type: ignore[arg-type]
+            updated_at=user_table.updated_at,  # type: ignore[arg-type]
         )
 
     def to_response(self, user: User) -> UserResponse:

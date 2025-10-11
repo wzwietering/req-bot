@@ -74,7 +74,7 @@ class InterviewLoopManager:
         session: Session,
     ) -> bool:
         """Determine if interview should continue."""
-        return question_queue and question_counter < max_questions and not session.conversation_complete
+        return bool(question_queue) and question_counter < max_questions and not session.conversation_complete
 
     def _process_answer(
         self, session: Session, current_question, answer_text: str, question_queue: list

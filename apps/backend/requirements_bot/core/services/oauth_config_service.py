@@ -1,4 +1,5 @@
 import os
+from typing import cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -100,10 +101,10 @@ class OAuthConfigService:
             name=provider_name,
             client_id=client_id,
             client_secret=client_secret,
-            server_metadata_url=provider_spec.get("server_metadata_url"),
-            authorize_url=provider_spec.get("authorize_url"),
-            access_token_url=provider_spec.get("access_token_url"),
-            scopes=provider_spec.get("required_scopes", []),
+            server_metadata_url=cast(str | None, provider_spec.get("server_metadata_url")),
+            authorize_url=cast(str | None, provider_spec.get("authorize_url")),
+            access_token_url=cast(str | None, provider_spec.get("access_token_url")),
+            scopes=cast(list[str], provider_spec.get("required_scopes", [])),
         )
 
     def _validate_provider_requirements(self, provider_name: str, config: OAuthProviderConfig):

@@ -1,5 +1,4 @@
 import uuid
-from collections import defaultdict
 
 from requirements_bot.core.constants import MIN_QUEUE_SIZE, QUESTIONS_PER_AREA
 from requirements_bot.core.models import Question, Session
@@ -80,12 +79,12 @@ class QuestionQueue:
 
     def _get_area_coverage_stats(self, session: Session) -> dict[str, int]:
         """Count how many questions have been asked for each area."""
-        stats = defaultdict(int)
+        stats: dict[str, int] = {}
         for q in session.questions:
             if q.category in REQUIREMENT_AREAS:
-                stats[q.category] += 1
+                stats[q.category] = stats.get(q.category, 0) + 1
         # Ensure all areas are in the dict
         for area in REQUIREMENT_AREAS:
             if area not in stats:
                 stats[area] = 0
-        return dict(stats)
+        return stats

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -16,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship
 
 # Single unified Base for all models
-Base = declarative_base()
+Base: Any = declarative_base()
 
 
 # Function to enable foreign key enforcement - to be called by engines

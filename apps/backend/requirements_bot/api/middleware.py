@@ -3,6 +3,7 @@
 import logging
 import uuid
 from collections.abc import Callable
+from typing import cast
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -167,8 +168,9 @@ class ExceptionHandlingMiddleware(BaseHTTPMiddleware):
                 status_code=HTTP_400_BAD_REQUEST, error="ValidationError", message=exc.detail, details=None
             )
         else:  # APIException
+            api_exc = cast(APIException, exc)
             return self._create_error_response(
-                status_code=exc.status_code, error="APIError", message=exc.detail, details=None
+                status_code=api_exc.status_code, error="APIError", message=api_exc.detail, details=None
             )
 
     def _handle_validation_exception(self, exc: Exception) -> JSONResponse:
@@ -380,16 +382,16 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 )
 
         # Fallback to access_token cookie (for browser clients)
-        token = request.cookies.get("access_token")
-        if token:
+        cookie_token = request.cookies.get("access_token")
+        if cookie_token:
             log_event(
                 "auth.token_extracted_from_cookie",
                 level=logging.INFO,
                 component="auth",
                 operation="extract_token",
-                token_length=len(token),
+                token_length=len(cookie_token),
             )
-            return token
+            return cookie_token
 
         log_event(
             "auth.no_token_found",
