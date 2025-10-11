@@ -6,31 +6,31 @@ authors = ["Your Name <your.email@example.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
-typer = "0.16.0"
-pydantic = {extras = ["email"], version = "^2.11.9"}
-sqlalchemy = "2.0.43"
-alembic = "1.16.4"
-openai = "1.99.9"
-google-genai = "1.30.0"
-anthropic = "0.64.0"
+typer = "0.19.2"
+pydantic = {extras = ["email"], version = "2.12.0"}
+sqlalchemy = "2.0.44"
+alembic = "1.16.5"
+openai = "2.3.0"
+google-genai = "1.43.0"
+anthropic = "0.69.0"
 prompt-toolkit = "3.0.52"
-rich = "14.1.0"
-fastapi = "0.116.2"
-uvicorn = "0.36.0"
-authlib = "1.6.4"
+rich = "14.2.0"
+fastapi = "0.118.3"
+uvicorn = "0.37.0"
+authlib = "1.6.5"
 python-jose = {extras = ["cryptography"], version = "3.5.0"}
-python-dotenv = "^1.1.1"
-itsdangerous = "^2.2.0"
+python-dotenv = "1.1.1"
+itsdangerous = "2.2.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "8.4.1"
-coverage = "7.10.6"
-ruff = "0.13.1"
+pytest = "8.4.2"
+coverage = "7.10.7"
+ruff = "0.14.0"
 pre-commit = "4.3.0"
 httpx = "0.28.1"
 mypy = "1.18.2"
-types-authlib = "^1.6.5.20251005"
-types-python-jose = "^3.5.0.20250531"
+types-authlib = "1.6.5.20251005"
+types-python-jose = "3.5.0.20250531"
 
 [tool.coverage.run]
 source = ["requirements_bot"]
