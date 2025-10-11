@@ -17,7 +17,7 @@ prompt-toolkit = "3.0.52"
 rich = "14.1.0"
 fastapi = "0.116.2"
 uvicorn = "0.36.0"
-authlib = "1.6.4"
+authlib = "1.6.5"
 python-jose = {extras = ["cryptography"], version = "3.5.0"}
 python-dotenv = "^1.1.1"
 itsdangerous = "^2.2.0"
