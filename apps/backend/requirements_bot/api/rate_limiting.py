@@ -146,8 +146,16 @@ REFRESH_WINDOW_SECONDS = int(os.getenv("REFRESH_RATE_LIMIT_WINDOW_SECONDS", "360
 RETRY_MAX_REQUESTS = int(os.getenv("RETRY_RATE_LIMIT_MAX_REQUESTS", "5"))
 RETRY_WINDOW_SECONDS = int(os.getenv("RETRY_RATE_LIMIT_WINDOW_SECONDS", "600"))
 
+# Retry requirements per user: 15 requests per 10 minutes
+# - Prevents users from bypassing per-session limit by creating multiple sessions
+# - Higher than per-session limit (15 vs 5) to allow legitimate multi-session use
+# - Same 10 minute window as per-session limiting
+RETRY_USER_MAX_REQUESTS = int(os.getenv("RETRY_USER_RATE_LIMIT_MAX_REQUESTS", "15"))
+RETRY_USER_WINDOW_SECONDS = int(os.getenv("RETRY_USER_RATE_LIMIT_WINDOW_SECONDS", "600"))
+
 # Global rate limiters
 oauth_rate_limiter = RateLimiter(max_requests=OAUTH_MAX_REQUESTS, window_seconds=OAUTH_WINDOW_SECONDS)
 refresh_token_rate_limiter = RateLimiter(max_requests=REFRESH_MAX_REQUESTS, window_seconds=REFRESH_WINDOW_SECONDS)
 retry_requirements_rate_limiter = RateLimiter(max_requests=RETRY_MAX_REQUESTS, window_seconds=RETRY_WINDOW_SECONDS)
+retry_user_rate_limiter = RateLimiter(max_requests=RETRY_USER_MAX_REQUESTS, window_seconds=RETRY_USER_WINDOW_SECONDS)
 rate_limit_middleware = RateLimitMiddleware(oauth_rate_limiter)

@@ -39,31 +39,16 @@ async def continue_session(
     try:
         session = session_service.load_session_with_validation(session_id, user_id)
 
-        next_question = interview_service.get_next_question(session)
-        is_complete = session.conversation_complete
+        next_question, updated_session = interview_service.get_next_question(session)
+        is_complete = updated_session.conversation_complete
 
-        response_data = SessionResponseBuilder.build_session_continue_response(session, next_question, is_complete)
+        response_data = SessionResponseBuilder.build_session_continue_response(
+            updated_session, next_question, is_complete
+        )
 
         return SessionContinueResponse(**response_data)
     except SessionValidationError:
         raise SessionNotFoundAPIException(session_id)
-
-
-def _validate_session_for_answer(session, session_id: str):
-    """Validate that a session exists and can accept answers."""
-    if not session:
-        raise SessionNotFoundAPIException(session_id)
-
-    if session.conversation_complete:
-        raise SessionInvalidStateException("Session is already complete")
-
-
-def _get_and_validate_current_question(session, answer_service: SessionAnswerService):
-    """Get current question and validate it exists."""
-    current_question = answer_service.get_next_unanswered_question(session)
-    if not current_question:
-        raise SessionInvalidStateException("No current question to answer")
-    return current_question
 
 
 @router.post("/sessions/{session_id}/answers", response_model=AnswerSubmissionResponse)
@@ -77,7 +62,9 @@ async def submit_answer(
     """Submit an answer using intelligent pipeline logic."""
     try:
         session = session_service.load_session_with_validation(session_id, user_id)
-        _validate_session_for_answer(session, session_id)
+
+        if session.conversation_complete:
+            raise SessionInvalidStateException("Session is already complete")
 
         updated_session = interview_service.process_answer(session_id, request.answer_text)
 
@@ -128,13 +115,6 @@ async def get_current_question_endpoint(
 # Progress calculation is now handled by SessionResponseBuilder
 
 
-def _get_current_question_if_active(session, answer_service: SessionAnswerService):
-    """Get current question if session is not complete."""
-    if session.conversation_complete:
-        return None
-    return answer_service.get_next_unanswered_question(session)
-
-
 @router.get("/sessions/{session_id}/status", response_model=SessionStatusResponse)
 async def get_session_status(
     session_id: Annotated[str, Depends(get_validated_session_id)],
@@ -147,7 +127,9 @@ async def get_session_status(
         session = session_service.load_session_with_validation(session_id, user_id)
 
         progress_data = session_service.get_session_progress(session)
-        current_question = _get_current_question_if_active(session, answer_service)
+        current_question = (
+            None if session.conversation_complete else answer_service.get_next_unanswered_question(session)
+        )
 
         response_data = SessionResponseBuilder.build_session_status_response(session, progress_data, current_question)
         return SessionStatusResponse(**response_data)
@@ -168,7 +150,7 @@ async def retry_requirements_generation(
 ) -> RetryRequirementsResponse:
     """Retry requirements generation for a failed session.
 
-    Rate limit: 3 attempts per 10 minutes per session to prevent abuse.
+    Rate limit: 5 attempts per 10 minutes per session to prevent abuse.
     """
     try:
         session = session_service.load_session_with_validation(session_id, user_id)
@@ -206,7 +188,21 @@ async def retry_requirements_generation(
             status_code=500,
             detail="Requirements generation failed due to validation error. Please contact support.",
         )
+    except (KeyError, TypeError, ValueError) as e:
+        # Data-related errors
+        log_event(
+            "retry_requirements.data_error",
+            session_id=session_id,
+            user_id=user_id,
+            error_type=type(e).__name__,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred processing session data. Please contact support.",
+        )
     except Exception as e:
+        # Truly unexpected errors - these should be rare
         log_event(
             "retry_requirements.unexpected_error",
             session_id=session_id,

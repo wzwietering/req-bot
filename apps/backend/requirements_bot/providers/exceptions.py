@@ -1,4 +1,6 @@
 import json
+import logging
+import random
 import time
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -73,10 +75,11 @@ def retry_with_exponential_backoff(
         except OverloadedError:
             if attempt == max_retries - 1:
                 raise
-            # Exponential backoff with jitter
+            # Exponential backoff with jitter (+/- 10%)
             delay = min(base_delay * (2**attempt), max_delay)
-            jitter = delay * 0.1 * (time.time() % 1)
-            time.sleep(delay + jitter)
+            jitter = delay * random.uniform(-0.1, 0.1)
+            actual_delay = max(0, delay + jitter)
+            time.sleep(actual_delay)
     raise OverloadedError("Max retries exceeded")
 
 
@@ -110,7 +113,6 @@ def handle_provider_operation(
         return operation_func()
     except ValidationError as e:
         # Schema mismatch - this is a bug, log details
-        error_details = str(e)
         log_event(
             "llm.validation_error",
             component="provider",
@@ -118,16 +120,21 @@ def handle_provider_operation(
             provider=provider,
             model=model,
             error_type="ValidationError",
-            error_msg=error_details,
+            error_msg=str(e),
+            error_details=e.errors(),  # Preserve structured validation errors
+            level=logging.ERROR,
         )
         if not allow_fallback:
             raise
-        # Use fallback but log that we're doing so
+        # Use fallback but log that we're doing so at ERROR level for critical operations
+        critical_operations = ["summarize_requirements", "finalize_session"]
+        log_level = logging.ERROR if operation in critical_operations else logging.WARNING
         log_event(
             "llm.using_fallback",
             component="provider",
             operation=operation,
             reason="validation_error",
+            level=log_level,
         )
         return fallback_factory()
     except OverloadedError as e:
@@ -146,11 +153,15 @@ def handle_provider_operation(
         except OverloadedError:
             if not allow_fallback:
                 raise
+            # Log at ERROR level for critical operations
+            critical_operations = ["summarize_requirements", "finalize_session"]
+            log_level = logging.ERROR if operation in critical_operations else logging.WARNING
             log_event(
                 "llm.using_fallback",
                 component="provider",
                 operation=operation,
                 reason="overloaded_retries_exhausted",
+                level=log_level,
             )
             return fallback_factory()
     except (json.JSONDecodeError, KeyError, TypeError) as e:

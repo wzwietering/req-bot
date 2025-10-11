@@ -1,9 +1,14 @@
 """API service wrapping the conversational interview pipeline."""
 
+from pydantic import ValidationError
+
 from requirements_bot.core.conversation_state import ConversationState
-from requirements_bot.core.models import Answer, Question, Session
+from requirements_bot.core.logging import log_event
+from requirements_bot.core.models import Answer, AnswerAnalysis, Question, Session
 from requirements_bot.core.pipeline import ConversationalInterviewPipeline
+from requirements_bot.core.state_manager import ConversationStateManager
 from requirements_bot.core.storage_interface import StorageInterface
+from requirements_bot.providers.exceptions import OverloadedError
 
 
 class APIInterviewService:
@@ -62,7 +67,7 @@ class APIInterviewService:
 
     def _record_and_analyze_answer(
         self, session: Session, pipeline: ConversationalInterviewPipeline, question: Question, answer_text: str
-    ):
+    ) -> AnswerAnalysis:
         """Record and analyze the answer. Returns the analysis result."""
         answer = Answer(question_id=question.id, text=answer_text)
         session.answers.append(answer)
@@ -120,15 +125,19 @@ class APIInterviewService:
         self.storage.save_session(session)
         return session
 
-    def get_next_question(self, session: Session) -> Question | None:
+    def get_next_question(self, session: Session) -> tuple[Question | None, Session]:
         """Get next unanswered question with just-in-time generation.
 
         If no questions remain and none can be generated, triggers completeness
         assessment to determine if the interview should be finalized.
+
+        Returns:
+            Tuple of (next_question, updated_session). The updated_session should
+            be used by the caller as it may have been modified during finalization.
         """
         # If already complete, no more questions
         if session.conversation_complete:
-            return None
+            return None, session
 
         answered_ids = {a.question_id for a in session.answers}
         next_question = next((q for q in session.questions if q.id not in answered_ids), None)
@@ -139,26 +148,31 @@ class APIInterviewService:
 
         # If still no question available, assess completeness and potentially finalize
         if not next_question:
-            pipeline = ConversationalInterviewPipeline(
-                project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
-            )
-            updated_session = self._assess_and_finalize(session, pipeline)
-            # Copy updated attributes back to the session object reference
-            session.conversation_complete = updated_session.conversation_complete
-            session.requirements = updated_session.requirements
-            session.conversation_state = updated_session.conversation_state
-            session.updated_at = updated_session.updated_at
+            pipeline = self._create_pipeline(session)
+            session = self._assess_and_finalize(session, pipeline)
 
-        return next_question
+        return next_question, session
 
     def _try_generate_next_question(self, session: Session) -> Question | None:
-        """Try to generate the next question using just-in-time generation."""
+        """Try to generate the next question using just-in-time generation.
+
+        Note: This method mutates the session by appending the new question.
+        The session is saved immediately after generation to persist the change.
+        Concurrent calls to this method on the same session may result in
+        duplicate questions if the storage layer doesn't handle conflicts.
+        """
         pipeline = self._create_pipeline(session)
 
         new_question = pipeline.question_generation.generate_next_question_if_needed(session)
         if new_question:
-            session.questions.append(new_question)
-            self.storage.save_session(session)
+            # Check if question already exists before appending (defensive programming)
+            existing_ids = {q.id for q in session.questions}
+            if new_question.id not in existing_ids:
+                session.questions.append(new_question)
+                self.storage.save_session(session)
+            else:
+                # Question was already added (possible race condition)
+                return new_question
 
         return new_question
 
@@ -176,8 +190,19 @@ class APIInterviewService:
             session = pipeline.finalize_session(session)
             self.storage.save_session(session)
             return session
-        except Exception:
-            # Ensure we save failed state on any error
+        except (ValidationError, OverloadedError, ValueError, KeyError, TypeError):
+            # Handle expected errors during finalization
+            pipeline.session_manager.state_manager.transition_to(session, ConversationState.FAILED)
+            self.storage.save_session(session)
+            raise
+        except Exception as e:
+            # Unexpected errors - log and mark as failed
+            log_event(
+                "interview.retry_unexpected_error",
+                session_id=session.id,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.FAILED)
             self.storage.save_session(session)
             raise
@@ -196,7 +221,7 @@ class APIInterviewService:
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_REQUIREMENTS)
         session.conversation_complete = False
 
-    def _ensure_safe_state_for_processing(self, session: Session, state_manager) -> None:
+    def _ensure_safe_state_for_processing(self, session: Session, state_manager: ConversationStateManager) -> None:
         """Ensure session is in a valid state before processing answer.
 
         Handles recovery from stuck or invalid states by transitioning through
