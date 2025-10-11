@@ -75,12 +75,18 @@ class SessionTable(Base):
 
     # Relationships
     user = relationship("UserTable", back_populates="sessions")
-    questions = relationship("QuestionTable", back_populates="session", cascade="all, delete-orphan")
+    questions = relationship(
+        "QuestionTable",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="QuestionTable.order_index",
+    )
     answers = relationship("AnswerTable", back_populates="session", cascade="all, delete-orphan")
     requirements = relationship(
         "RequirementTable",
         back_populates="session",
         cascade="all, delete-orphan",
+        order_by="RequirementTable.order_index",
     )
 
 
