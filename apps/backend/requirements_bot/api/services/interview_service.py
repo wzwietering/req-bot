@@ -151,6 +151,31 @@ class APIInterviewService:
             pipeline = self._create_pipeline(session)
             session = self._assess_and_finalize(session, pipeline)
 
+        # DEFENSIVE: Ensure invariant holds - if not complete, must have a question
+        # This handles the edge case where both question generation AND completeness
+        # assessment fail (e.g., LLM unavailable). Better to mark as complete than
+        # return an invalid state.
+        if not next_question and not session.conversation_complete:
+            log_event(
+                "interview.forced_completion",
+                session_id=session.id,
+                reason="No question could be generated and completeness assessment did not mark session complete",
+                answered_count=len(session.answers),
+            )
+            pipeline = self._create_pipeline(session)
+            session.conversation_complete = True
+            # Try to finalize, but don't fail if it doesn't work
+            try:
+                session = pipeline.finalize_session(session)
+            except Exception as e:
+                log_event(
+                    "interview.forced_completion_finalization_failed",
+                    session_id=session.id,
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+            self.storage.save_session(session)
+
         return next_question, session
 
     def _try_generate_next_question(self, session: Session) -> Question | None:

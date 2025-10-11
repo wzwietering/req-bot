@@ -28,6 +28,10 @@ class Provider:
         }
 
         if vendor not in provider_map:
+            # Special handling for mock provider (used in tests)
+            if vendor == "mock":
+                mock_module = __import__("tests.mocks.mock_provider", fromlist=["MockProvider"])
+                return mock_module.MockProvider(model)
             raise ValueError(f"Unknown provider '{vendor}'")
 
         impl = provider_map[vendor]()

@@ -10,6 +10,8 @@ from pathlib import Path
 # Set up test environment variables before any other imports
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-with-at-least-32-characters-for-testing")
 os.environ.setdefault("ENVIRONMENT", "test")
+# Use mock provider for tests to avoid API calls
+os.environ.setdefault("MODEL_ID", "mock:test-model")
 
 import pytest
 from fastapi.testclient import TestClient
