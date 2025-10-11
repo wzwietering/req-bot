@@ -247,11 +247,24 @@ export function InterviewProvider({ children }: InterviewProviderProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to retry requirements generation');
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to retry requirements generation' }));
+        throw new Error(errorData.detail || 'Failed to retry requirements generation');
       }
 
-      // Reload requirements
+      // Reload session to verify retry succeeded
       const session = await sessionsApi.getSession(state.sessionId);
+
+      // Validate retry actually succeeded
+      if (
+        session.conversation_state === 'failed' ||
+        (session.conversation_state === 'completed' && (!session.requirements || session.requirements.length === 0))
+      ) {
+        throw new Error(
+          'Requirements generation failed again. The AI service may be experiencing issues. Please try again later or contact support.'
+        );
+      }
+
+      // Success - update state with requirements
       dispatch({ type: 'REQUIREMENTS_LOADED', payload: session.requirements || [] });
 
       // Update conversation state

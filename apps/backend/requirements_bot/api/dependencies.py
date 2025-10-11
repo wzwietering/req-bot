@@ -1,4 +1,5 @@
 import os
+import time
 from functools import lru_cache
 from typing import Annotated
 
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from requirements_bot.api.auth import JWTService, OAuth2Providers, get_jwt_service, get_oauth_providers
 from requirements_bot.api.exceptions import InvalidSessionIdException
+from requirements_bot.api.rate_limiting import retry_requirements_rate_limiter
 from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.models import User
 from requirements_bot.core.services import SessionAnswerService, SessionService, SessionSetupManager
@@ -150,3 +152,24 @@ def get_api_interview_service() -> APIInterviewService:
     storage = get_storage()
     model_id = os.getenv("MODEL_ID", "anthropic:claude-3-5-haiku-20241022")
     return APIInterviewService(storage, model_id)
+
+
+def check_retry_rate_limit(session_id: Annotated[str, Depends(get_validated_session_id)]) -> None:
+    """Check rate limit for retry requirements endpoint.
+
+    Rate limits per session ID to prevent abuse.
+    Raises HTTPException if rate limit exceeded.
+    """
+    allowed, reset_time = retry_requirements_rate_limiter.is_allowed(session_id)
+
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "rate_limit_exceeded",
+                "message": "Too many retry attempts. Please try again later.",
+                "details": [{"type": "rate_limit", "message": f"Rate limit reset at {reset_time}"}],
+                "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
+            },
+            headers={"Retry-After": str(reset_time - int(time.time()))},
+        )

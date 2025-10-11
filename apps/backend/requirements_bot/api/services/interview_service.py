@@ -29,55 +29,79 @@ class APIInterviewService:
     def process_answer(self, session_id: str, answer_text: str) -> Session:
         """Process answer using pipeline's intelligent logic."""
         session = self.storage.load_session(session_id)
+        pipeline = self._create_pipeline(session)
 
-        pipeline = ConversationalInterviewPipeline(
-            project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
-        )
-
-        answered_ids = {a.question_id for a in session.answers}
-        current_question = next((q for q in session.questions if q.id not in answered_ids), None)
+        current_question = self._get_current_question(session)
 
         if not current_question:
             return self._assess_and_finalize(session, pipeline)
 
-        # Handle state recovery - transition to safe state before processing
-        self._ensure_safe_state_for_processing(session, pipeline.session_manager.state_manager)
+        self._prepare_session_for_answer(session, pipeline)
+        analysis = self._record_and_analyze_answer(session, pipeline, current_question, answer_text)
+        self._handle_followups_or_next_question(session, pipeline, current_question, analysis)
+        self.storage.save_session(session)
+        self._check_and_finalize_if_complete(session, pipeline, current_question)
 
+        return session
+
+    def _create_pipeline(self, session: Session) -> ConversationalInterviewPipeline:
+        """Create pipeline for session."""
+        return ConversationalInterviewPipeline(
+            project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
+        )
+
+    def _get_current_question(self, session: Session) -> Question | None:
+        """Get the current unanswered question."""
+        answered_ids = {a.question_id for a in session.answers}
+        return next((q for q in session.questions if q.id not in answered_ids), None)
+
+    def _prepare_session_for_answer(self, session: Session, pipeline: ConversationalInterviewPipeline) -> None:
+        """Prepare session state for answer processing."""
+        self._ensure_safe_state_for_processing(session, pipeline.session_manager.state_manager)
         pipeline.session_manager.state_manager.transition_to(session, ConversationState.PROCESSING_ANSWER)
 
-        answer = Answer(question_id=current_question.id, text=answer_text)
+    def _record_and_analyze_answer(
+        self, session: Session, pipeline: ConversationalInterviewPipeline, question: Question, answer_text: str
+    ):
+        """Record and analyze the answer. Returns the analysis result."""
+        answer = Answer(question_id=question.id, text=answer_text)
         session.answers.append(answer)
-        pipeline.conductor.log_answer_received(session, current_question, answer_text)
+        pipeline.conductor.log_answer_received(session, question, answer_text)
 
-        analysis = pipeline.conductor.analyze_response(current_question, answer, session, self.model_id)
+        analysis = pipeline.conductor.analyze_response(question, answer, session, self.model_id)
         pipeline.conductor.update_answer_metadata(answer, analysis)
+        return analysis
 
+    def _handle_followups_or_next_question(
+        self, session: Session, pipeline: ConversationalInterviewPipeline, current_question: Question, analysis
+    ) -> None:
+        """Handle follow-up questions or generate next question."""
         if analysis.follow_up_questions:
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_FOLLOWUPS)
             pipeline.question_queue_manager.insert_followups(analysis.follow_up_questions, current_question, session)
         else:
-            # Just-in-time generation: Check if we need to generate next question
             next_question = pipeline.question_generation.generate_next_question_if_needed(session)
             if next_question:
                 session.questions.append(next_question)
 
-        self.storage.save_session(session)
+    def _check_and_finalize_if_complete(
+        self, session: Session, pipeline: ConversationalInterviewPipeline, current_question: Question
+    ) -> None:
+        """Check completeness and finalize if ready."""
+        answered_ids = {a.question_id for a in session.answers}
+        unanswered = [q for q in session.questions if q.id not in answered_ids and q.id != current_question.id]
 
         question_count = len(session.answers)
-        unanswered = [q for q in session.questions if q.id not in answered_ids and q.id != current_question.id]
         remaining_count = len(unanswered)
 
         if pipeline.completeness_assessment.should_check_completeness(question_count, remaining_count):
-            question_queue = unanswered
-            question_queue = pipeline.completeness_assessment.assess_and_handle_completeness(session, question_queue)
+            pipeline.completeness_assessment.assess_and_handle_completeness(session, unanswered)
 
             if session.conversation_complete:
                 session = pipeline.finalize_session(session)
                 self.storage.save_session(session)
         else:
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-
-        return session
 
     def _assess_and_finalize(self, session: Session, pipeline: ConversationalInterviewPipeline) -> Session:
         """Assess completeness and finalize if ready."""
@@ -129,9 +153,7 @@ class APIInterviewService:
 
     def _try_generate_next_question(self, session: Session) -> Question | None:
         """Try to generate the next question using just-in-time generation."""
-        pipeline = ConversationalInterviewPipeline(
-            project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
-        )
+        pipeline = self._create_pipeline(session)
 
         new_question = pipeline.question_generation.generate_next_question_if_needed(session)
         if new_question:
@@ -142,37 +164,37 @@ class APIInterviewService:
 
     def retry_finalization(self, session: Session) -> Session:
         """Retry requirements generation for a failed/incomplete session."""
-        # Allow retry for:
-        # - FAILED state
-        # - COMPLETED state with 0 requirements
-        # - GENERATING_REQUIREMENTS state (stuck/interrupted during generation)
-        can_retry = (
+        if not self._can_retry_session(session):
+            return session
+
+        pipeline = ConversationalInterviewPipeline(
+            project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
+        )
+
+        try:
+            self._reset_session_for_retry(session, pipeline)
+            session = pipeline.finalize_session(session)
+            self.storage.save_session(session)
+            return session
+        except Exception:
+            # Ensure we save failed state on any error
+            pipeline.session_manager.state_manager.transition_to(session, ConversationState.FAILED)
+            self.storage.save_session(session)
+            raise
+
+    def _can_retry_session(self, session: Session) -> bool:
+        """Check if session can be retried."""
+        return (
             session.conversation_state == ConversationState.FAILED
             or (session.conversation_state == ConversationState.COMPLETED and len(session.requirements) == 0)
             or session.conversation_state == ConversationState.GENERATING_REQUIREMENTS
         )
 
-        if not can_retry:
-            # Session doesn't need retry
-            return session
-
-        # Reset state to allow finalization
-        pipeline = ConversationalInterviewPipeline(
-            project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
-        )
-
-        # Transition to GENERATING_REQUIREMENTS if not already there
+    def _reset_session_for_retry(self, session: Session, pipeline: ConversationalInterviewPipeline) -> None:
+        """Reset session state for retry - atomic operation."""
         if session.conversation_state != ConversationState.GENERATING_REQUIREMENTS:
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_REQUIREMENTS)
-
-        # Clear old conversation_complete flag if needed
         session.conversation_complete = False
-
-        # Try finalization again
-        session = pipeline.finalize_session(session)
-        self.storage.save_session(session)
-
-        return session
 
     def _ensure_safe_state_for_processing(self, session: Session, state_manager) -> None:
         """Ensure session is in a valid state before processing answer.

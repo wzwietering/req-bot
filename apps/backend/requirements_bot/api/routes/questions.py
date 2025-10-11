@@ -1,8 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 
 from requirements_bot.api.dependencies import (
+    check_retry_rate_limit,
     get_api_interview_service,
     get_current_user_id,
     get_session_answer_service,
@@ -13,12 +15,15 @@ from requirements_bot.api.exceptions import SessionInvalidStateException, Sessio
 from requirements_bot.api.schemas import (
     AnswerSubmissionResponse,
     QuestionAnswerRequest,
+    RetryRequirementsResponse,
     SessionContinueResponse,
     SessionStatusResponse,
 )
 from requirements_bot.api.services.interview_service import APIInterviewService
+from requirements_bot.core.logging import log_event
 from requirements_bot.core.services import SessionAnswerService, SessionResponseBuilder, SessionService
 from requirements_bot.core.services.session_service import SessionValidationError
+from requirements_bot.providers.exceptions import OverloadedError
 
 router = APIRouter()
 
@@ -150,25 +155,65 @@ async def get_session_status(
         raise SessionNotFoundAPIException(session_id)
 
 
-@router.post("/sessions/{session_id}/retry-requirements")
+@router.post(
+    "/sessions/{session_id}/retry-requirements",
+    response_model=RetryRequirementsResponse,
+    dependencies=[Depends(check_retry_rate_limit)],
+)
 async def retry_requirements_generation(
     session_id: Annotated[str, Depends(get_validated_session_id)],
     interview_service: Annotated[APIInterviewService, Depends(get_api_interview_service)],
     session_service: Annotated[SessionService, Depends(get_session_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
-) -> dict[str, str | int]:
-    """Retry requirements generation for a failed session."""
+) -> RetryRequirementsResponse:
+    """Retry requirements generation for a failed session.
+
+    Rate limit: 3 attempts per 10 minutes per session to prevent abuse.
+    """
     try:
         session = session_service.load_session_with_validation(session_id, user_id)
 
         # Retry the finalization process
         updated_session = interview_service.retry_finalization(session)
 
-        return {
-            "message": "Requirements generation retried",
-            "session_id": session_id,
-            "requirements_count": len(updated_session.requirements),
-            "conversation_state": updated_session.conversation_state.value,
-        }
+        return RetryRequirementsResponse(
+            message="Requirements generation retried",
+            session_id=session_id,
+            requirements_count=len(updated_session.requirements),
+            conversation_state=updated_session.conversation_state,
+        )
     except SessionValidationError:
         raise SessionNotFoundAPIException(session_id)
+    except OverloadedError as e:
+        log_event(
+            "retry_requirements.overloaded_error",
+            session_id=session_id,
+            user_id=user_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="AI service is currently overloaded. Please try again in a few moments.",
+        )
+    except ValidationError as e:
+        log_event(
+            "retry_requirements.validation_error",
+            session_id=session_id,
+            user_id=user_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Requirements generation failed due to validation error. Please contact support.",
+        )
+    except Exception as e:
+        log_event(
+            "retry_requirements.unexpected_error",
+            session_id=session_id,
+            user_id=user_id,
+            error_type=type(e).__name__,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500, detail="An unexpected error occurred during retry. Please try again later."
+        )
