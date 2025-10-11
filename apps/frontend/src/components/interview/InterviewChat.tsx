@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useInterview } from '@/hooks/useInterview';
 import { QuestionCard } from './QuestionCard';
 import { AnswerInput } from './AnswerInput';
@@ -24,29 +24,33 @@ export function InterviewChat() {
     submitAnswer,
     loadRequirements,
     updateProgress,
+    retryRequirements,
   } = useInterview();
 
   const [loadingDuration, setLoadingDuration] = useState(0);
   const [lastAnswer, setLastAnswer] = useState<string>('');
+  const loadingRequirementsRef = useRef(false);
 
   useEffect(() => {
-    if (!currentQuestion && !isComplete) {
+    if (!currentQuestion && !isComplete && !isLoading) {
       getNextQuestion();
     }
-  }, [currentQuestion, isComplete, getNextQuestion]);
+  }, [currentQuestion, isComplete, isLoading, getNextQuestion]);
 
   useEffect(() => {
-    if (progress && currentQuestion) {
+    if (progress && currentQuestion && !isLoading) {
       updateProgress();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestion]);
+  }, [currentQuestion, progress, isLoading, updateProgress]);
 
   useEffect(() => {
-    if (isComplete && requirements.length === 0) {
-      loadRequirements();
+    if (isComplete && requirements.length === 0 && !isLoading && !loadingRequirementsRef.current) {
+      loadingRequirementsRef.current = true;
+      loadRequirements().finally(() => {
+        loadingRequirementsRef.current = false;
+      });
     }
-  }, [isComplete, requirements.length, loadRequirements]);
+  }, [isComplete, requirements.length, isLoading, loadRequirements]);
 
   // Track loading duration
   useEffect(() => {
@@ -146,6 +150,43 @@ export function InterviewChat() {
   }
 
   if (isComplete) {
+    // Check if this is a failed state with 0 requirements
+    if (requirements.length === 0) {
+      return (
+        <div className="space-y-6">
+          <Card padding="lg">
+            <div role="alert" aria-live="assertive" className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="w-12 h-12 bg-jasper-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-jasper-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-deep-indigo-500">
+                Requirements Generation Failed
+              </h3>
+              <p className="text-deep-indigo-400">
+                We encountered an issue while generating requirements from your answers.
+                This might be due to high demand on our AI service.
+              </p>
+              <p className="text-sm text-deep-indigo-400">
+                Your interview answers have been saved. You can retry generating requirements.
+              </p>
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Button onClick={() => window.location.reload()} variant="secondary">
+                  Go Back
+                </Button>
+                <Button onClick={retryRequirements} variant="primary" disabled={isLoading}>
+                  {isLoading ? 'Retrying...' : 'Retry Generation'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
     return <RequirementsView requirements={requirements} projectName={project || 'Your Project'} />;
   }
 

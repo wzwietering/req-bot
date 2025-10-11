@@ -63,8 +63,12 @@ VALID_TRANSITIONS: dict[ConversationState, set[ConversationState]] = {
         ConversationState.COMPLETED,
         ConversationState.FAILED,
     },
-    ConversationState.COMPLETED: set(),  # Terminal state
-    ConversationState.FAILED: set(),  # Terminal state
+    ConversationState.COMPLETED: {
+        ConversationState.GENERATING_REQUIREMENTS,  # Allow retry
+    },
+    ConversationState.FAILED: {
+        ConversationState.GENERATING_REQUIREMENTS,  # Allow retry
+    },
 }
 
 

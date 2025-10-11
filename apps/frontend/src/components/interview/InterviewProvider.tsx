@@ -90,6 +90,7 @@ interface InterviewContextType extends InterviewState {
   submitAnswer: (answerText: string) => Promise<void>;
   loadRequirements: () => Promise<void>;
   updateProgress: () => Promise<void>;
+  retryRequirements: () => Promise<void>;
   reset: () => void;
 }
 
@@ -235,6 +236,39 @@ export function InterviewProvider({ children }: InterviewProviderProps) {
     }
   }, [state.sessionId]);
 
+  const retryRequirements = useCallback(async () => {
+    if (!state.sessionId) return;
+
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const response = await fetch(`/api/v1/sessions/${state.sessionId}/retry-requirements`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to retry requirements generation');
+      }
+
+      // Reload requirements
+      const session = await sessionsApi.getSession(state.sessionId);
+      dispatch({ type: 'REQUIREMENTS_LOADED', payload: session.requirements || [] });
+
+      // Update conversation state
+      dispatch({
+        type: 'QUESTION_RECEIVED',
+        payload: {
+          question: null,
+          isComplete: session.conversation_complete,
+          state: session.conversation_state,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to retry requirements generation';
+      dispatch({ type: 'SET_ERROR', payload: message });
+    }
+  }, [state.sessionId]);
+
   const reset = useCallback(() => {
     localStorage.removeItem('current-interview-session');
     dispatch({ type: 'RESET' });
@@ -247,6 +281,7 @@ export function InterviewProvider({ children }: InterviewProviderProps) {
     submitAnswer,
     loadRequirements,
     updateProgress,
+    retryRequirements,
     reset,
   };
 

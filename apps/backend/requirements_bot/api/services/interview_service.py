@@ -140,6 +140,40 @@ class APIInterviewService:
 
         return new_question
 
+    def retry_finalization(self, session: Session) -> Session:
+        """Retry requirements generation for a failed/incomplete session."""
+        # Allow retry for:
+        # - FAILED state
+        # - COMPLETED state with 0 requirements
+        # - GENERATING_REQUIREMENTS state (stuck/interrupted during generation)
+        can_retry = (
+            session.conversation_state == ConversationState.FAILED
+            or (session.conversation_state == ConversationState.COMPLETED and len(session.requirements) == 0)
+            or session.conversation_state == ConversationState.GENERATING_REQUIREMENTS
+        )
+
+        if not can_retry:
+            # Session doesn't need retry
+            return session
+
+        # Reset state to allow finalization
+        pipeline = ConversationalInterviewPipeline(
+            project=session.project, model_id=self.model_id, storage=self.storage, session_id=session.id
+        )
+
+        # Transition to GENERATING_REQUIREMENTS if not already there
+        if session.conversation_state != ConversationState.GENERATING_REQUIREMENTS:
+            pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_REQUIREMENTS)
+
+        # Clear old conversation_complete flag if needed
+        session.conversation_complete = False
+
+        # Try finalization again
+        session = pipeline.finalize_session(session)
+        self.storage.save_session(session)
+
+        return session
+
     def _ensure_safe_state_for_processing(self, session: Session, state_manager) -> None:
         """Ensure session is in a valid state before processing answer.
 

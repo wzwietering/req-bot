@@ -109,6 +109,14 @@ Previous conversation context:
 Q: {question}
 A: {answer}
 
+Evaluate the answer on three dimensions:
+1. **is_complete**: Does the answer actually address the question asked?
+  - false if completely vague, avoids question, or says "I don't know"
+2. **is_specific**: Does the answer provide concrete details, examples, numbers, or specifics?
+  - false if entirely abstract or hand-wavy
+3. **is_consistent**: Does the answer align with what was said before?
+  - false if directly contradicts previous statements
+
 Generate follow-ups ONLY if:
 1. Answer is completely vague ("I don't know", "maybe", "it depends") with NO concrete details
 2. Answer directly contradicts previous statements
@@ -124,17 +132,19 @@ DO NOT generate follow-ups if:
 Be VERY conservative. Most answers should need 0 follow-ups. Maximum 2 follow-ups even if needed.
 
 Examples of ACCEPTABLE answers that need NO follow-up:
-- "Tool reuse indicates success" (valid success metric)
-- "Python packages with API keys" (sufficient for integration requirements)
-- "Web-based application" (adequate platform specification)
-- "Small team of 5 developers" (sufficient user description)
+- "Tool reuse indicates success" (valid success metric - complete, specific, consistent)
+- "Python packages with API keys" (sufficient for integration requirements - complete, specific, consistent)
+- "Web-based application" (adequate platform specification - complete, specific, consistent)
+- "Small team of 5 developers" (sufficient user description - complete, specific, consistent)
 - Any answer with concrete nouns, numbers, or specific examples
 
 Return JSON:
 {{
-  "needs_clarification": true/false,
+  "is_complete": true/false,
+  "is_specific": true/false,
+  "is_consistent": true/false,
   "follow_up_questions": ["question1", "question2"] or [],
-  "reasoning": "why follow-ups are truly necessary (required if needs_clarification is true)"
+  "analysis_notes": "brief explanation of your assessment (especially important if any field is false)"
 }}
 
 Only return JSON, no other text."""

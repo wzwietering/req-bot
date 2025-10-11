@@ -148,3 +148,27 @@ async def get_session_status(
         return SessionStatusResponse(**response_data)
     except SessionValidationError:
         raise SessionNotFoundAPIException(session_id)
+
+
+@router.post("/sessions/{session_id}/retry-requirements")
+async def retry_requirements_generation(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    interview_service: Annotated[APIInterviewService, Depends(get_api_interview_service)],
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict[str, str | int]:
+    """Retry requirements generation for a failed session."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+
+        # Retry the finalization process
+        updated_session = interview_service.retry_finalization(session)
+
+        return {
+            "message": "Requirements generation retried",
+            "session_id": session_id,
+            "requirements_count": len(updated_session.requirements),
+            "conversation_state": updated_session.conversation_state.value,
+        }
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)

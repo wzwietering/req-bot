@@ -1,6 +1,9 @@
 import json
+import time
 from collections.abc import Callable
 from typing import Any, TypeVar
+
+from pydantic import ValidationError
 
 from requirements_bot.core.logging import log_event
 from requirements_bot.core.models import (
@@ -37,12 +40,53 @@ class ProviderParseError(ProviderError):
     pass
 
 
+class OverloadedError(ProviderError):
+    """Raised when provider is overloaded (429/529 errors)."""
+
+    pass
+
+
+def retry_with_exponential_backoff(
+    operation_func: Callable[[], T],
+    max_retries: int = 5,
+    base_delay: float = 0.5,
+    max_delay: float = 30.0,
+) -> T:
+    """
+    Retry operation with exponential backoff.
+
+    Args:
+        operation_func: Function to execute that may raise OverloadedError
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay in seconds
+        max_delay: Maximum delay between retries
+
+    Returns:
+        Result from operation_func
+
+    Raises:
+        OverloadedError: If all retries exhausted
+    """
+    for attempt in range(max_retries):
+        try:
+            return operation_func()
+        except OverloadedError:
+            if attempt == max_retries - 1:
+                raise
+            # Exponential backoff with jitter
+            delay = min(base_delay * (2**attempt), max_delay)
+            jitter = delay * 0.1 * (time.time() % 1)
+            time.sleep(delay + jitter)
+    raise OverloadedError("Max retries exceeded")
+
+
 def handle_provider_operation(
     operation: str,
     provider: str,
     model: str,
     operation_func: Callable[[], T],
     fallback_factory: Callable[[], T],
+    allow_fallback: bool = True,
 ) -> T:
     """
     Execute a provider operation with unified exception handling.
@@ -53,12 +97,62 @@ def handle_provider_operation(
         model: The model being used
         operation_func: Function to execute that may raise exceptions
         fallback_factory: Function that creates fallback response on error
+        allow_fallback: Whether to use fallback on critical errors (default True)
 
     Returns:
         Result from operation_func or fallback response on error
+
+    Raises:
+        ValidationError: If Pydantic validation fails and allow_fallback is False
+        OverloadedError: If API overloaded and retries exhausted and allow_fallback is False
     """
     try:
         return operation_func()
+    except ValidationError as e:
+        # Schema mismatch - this is a bug, log details
+        error_details = str(e)
+        log_event(
+            "llm.validation_error",
+            component="provider",
+            operation=operation,
+            provider=provider,
+            model=model,
+            error_type="ValidationError",
+            error_msg=error_details,
+        )
+        if not allow_fallback:
+            raise
+        # Use fallback but log that we're doing so
+        log_event(
+            "llm.using_fallback",
+            component="provider",
+            operation=operation,
+            reason="validation_error",
+        )
+        return fallback_factory()
+    except OverloadedError as e:
+        # API overloaded - try retry with backoff
+        log_event(
+            "llm.overloaded_error",
+            component="provider",
+            operation=operation,
+            provider=provider,
+            model=model,
+            error_type="OverloadedError",
+            error_msg=str(e),
+        )
+        try:
+            return retry_with_exponential_backoff(operation_func, max_retries=5)
+        except OverloadedError:
+            if not allow_fallback:
+                raise
+            log_event(
+                "llm.using_fallback",
+                component="provider",
+                operation=operation,
+                reason="overloaded_retries_exhausted",
+            )
+            return fallback_factory()
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         # JSON/data parsing errors
         log_event(
