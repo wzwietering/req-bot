@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIStatusError
 
 from requirements_bot.core.logging import span
 from requirements_bot.core.models import (
@@ -16,13 +16,13 @@ from requirements_bot.core.prompts import (
     SYSTEM_INSTRUCTIONS,
     analyze_answer_prompt,
     assess_completeness_prompt,
-    generate_questions_prompt,
     summarize_requirements_prompt,
 )
 
 from .base import Provider
 from .exceptions import (
     FallbackFactory,
+    OverloadedError,
     extract_content_from_response,
     handle_provider_operation,
     parse_json_response,
@@ -36,53 +36,65 @@ class ProviderImpl(Provider):
             api_key=os.environ.get("ANTHROPIC_API_KEY"),
         )
 
-    def generate_questions(self, project: str, seed_questions: list[Question]) -> list[Question]:
-        """Generate additional questions based on the project description and existing questions."""
+    def _wrap_api_call(self, api_call):
+        """Wrap Anthropic API calls to convert 529 errors to OverloadedError."""
+        try:
+            return api_call()
+        except APIStatusError as e:
+            if e.status_code in (429, 529):
+                raise OverloadedError(f"Anthropic API overloaded: {e}") from e
+            raise
 
-        prompt = generate_questions_prompt(project, seed_questions)
+    def generate_single_question(self, prompt: str) -> Question | None:
+        """Generate a single question using a custom prompt."""
 
         def _do_operation():
             with span(
-                "llm.generate_questions",
+                "llm.generate_single_question",
                 component="provider",
-                operation="generate_questions",
+                operation="generate_single_question",
                 provider="anthropic",
                 model=self.model,
                 prompt_len=len(prompt),
             ):
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=1000,
-                    system=SYSTEM_INSTRUCTIONS["questions"],
-                    messages=[{"role": "user", "content": prompt}],
+                response = self._wrap_api_call(
+                    lambda: self.client.messages.create(
+                        model=self.model,
+                        max_tokens=500,
+                        system=SYSTEM_INSTRUCTIONS["questions"],
+                        messages=[{"role": "user", "content": prompt}],
+                    )
                 )
 
                 content = extract_content_from_response(response, "anthropic")
-                questions_data = parse_json_response(
+                question_data = parse_json_response(
                     content,
                     {
-                        "operation": "generate_questions",
+                        "operation": "generate_single_question",
                         "provider": "anthropic",
                         "model": self.model,
                     },
                 )
-                # Generate UUIDs for questions to ensure global uniqueness
-                return [
-                    Question(
-                        id=str(uuid.uuid4()),
-                        text=q["text"],
-                        category=q["category"],
-                        required=q["required"],
-                    )
-                    for q in questions_data
-                ]
+
+                # The response should be a single question object, not an array
+                if isinstance(question_data, list) and len(question_data) > 0:
+                    question_data = question_data[0]
+                elif not isinstance(question_data, dict):
+                    return None
+
+                return Question(
+                    id=str(uuid.uuid4()),
+                    text=question_data["text"],
+                    category=question_data["category"],
+                    required=question_data.get("required", False),
+                )
 
         return handle_provider_operation(
-            operation="generate_questions",
+            operation="generate_single_question",
             provider="anthropic",
             model=self.model,
             operation_func=_do_operation,
-            fallback_factory=FallbackFactory.empty_questions_list,
+            fallback_factory=lambda: None,
         )
 
     def summarize_requirements(
@@ -101,11 +113,13 @@ class ProviderImpl(Provider):
                 model=self.model,
                 prompt_len=len(prompt),
             ):
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=1000,
-                    system=SYSTEM_INSTRUCTIONS["requirements"],
-                    messages=[{"role": "user", "content": prompt}],
+                response = self._wrap_api_call(
+                    lambda: self.client.messages.create(
+                        model=self.model,
+                        max_tokens=1000,
+                        system=SYSTEM_INSTRUCTIONS["requirements"],
+                        messages=[{"role": "user", "content": prompt}],
+                    )
                 )
 
                 content = extract_content_from_response(response, "anthropic")
@@ -125,6 +139,7 @@ class ProviderImpl(Provider):
             model=self.model,
             operation_func=_do_operation,
             fallback_factory=FallbackFactory.empty_requirements_list,
+            allow_fallback=False,  # Critical operation - don't silently fail
         )
 
     def analyze_answer(self, question: Question, answer: Answer, context: str = "") -> AnswerAnalysis:
@@ -141,11 +156,13 @@ class ProviderImpl(Provider):
                 model=self.model,
                 prompt_len=len(prompt),
             ):
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=800,
-                    system=SYSTEM_INSTRUCTIONS["questions"],
-                    messages=[{"role": "user", "content": prompt}],
+                response = self._wrap_api_call(
+                    lambda: self.client.messages.create(
+                        model=self.model,
+                        max_tokens=800,
+                        system=SYSTEM_INSTRUCTIONS["questions"],
+                        messages=[{"role": "user", "content": prompt}],
+                    )
                 )
 
                 content = extract_content_from_response(response, "anthropic")
@@ -188,11 +205,13 @@ class ProviderImpl(Provider):
                 model=self.model,
                 prompt_len=len(prompt),
             ):
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=600,
-                    system=SYSTEM_INSTRUCTIONS["requirements"],
-                    messages=[{"role": "user", "content": prompt}],
+                response = self._wrap_api_call(
+                    lambda: self.client.messages.create(
+                        model=self.model,
+                        max_tokens=600,
+                        system=SYSTEM_INSTRUCTIONS["requirements"],
+                        messages=[{"role": "user", "content": prompt}],
+                    )
                 )
 
                 content = extract_content_from_response(response, "anthropic")

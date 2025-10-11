@@ -5,7 +5,7 @@ import pytest
 from requirements_bot.core.conversation_state import (
     ConversationState,
 )
-from requirements_bot.core.models import Session
+from requirements_bot.core.models import Question, Session
 from requirements_bot.core.services.question_generation_service import (
     QuestionGenerationService,
 )
@@ -56,75 +56,65 @@ class TestQuestionGenerationService:
             conversation_state=ConversationState.ASSESSING_COMPLETENESS,
         )
 
-    def test_generate_missing_area_questions_bug_is_fixed(
+    def test_generate_next_question_if_needed_just_in_time(
         self,
         question_service,
         sample_session_assessing_completeness,
         mock_session_manager,
+        mock_question_queue_manager,
+        mock_provider,
     ):
         """
-        Test that the issue has been fixed: method no longer attempts invalid transition.
+        Test just-in-time question generation.
 
-        This test verifies that the bug fix works correctly:
-        1. Session is in ASSESSING_COMPLETENESS state
-        2. generate_missing_area_questions() is called
-        3. Method does not attempt any state transition
-        4. Questions are generated successfully
+        This test verifies the new just-in-time approach:
+        1. Questions are generated one at a time when queue is low
+        2. No batch generation happens
+        3. Questions are context-aware
         """
-        # Configure the state manager for successful operation
-        mock_session_manager.state_manager.create_checkpoint.return_value = None
 
-        # Call the method - should work without any state transition attempts
-        result = question_service.generate_missing_area_questions(sample_session_assessing_completeness)
+        # Mock queue manager to say we need more questions
+        mock_question_queue_manager.should_generate_more.return_value = True
+        mock_question_queue_manager.get_next_target_area.return_value = "scope"
 
-        # Verify questions were generated
-        assert len(result) > 0
-
-        # Verify that NO state transition was attempted (this was the bug)
-        mock_session_manager.state_manager.transition_to.assert_not_called()
-
-        # But checkpoint should still be created for error recovery
-        mock_session_manager.state_manager.create_checkpoint.assert_called_once_with(
-            sample_session_assessing_completeness, "generate_missing_area_questions"
+        # Mock provider to return a question
+        mock_provider.generate_single_question.return_value = Question(
+            id="test-id", text="Generated question", category="scope", required=False
         )
 
-    def test_generate_missing_area_questions_should_not_transition_when_fixed(
+        # Call the method
+        result = question_service.generate_next_question_if_needed(sample_session_assessing_completeness)
+
+        # Verify a question was generated
+        assert result is not None
+        assert result.text == "Generated question"
+        assert result.category == "scope"
+
+        # Verify the queue manager was consulted
+        mock_question_queue_manager.should_generate_more.assert_called_once()
+        mock_question_queue_manager.get_next_target_area.assert_called_once()
+
+    def test_generate_next_question_respects_queue_limit(
         self,
         question_service,
         sample_session_assessing_completeness,
-        mock_session_manager,
+        mock_question_queue_manager,
     ):
         """
-        Test that after the fix, the method should work without invalid transitions.
+        Test that question generation respects queue limits.
 
-        This test verifies the expected behavior after the fix:
-        1. Session is in ASSESSING_COMPLETENESS state
-        2. generate_missing_area_questions() is called
-        3. Method should NOT attempt any state transition (the caller handles it)
-        4. Questions are generated successfully
+        This test verifies:
+        1. When queue is full, no new questions are generated
+        2. Just-in-time generation prevents question buildup
         """
-        # Configure mocks for successful operation
-        mock_session_manager.state_manager.transition_to.return_value = None
-        mock_session_manager.state_manager.create_checkpoint.return_value = None
+        # Mock queue manager to say we DON'T need more questions
+        mock_question_queue_manager.should_generate_more.return_value = False
 
-        # Mock the private method that generates questions
-        question_service._generate_questions_with_fallback = Mock(
-            return_value=[{"text": "Missing area question", "category": "test"}]
-        )
+        # Call the method
+        result = question_service.generate_next_question_if_needed(sample_session_assessing_completeness)
 
-        # Call the method - should work without state transition errors
-        result = question_service.generate_missing_area_questions(sample_session_assessing_completeness)
+        # Verify no question was generated
+        assert result is None
 
-        # Verify questions were generated (content comes from queue manager mock)
-        assert len(result) > 0
-        assert result[0]["text"] == "New question"
-
-        # After the fix, this method should NOT call transition_to at all
-        # The caller (completeness assessment service) handles the transition
-        # This assertion will fail with current buggy code, pass after fix
-        mock_session_manager.state_manager.transition_to.assert_not_called()
-
-        # But checkpoint should still be created for error recovery
-        mock_session_manager.state_manager.create_checkpoint.assert_called_once_with(
-            sample_session_assessing_completeness, "generate_missing_area_questions"
-        )
+        # Verify the queue manager was consulted
+        mock_question_queue_manager.should_generate_more.assert_called_once()

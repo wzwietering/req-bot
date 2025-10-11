@@ -1,38 +1,52 @@
 from .models import Answer, Question
 
 
-def generate_questions_prompt(project: str, seed_questions: list[Question]) -> str:
-    """Generate a prompt for creating additional requirements questions."""
+def generate_single_question_prompt(project: str, target_area: str, context: str = "") -> str:
+    """Generate ONE question for a specific requirement area with full context."""
 
-    # Format seed questions for the prompt
-    seed_questions_text = ""
-    if seed_questions:
-        seed_questions_text = "\n".join(
-            [f"- {q.text} (Category: {q.category}, Required: {q.required})" for q in seed_questions]
-        )
+    area_descriptions = {
+        "scope": "the core problem, user pain points, and solution boundaries",
+        "users": "who will use this, their roles, workflows, and motivations",
+        "constraints": "platform, technology, budget, timeline, or resource limits",
+        "nonfunctional": "performance, security, compliance, scalability needs",
+        "interfaces": "external systems, APIs, integrations, data sources",
+        "data": "what data to store, schemas, sources of truth, data flows",
+        "risks": "technical risks, unknowns, assumptions that need validation",
+        "success": "measurable outcomes, KPIs, definition of done",
+    }
 
-    return (
-        f"""You are a requirements engineering expert. Given a software project description and existing questions, """
-        f"""generate additional relevant questions to help gather comprehensive requirements.
+    context_section = ""
+    if context:
+        context_section = f"""
+Previous conversation:
+{context}
+
+"""
+
+    return f"""You are a requirements engineering expert conducting a natural, conversational interview.
 
 Project: {project}
 
-Existing questions:
-{seed_questions_text}
+{context_section}Focus Area: {area_descriptions.get(target_area, target_area)}
 
-Generate 5-8 additional questions that would help understand the requirements better.
-Focus on areas not covered by existing questions.
+Based on the conversation so far, generate ONE insightful question about {target_area}.
 
-Return your response as a JSON array of objects with this structure:
+Requirements:
+- Make it conversational and natural, not formal or checklist-like
+- Build on what you've learned from previous answers
+- Ask about concrete specifics that will lead to actionable requirements
+- Frame it to challenge assumptions and dig deeper
+- Make the user feel understood
+
+Return as JSON:
 {{
   "id": "unique_id",
-  "text": "question text",
-  "category": "one of: scope, users, constraints, nonfunctional, interfaces, data, risks, success",
-  "required": true/false
+  "text": "your question",
+  "category": "{target_area}",
+  "required": false
 }}
 
-Only return the JSON array, no other text."""
-    )
+Only return the JSON, nothing else."""
 
 
 def summarize_requirements_prompt(project: str, questions: list[Question], answers: list[Answer]) -> str:
@@ -88,41 +102,52 @@ Previous conversation context:
 """
 
     return (
-        f"""You are a requirements engineering expert. Analyze this Q&A pair for completeness and clarity """
-        f"""from a HIGH-LEVEL REQUIREMENTS perspective.
+        f"""You are a requirements engineering expert. """
+        f"""Analyze this answer to determine if follow-up questions are TRULY necessary.
 
 {context_section}Current Q&A:
 Q: {question}
 A: {answer}
 
-Remember: We are gathering BUSINESS REQUIREMENTS, not implementation details. Evaluate this answer:
+Evaluate the answer on three dimensions:
+1. **is_complete**: Does the answer actually address the question asked?
+  - false if completely vague, avoids question, or says "I don't know"
+2. **is_specific**: Does the answer provide concrete details, examples, numbers, or specifics?
+  - false if entirely abstract or hand-wavy
+3. **is_consistent**: Does the answer align with what was said before?
+  - false if directly contradicts previous statements
 
-1. **Complete**: Does it identify the key business need or constraint?
-2. **Specific**: Is it concrete enough for requirements?
-3. **Consistent**: Does it align with previous answers?
+Generate follow-ups ONLY if:
+1. Answer is completely vague ("I don't know", "maybe", "it depends") with NO concrete details
+2. Answer directly contradicts previous statements
+3. Answer completely avoids the question
 
-ONLY generate follow-up questions if the answer is:
-- Extremely vague with no concrete elements (e.g., "maybe", "I don't know", "it depends")
-- Contradicts previous answers
-- Completely avoids answering the question
+DO NOT generate follow-ups if:
+- Answer provides reasonable business-level information (even if brief)
+- Answer gives concrete examples or specifics
+- You just want "more detail" (we can ask new questions later for different areas)
+- The topic is already well-covered in previous answers
+- The answer is acceptable but not perfect
 
-DO NOT ask for follow-ups when answers provide reasonable business-level information, even if not highly detailed.
+Be VERY conservative. Most answers should need 0 follow-ups. Maximum 2 follow-ups even if needed.
+
 Examples of ACCEPTABLE answers that need NO follow-up:
-- "Tool reuse indicates success" (valid success metric)
-- "Python packages with API keys" (sufficient for integration requirements)
-- "Web-based application" (adequate platform specification)
-- "Small team of 5 developers" (sufficient user description)
+- "Tool reuse indicates success" (valid success metric - complete, specific, consistent)
+- "Python packages with API keys" (sufficient for integration requirements - complete, specific, consistent)
+- "Web-based application" (adequate platform specification - complete, specific, consistent)
+- "Small team of 5 developers" (sufficient user description - complete, specific, consistent)
+- Any answer with concrete nouns, numbers, or specific examples
 
-Return your analysis as JSON with this structure:
+Return JSON:
 {{
   "is_complete": true/false,
   "is_specific": true/false,
   "is_consistent": true/false,
-  "follow_up_questions": ["question1", "question2", ...],
-  "analysis_notes": "brief explanation of issues found"
+  "follow_up_questions": ["question1", "question2"] or [],
+  "analysis_notes": "brief explanation of your assessment (especially important if any field is false)"
 }}
 
-Only return the JSON, no other text."""
+Only return JSON, no other text."""
     )
 
 

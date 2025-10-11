@@ -137,13 +137,6 @@ class TestQuestionAnswerRequestValidation:
 
     def test_valid_answer_texts(self, client: TestClient, sample_session_data):
         """Test various valid answer texts."""
-        session = create_test_session(client, sample_session_data)
-        session_id = session["id"]
-
-        # Get first question
-        continue_response = client.post(f"/api/v1/sessions/{session_id}/continue")
-        assert continue_response.status_code == 200
-
         valid_answers = [
             "Simple answer",
             "A",  # Minimum length
@@ -156,13 +149,19 @@ class TestQuestionAnswerRequestValidation:
             "comprehensive coverage of all aspects.",
         ]
 
-        for i, answer_text in enumerate(valid_answers):
-            # Get question for each answer (in case session progresses)
-            if i > 0:
-                continue_response = client.post(f"/api/v1/sessions/{session_id}/continue")
-                if continue_response.json().get("conversation_complete"):
-                    break
+        # Test each answer with a fresh session to avoid question ordering issues
+        for answer_text in valid_answers:
+            # Create fresh session for each answer
+            session = create_test_session(client, sample_session_data)
+            session_id = session["id"]
 
+            # Get first question
+            continue_response = client.post(f"/api/v1/sessions/{session_id}/continue")
+            assert continue_response.status_code == 200
+            question_data = continue_response.json()
+            assert question_data["next_question"] is not None, "No question available"
+
+            # Submit answer
             response = client.post(f"/api/v1/sessions/{session_id}/answers", json={"answer_text": answer_text})
             assert response.status_code == 200, f"Failed for answer: {answer_text[:50]}..."
             data = response.json()
@@ -190,26 +189,25 @@ class TestQuestionAnswerRequestValidation:
 
     def test_answer_text_trimming(self, client: TestClient, sample_session_data):
         """Test that answer texts are properly trimmed."""
-        session = create_test_session(client, sample_session_data)
-        session_id = session["id"]
-
-        # Get first question
-        continue_response = client.post(f"/api/v1/sessions/{session_id}/continue")
-        assert continue_response.status_code == 200
-
         test_cases = [
             ("  Answer with spaces  ", "Answer with spaces"),
             ("\tTabbed answer\t", "Tabbed answer"),
             ("   Multi line\n  answer   ", "Multi line\n  answer"),
         ]
 
-        for i, (input_answer, expected_answer) in enumerate(test_cases):
-            # Get new question if needed
-            if i > 0:
-                continue_response = client.post(f"/api/v1/sessions/{session_id}/continue")
-                if continue_response.json().get("conversation_complete"):
-                    break
+        # Test each case with a fresh session to avoid question ordering issues
+        for input_answer, expected_answer in test_cases:
+            # Create fresh session for each test case
+            session = create_test_session(client, sample_session_data)
+            session_id = session["id"]
 
+            # Get first question
+            continue_response = client.post(f"/api/v1/sessions/{session_id}/continue")
+            assert continue_response.status_code == 200
+            question_data = continue_response.json()
+            assert question_data["next_question"] is not None, "No question available"
+
+            # Submit answer with whitespace
             response = client.post(f"/api/v1/sessions/{session_id}/answers", json={"answer_text": input_answer})
             assert response.status_code == 200
             data = response.json()

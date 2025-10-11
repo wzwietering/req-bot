@@ -28,12 +28,18 @@ class Provider:
         }
 
         if vendor not in provider_map:
+            # Special handling for mock provider (used in tests)
+            if vendor == "mock":
+                mock_module = __import__("tests.mocks.mock_provider", fromlist=["MockProvider"])
+                return mock_module.MockProvider(model)
             raise ValueError(f"Unknown provider '{vendor}'")
 
         impl = provider_map[vendor]()
         return impl.ProviderImpl(model)
 
-    def generate_questions(self, project: str, seed_questions: list[Question]) -> list[Question]: ...
+    def generate_single_question(self, prompt: str) -> Question | None:
+        """Generate a single question using a custom prompt."""
+        ...
 
     def summarize_requirements(
         self, project: str, questions: list[Question], answers: list[Answer]

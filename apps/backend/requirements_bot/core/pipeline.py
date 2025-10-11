@@ -60,7 +60,11 @@ class ConversationalInterviewPipeline:
             self.conductor, self.session_manager, self.question_generation, model_id
         )
         self.interview_loop = InterviewLoopManager(
-            self.conductor, self.session_manager, self.completeness_assessment, model_id
+            self.conductor,
+            self.session_manager,
+            self.completeness_assessment,
+            self.question_generation,
+            model_id,
         )
         self.session_finalization = SessionFinalizationService(
             self.provider, self.session_manager, model_id, project, self.io
@@ -89,8 +93,11 @@ class ConversationalInterviewPipeline:
         if session.conversation_complete:
             self._reopen_completed_session(session)
 
+        # If queue is empty, generate next question if needed (just-in-time)
         if not question_queue:
-            question_queue = self.question_generation.generate_additional_questions(session)
+            next_question = self.question_generation.generate_next_question_if_needed(session)
+            if next_question:
+                question_queue = [next_question]
 
         return question_queue
 

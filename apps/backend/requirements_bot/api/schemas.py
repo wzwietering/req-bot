@@ -121,3 +121,12 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: str | None = None
+
+
+class RetryRequirementsResponse(BaseModel):
+    """Response from retry requirements generation endpoint."""
+
+    message: str
+    session_id: str
+    requirements_count: int
+    conversation_state: ConversationState

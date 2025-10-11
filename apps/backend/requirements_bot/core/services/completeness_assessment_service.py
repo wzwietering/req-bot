@@ -1,5 +1,8 @@
+import logging
+
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.interview.interview_conductor import InterviewConductor
+from requirements_bot.core.logging import log_event
 from requirements_bot.core.models import Session
 from requirements_bot.core.services.question_generation_service import (
     QuestionGenerationService,
@@ -35,19 +38,42 @@ class CompletenessAssessmentService:
         Returns:
             list: Updated question queue
         """
+
         self.session_manager.state_manager.transition_to(session, ConversationState.ASSESSING_COMPLETENESS)
         self.session_manager.state_manager.create_checkpoint(session, "assess_completeness")
 
-        completeness = self.conductor.assess_interview_status(session, self.model_id)
+        try:
+            completeness = self.conductor.assess_interview_status(session, self.model_id)
 
-        if completeness.is_complete:
-            self.conductor.handle_completion(completeness)
-            session.conversation_complete = True
-        else:
-            self.conductor.handle_missing_areas(completeness)
-            if len(question_queue) == 0:
-                question_queue = self.question_generation_service.generate_missing_area_questions(session)
-            # Transition back to waiting for input to continue interview
+            if completeness.is_complete:
+                self.conductor.handle_completion(completeness)
+                session.conversation_complete = True
+            else:
+                self.conductor.handle_missing_areas(completeness)
+                # With just-in-time generation, the interview loop will generate
+                # the next question when needed based on area coverage
+                # Transition back to waiting for input to continue interview
+                self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
+
+        except Exception as e:
+            # LLM call failed or assessment encountered an error
+            # Recover gracefully by transitioning back to WAITING_FOR_INPUT
+            log_event(
+                "completeness_assessment.failed",
+                component="completeness_assessment",
+                operation="assess_and_handle",
+                session_id=session.id,
+                error=str(e),
+                error_type=type(e).__name__,
+                level=logging.WARNING,
+            )
+
+            # Always transition out of ASSESSING_COMPLETENESS to prevent stuck state
             self.session_manager.state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
+
+            # Re-raise if it's a critical error (not LLM/network related)
+            # Allow interview to continue for transient errors
+            if not isinstance(e, (TimeoutError, ConnectionError, Exception)):
+                raise
 
         return question_queue

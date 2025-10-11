@@ -90,6 +90,7 @@ interface InterviewContextType extends InterviewState {
   submitAnswer: (answerText: string) => Promise<void>;
   loadRequirements: () => Promise<void>;
   updateProgress: () => Promise<void>;
+  retryRequirements: () => Promise<void>;
   reset: () => void;
 }
 
@@ -235,6 +236,52 @@ export function InterviewProvider({ children }: InterviewProviderProps) {
     }
   }, [state.sessionId]);
 
+  const retryRequirements = useCallback(async () => {
+    if (!state.sessionId) return;
+
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const response = await fetch(`/api/v1/sessions/${state.sessionId}/retry-requirements`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to retry requirements generation' }));
+        throw new Error(errorData.detail || 'Failed to retry requirements generation');
+      }
+
+      // Reload session to verify retry succeeded
+      const session = await sessionsApi.getSession(state.sessionId);
+
+      // Validate retry actually succeeded
+      if (
+        session.conversation_state === 'failed' ||
+        (session.conversation_state === 'completed' && (!session.requirements || session.requirements.length === 0))
+      ) {
+        throw new Error(
+          'Requirements generation failed again. The AI service may be experiencing issues. Please try again later or contact support.'
+        );
+      }
+
+      // Success - update state with requirements
+      dispatch({ type: 'REQUIREMENTS_LOADED', payload: session.requirements || [] });
+
+      // Update conversation state
+      dispatch({
+        type: 'QUESTION_RECEIVED',
+        payload: {
+          question: null,
+          isComplete: session.conversation_complete,
+          state: session.conversation_state,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to retry requirements generation';
+      dispatch({ type: 'SET_ERROR', payload: message });
+    }
+  }, [state.sessionId]);
+
   const reset = useCallback(() => {
     localStorage.removeItem('current-interview-session');
     dispatch({ type: 'RESET' });
@@ -247,6 +294,7 @@ export function InterviewProvider({ children }: InterviewProviderProps) {
     submitAnswer,
     loadRequirements,
     updateProgress,
+    retryRequirements,
     reset,
   };
 

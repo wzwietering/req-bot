@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from openai import OpenAI
 
@@ -15,7 +16,6 @@ from requirements_bot.core.prompts import (
     SYSTEM_INSTRUCTIONS,
     analyze_answer_prompt,
     assess_completeness_prompt,
-    generate_questions_prompt,
     summarize_requirements_prompt,
 )
 
@@ -35,15 +35,14 @@ class ProviderImpl(Provider):
             api_key=os.environ.get("OPENAI_API_KEY"),
         )
 
-    def generate_questions(self, project: str, seed_questions: list[Question]) -> list[Question]:
-        """Generate additional questions based on the project description and existing questions."""
-        prompt = generate_questions_prompt(project, seed_questions)
+    def generate_single_question(self, prompt: str) -> Question | None:
+        """Generate a single question using a custom prompt."""
 
         def _do_operation():
             with span(
-                "llm.generate_questions",
+                "llm.generate_single_question",
                 component="provider",
-                operation="generate_questions",
+                operation="generate_single_question",
                 provider="openai",
                 model=self.model,
                 prompt_len=len(prompt),
@@ -56,22 +55,34 @@ class ProviderImpl(Provider):
                 )
 
                 content = extract_content_from_response(response, "openai")
-                questions_data = parse_json_response(
+                question_data = parse_json_response(
                     content,
                     {
-                        "operation": "generate_questions",
+                        "operation": "generate_single_question",
                         "provider": "openai",
                         "model": self.model,
                     },
                 )
-                return [Question(**q) for q in questions_data]
+
+                # The response should be a single question object, not an array
+                if isinstance(question_data, list) and len(question_data) > 0:
+                    question_data = question_data[0]
+                elif not isinstance(question_data, dict):
+                    return None
+
+                return Question(
+                    id=str(uuid.uuid4()),
+                    text=question_data["text"],
+                    category=question_data["category"],
+                    required=question_data.get("required", False),
+                )
 
         return handle_provider_operation(
-            operation="generate_questions",
+            operation="generate_single_question",
             provider="openai",
             model=self.model,
             operation_func=_do_operation,
-            fallback_factory=FallbackFactory.empty_questions_list,
+            fallback_factory=lambda: None,
         )
 
     def summarize_requirements(

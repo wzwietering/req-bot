@@ -5,22 +5,25 @@ from requirements_bot.core.models import Answer, Question, Session
 from requirements_bot.core.services.completeness_assessment_service import (
     CompletenessAssessmentService,
 )
+from requirements_bot.core.services.question_generation_service import QuestionGenerationService
 from requirements_bot.core.session_manager import SessionManager
 
 
 class InterviewLoopManager:
-    """Manages the main interview loop and answer processing."""
+    """Manages the main interview loop and answer processing with just-in-time question generation."""
 
     def __init__(
         self,
         conductor: InterviewConductor,
         session_manager: SessionManager,
         completeness_service: CompletenessAssessmentService,
+        question_generation_service: QuestionGenerationService,
         model_id: str,
     ):
         self.conductor = conductor
         self.session_manager = session_manager
         self.completeness_service = completeness_service
+        self.question_generation_service = question_generation_service
         self.model_id = model_id
 
     def run_interview_loop(
@@ -93,7 +96,17 @@ class InterviewLoopManager:
             return question_queue, False
         else:
             question_queue = self.conductor.process_followups(analysis, current_question, session, question_queue)
+
+            # Just-in-time generation: Check if we need to generate next question
+            self._generate_next_question_if_needed(session, question_queue)
+
             return question_queue, True
+
+    def _generate_next_question_if_needed(self, session: Session, question_queue: list) -> None:
+        """Generate next question if queue is running low."""
+        new_question = self.question_generation_service.generate_next_question_if_needed(session)
+        if new_question:
+            question_queue.append(new_question)
 
     def _handle_follow_up_questions(self, session: Session, analysis, current_question, question_queue: list) -> list:
         """Handle follow-up questions generation."""
