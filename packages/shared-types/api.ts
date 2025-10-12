@@ -195,6 +195,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/qa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Qa
+         * @description Get all questions and answers for a specific session.
+         */
+        get: operations["get_session_qa_api_v1_sessions__session_id__qa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/continue": {
         parameters: {
             query?: never;
@@ -287,6 +307,8 @@ export interface paths {
         /**
          * Retry Requirements Generation
          * @description Retry requirements generation for a failed session.
+         *
+         *     Rate limit: 5 attempts per 10 minutes per session to prevent abuse.
          */
         post: operations["retry_requirements_generation_api_v1_sessions__session_id__retry_requirements_post"];
         delete?: never;
@@ -393,6 +415,14 @@ export interface components {
              */
             required: boolean;
         };
+        /**
+         * QuestionAnswerPair
+         * @description A question paired with its answer (if answered).
+         */
+        QuestionAnswerPair: {
+            question: components["schemas"]["Question"];
+            answer: components["schemas"]["Answer"] | null;
+        };
         /** QuestionAnswerRequest */
         QuestionAnswerRequest: {
             /**
@@ -415,6 +445,19 @@ export interface components {
              * @enum {string}
              */
             priority: "MUST" | "SHOULD" | "COULD";
+        };
+        /**
+         * RetryRequirementsResponse
+         * @description Response from retry requirements generation endpoint.
+         */
+        RetryRequirementsResponse: {
+            /** Message */
+            message: string;
+            /** Session Id */
+            session_id: string;
+            /** Requirements Count */
+            requirements_count: number;
+            conversation_state: components["schemas"]["ConversationState"];
         };
         /** SessionContinueResponse */
         SessionContinueResponse: {
@@ -487,6 +530,18 @@ export interface components {
             remaining_questions: number;
             /** Completion Percentage */
             completion_percentage: number;
+        };
+        /**
+         * SessionQAResponse
+         * @description Response containing all questions and answers for a session.
+         */
+        SessionQAResponse: {
+            /** Session Id */
+            session_id: string;
+            /** Project */
+            project: string;
+            /** Qa Pairs */
+            qa_pairs: components["schemas"]["QuestionAnswerPair"][];
         };
         /** SessionStatusResponse */
         SessionStatusResponse: {
@@ -842,6 +897,37 @@ export interface operations {
             };
         };
     };
+    get_session_qa_api_v1_sessions__session_id__qa_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionQAResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     continue_session_api_v1_sessions__session_id__continue_post: {
         parameters: {
             query?: never;
@@ -987,9 +1073,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string | number;
-                    };
+                    "application/json": components["schemas"]["RetryRequirementsResponse"];
                 };
             };
             /** @description Validation Error */
