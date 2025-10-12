@@ -13,23 +13,29 @@ export function CategorySection({ group }: CategorySectionProps) {
   const isPartial = group.answeredCount > 0 && group.answeredCount < group.totalCount;
 
   const statusIndicator = isComplete ? (
-    <span
-      className="inline-flex h-2 w-2 rounded-full bg-benzol-green-500"
-      aria-label="All answered"
-      title="All questions in this category are answered"
-    />
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-flex h-2.5 w-2.5 rounded-full bg-benzol-green-500"
+        aria-hidden="true"
+      />
+      <span className="text-xs font-medium text-benzol-green-700">Complete</span>
+    </span>
   ) : isPartial ? (
-    <span
-      className="inline-flex h-2 w-2 rounded-full bg-amber-500"
-      aria-label="Partially answered"
-      title="Some questions in this category are answered"
-    />
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"
+        aria-hidden="true"
+      />
+      <span className="text-xs font-medium text-amber-700">Partial</span>
+    </span>
   ) : (
-    <span
-      className="inline-flex h-2 w-2 rounded-full bg-jasper-red-500"
-      aria-label="Not answered"
-      title="No questions in this category are answered yet"
-    />
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-flex h-2.5 w-2.5 rounded-full bg-jasper-red-500"
+        aria-hidden="true"
+      />
+      <span className="text-xs font-medium text-jasper-red-700">Not Started</span>
+    </span>
   );
 
   return (

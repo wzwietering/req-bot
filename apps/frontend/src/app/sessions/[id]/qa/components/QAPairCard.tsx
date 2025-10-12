@@ -25,11 +25,11 @@ export function QAPairCard({ pair }: QAPairCardProps) {
     try {
       await copyToClipboard(text);
       setShowCopyFeedback(true);
-      setTimeout(() => setShowCopyFeedback(false), 2000);
+      setTimeout(() => setShowCopyFeedback(false), 3000);
     } catch (err) {
       console.error('Failed to copy:', err);
       setCopyError(true);
-      setTimeout(() => setCopyError(false), 2000);
+      setTimeout(() => setCopyError(false), 3000);
     } finally {
       setIsCopying(false);
     }

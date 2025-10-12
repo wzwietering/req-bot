@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessionQA } from '@/hooks/useSessionQA';
 import { Navigation } from '@/components/layout/Navigation';
@@ -9,7 +9,12 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
 import { CategorySection } from './components/CategorySection';
-import { groupByCategory, calculateProgress, exportToMarkdown } from './utils/categoryHelpers';
+import {
+  groupByCategory,
+  calculateProgress,
+  exportToMarkdown,
+  downloadMarkdownFile,
+} from './utils/categoryHelpers';
 
 interface QAPageClientProps {
   sessionId: string;
@@ -19,35 +24,37 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
   const router = useRouter();
   const { data, isLoading, error, loadQA } = useSessionQA(sessionId);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     loadQA();
   }, [loadQA]);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (!data) return;
 
     setIsExporting(true);
+    setExportError(null);
+
     try {
       const markdown = exportToMarkdown(data.project, data.qa_pairs);
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.project.replace(/[^a-z0-9]/gi, '_')}_QA.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const filename = `${data.project.replace(/[^a-z0-9]/gi, '_')}_QA.md`;
+      downloadMarkdownFile(filename, markdown);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to export file';
+      setExportError(message);
       console.error('Failed to export:', err);
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [data]);
 
-  const categoryGroups = data ? groupByCategory(data.qa_pairs) : [];
-  const progress = data ? calculateProgress(data.qa_pairs) : null;
+  const categoryGroups = useMemo(
+    () => (data ? groupByCategory(data.qa_pairs) : []),
+    [data]
+  );
+
+  const progress = useMemo(() => (data ? calculateProgress(data.qa_pairs) : null), [data]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-deep-indigo-50 to-white">
@@ -74,7 +81,7 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
                       <li>
                         <button
                           onClick={() => router.push('/sessions')}
-                          className="hover:text-deep-indigo-500 focus:outline-none focus:underline"
+                          className="hover:text-deep-indigo-500 focus:ring-2 focus:ring-benzol-green-500 focus:ring-offset-2 rounded px-1"
                         >
                           Sessions
                         </button>
@@ -111,11 +118,16 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
                     size="md"
                     disabled={isExporting}
                     className="w-full sm:w-auto"
-                    aria-label="Export all questions and answers as Markdown file"
+                    aria-label="Export Q&A as Markdown"
                   >
                     {isExporting ? 'Exporting...' : 'Export Markdown'}
                   </Button>
                 </div>
+                {exportError && (
+                  <p className="text-sm text-jasper-red-500 mt-2" role="alert">
+                    {exportError}
+                  </p>
+                )}
               </div>
 
               {/* Q&A Content */}
