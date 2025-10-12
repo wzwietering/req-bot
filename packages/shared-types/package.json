@@ -15,7 +15,7 @@
     "generate:types": "../../tools/scripts/generate-types.sh"
   },
   "devDependencies": {
-    "typescript": "5.9.2"
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "typescript": "5.9.2"
