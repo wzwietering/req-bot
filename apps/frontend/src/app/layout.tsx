@@ -30,7 +30,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          {/* @ts-expect-error React 19 type compatibility */}
           {children}
         </AuthProvider>
       </body>
