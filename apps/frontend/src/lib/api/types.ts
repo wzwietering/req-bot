@@ -6,6 +6,8 @@ export type Question = components['schemas']['Question'];
 export type Answer = components['schemas']['Answer'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type Requirement = components['schemas']['Requirement'];
+export type QuestionAnswerPair = components['schemas']['QuestionAnswerPair'];
+export type SessionQAResponse = components['schemas']['SessionQAResponse'];
 
 export interface CreateSessionRequest {
   project: string;

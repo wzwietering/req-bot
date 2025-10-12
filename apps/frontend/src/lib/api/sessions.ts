@@ -8,6 +8,7 @@ import {
   SubmitAnswerResponse,
   SessionStatusResponse,
   CurrentQuestionResponse,
+  SessionQAResponse,
 } from './types';
 import { apiClient } from './apiClient';
 
@@ -43,5 +44,9 @@ export const sessionsApi = {
 
   async getSessionStatus(sessionId: string): Promise<SessionStatusResponse> {
     return apiClient.get<SessionStatusResponse>(`/api/v1/sessions/${sessionId}/status`);
+  },
+
+  async getSessionQA(sessionId: string): Promise<SessionQAResponse> {
+    return apiClient.get<SessionQAResponse>(`/api/v1/sessions/${sessionId}/qa`);
   },
 };
