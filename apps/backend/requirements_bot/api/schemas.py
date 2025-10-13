@@ -130,3 +130,18 @@ class RetryRequirementsResponse(BaseModel):
     session_id: str
     requirements_count: int
     conversation_state: ConversationState
+
+
+class QuestionAnswerPair(BaseModel):
+    """A question paired with its answer (if answered)."""
+
+    question: Question
+    answer: Answer | None
+
+
+class SessionQAResponse(BaseModel):
+    """Response containing all questions and answers for a session."""
+
+    session_id: str
+    project: str
+    qa_pairs: list[QuestionAnswerPair]

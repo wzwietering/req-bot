@@ -24,6 +24,11 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
     router.push(`/interview/${session.id}`);
   };
 
+  const handleViewQA = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    router.push(`/sessions/${session.id}/qa`);
+  };
+
   const cardClassName = !session.conversation_complete
     ? 'border-l-4 border-l-benzol-green-500'
     : '';
@@ -54,21 +59,27 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
-            <Button onClick={handleCardClick} variant="secondary" size="md" className="flex-1">
-              {getSessionButtonText(session)}
+          <div className="flex flex-col gap-2 pt-2">
+            <Button onClick={handleViewQA} variant="primary" size="md" className="w-full">
+              View Q&A
             </Button>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowConfirm(true);
-              }}
-              variant="danger"
-              size="md"
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleCardClick} variant="success" size="md" className="flex-1">
+                {getSessionButtonText(session)}
+              </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowConfirm(true);
+                }}
+                variant="danger-text"
+                size="md"
+                disabled={isDeleting}
+                className="flex-1"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

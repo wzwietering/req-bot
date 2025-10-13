@@ -307,6 +307,52 @@ class TestSessionDeletion:
         assert sessions[0]["id"] == session_2["id"]
 
 
+class TestSessionQA:
+    """Test session Q&A retrieval endpoint."""
+
+    def test_get_session_qa_success(self, client: TestClient, sample_session_data):
+        """Test successful Q&A retrieval for a session."""
+        create_response = create_test_session(client, sample_session_data)
+        session_id = create_response["id"]
+
+        response = client.get(f"/api/v1/sessions/{session_id}/qa")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "session_id" in data
+        assert "project" in data
+        assert "qa_pairs" in data
+        assert data["session_id"] == session_id
+        assert data["project"] == sample_session_data["project"]
+        assert isinstance(data["qa_pairs"], list)
+
+        for qa_pair in data["qa_pairs"]:
+            assert "question" in qa_pair
+            assert "answer" in qa_pair
+            assert isinstance(qa_pair["question"], dict)
+
+    def test_get_session_qa_not_found(self, client: TestClient):
+        """Test Q&A retrieval for non-existent session."""
+        fake_session_id = str(uuid.uuid4())
+        response = client.get(f"/api/v1/sessions/{fake_session_id}/qa")
+
+        assert response.status_code == 404
+        data = response.json()
+        assert "error" in data
+        assert "not found" in data["message"].lower()
+
+    def test_get_session_qa_invalid_uuid(self, client: TestClient):
+        """Test Q&A retrieval with invalid UUID format."""
+        response = client.get("/api/v1/sessions/invalid-uuid/qa")
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "error" in data
+        assert "message" in data
+        assert data["error"] == "ValidationError"
+
+
 class TestSessionEndpointIntegration:
     """Integration tests for session endpoints."""
 
