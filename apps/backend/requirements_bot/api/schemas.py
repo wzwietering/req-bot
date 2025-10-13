@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -145,3 +146,87 @@ class SessionQAResponse(BaseModel):
     session_id: str
     project: str
     qa_pairs: list[QuestionAnswerPair]
+
+
+# Question CRUD schemas
+class QuestionCreateRequest(BaseModel):
+    """Request to create a new question."""
+
+    text: str = Field(..., min_length=1, max_length=1000, description="Question text")
+    category: Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"]
+    required: bool = True
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v):
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("Question text cannot be empty or only whitespace")
+        return trimmed
+
+
+class QuestionUpdateRequest(BaseModel):
+    """Request to update a question."""
+
+    text: str | None = Field(None, min_length=1, max_length=1000, description="Question text")
+    category: (
+        Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"] | None
+    ) = None
+    required: bool | None = None
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v):
+        if v is not None:
+            trimmed = v.strip()
+            if not trimmed:
+                raise ValueError("Question text cannot be empty or only whitespace")
+            return trimmed
+        return v
+
+
+class QuestionListResponse(BaseModel):
+    """Response containing list of questions for a session."""
+
+    session_id: str
+    questions: list[Question]
+
+
+class QuestionDetailResponse(BaseModel):
+    """Response containing question details with optional answer."""
+
+    session_id: str
+    question: Question
+    answer: Answer | None
+
+
+# Answer CRUD schemas
+class AnswerUpdateRequest(BaseModel):
+    """Request to update an answer."""
+
+    text: str = Field(..., min_length=1, max_length=5000, description="Answer text")
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v):
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("Answer text cannot be empty or only whitespace")
+        if len(trimmed) > 5000:
+            raise ValueError("Answer exceeds maximum length of 5000 characters")
+        return trimmed
+
+
+class AnswerListResponse(BaseModel):
+    """Response containing list of answers for a session."""
+
+    session_id: str
+    answers: list[Answer]
+
+
+class AnswerDetailResponse(BaseModel):
+    """Response containing answer details with associated question."""
+
+    session_id: str
+    answer: Answer
+    question: Question

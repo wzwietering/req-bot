@@ -11,7 +11,13 @@ from requirements_bot.api.exceptions import InvalidSessionIdException
 from requirements_bot.api.rate_limiting import retry_requirements_rate_limiter, retry_user_rate_limiter
 from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.models import User
-from requirements_bot.core.services import SessionAnswerService, SessionService, SessionSetupManager
+from requirements_bot.core.services import (
+    AnswerCRUDService,
+    QuestionCRUDService,
+    SessionAnswerService,
+    SessionService,
+    SessionSetupManager,
+)
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
 from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.services.session_service import SessionValidationError
@@ -152,6 +158,18 @@ def get_api_interview_service() -> APIInterviewService:
     storage = get_storage()
     model_id = os.getenv("MODEL_ID", "anthropic:claude-3-5-haiku-20241022")
     return APIInterviewService(storage, model_id)
+
+
+def get_question_crud_service() -> QuestionCRUDService:
+    """Get question CRUD service instance."""
+    storage = get_storage()
+    return QuestionCRUDService(storage)
+
+
+def get_answer_crud_service() -> AnswerCRUDService:
+    """Get answer CRUD service instance."""
+    storage = get_storage()
+    return AnswerCRUDService(storage)
 
 
 def check_retry_rate_limit(

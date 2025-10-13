@@ -5,23 +5,43 @@ from pydantic import ValidationError
 
 from requirements_bot.api.dependencies import (
     check_retry_rate_limit,
+    get_answer_crud_service,
     get_api_interview_service,
     get_current_user_id,
+    get_question_crud_service,
     get_session_answer_service,
     get_session_service,
     get_validated_session_id,
 )
-from requirements_bot.api.exceptions import SessionInvalidStateException, SessionNotFoundAPIException
+from requirements_bot.api.exceptions import (
+    AnswerNotFoundException,
+    QuestionNotFoundException,
+    SessionInvalidStateException,
+    SessionNotFoundAPIException,
+)
 from requirements_bot.api.schemas import (
+    AnswerDetailResponse,
+    AnswerListResponse,
     AnswerSubmissionResponse,
+    AnswerUpdateRequest,
     QuestionAnswerRequest,
+    QuestionCreateRequest,
+    QuestionDetailResponse,
+    QuestionListResponse,
+    QuestionUpdateRequest,
     RetryRequirementsResponse,
     SessionContinueResponse,
     SessionStatusResponse,
 )
 from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.logging import log_event
-from requirements_bot.core.services import SessionAnswerService, SessionResponseBuilder, SessionService
+from requirements_bot.core.services import (
+    AnswerCRUDService,
+    QuestionCRUDService,
+    SessionAnswerService,
+    SessionResponseBuilder,
+    SessionService,
+)
 from requirements_bot.core.services.session_service import SessionValidationError
 from requirements_bot.providers.exceptions import OverloadedError
 
@@ -213,3 +233,219 @@ async def retry_requirements_generation(
         raise HTTPException(
             status_code=500, detail="An unexpected error occurred during retry. Please try again later."
         )
+
+
+# Question CRUD endpoints
+@router.get("/sessions/{session_id}/questions", response_model=QuestionListResponse)
+async def list_questions(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    question_service: Annotated[QuestionCRUDService, Depends(get_question_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> QuestionListResponse:
+    """List all questions for a session."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+        response_data = SessionResponseBuilder.build_question_list_response(session)
+        return QuestionListResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.get("/sessions/{session_id}/questions/{question_id}", response_model=QuestionDetailResponse)
+async def get_question(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    question_id: str,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    question_service: Annotated[QuestionCRUDService, Depends(get_question_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> QuestionDetailResponse:
+    """Get details of a specific question with its answer if available."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+        question = question_service.get_question(session, question_id)
+
+        if not question:
+            raise QuestionNotFoundException(question_id)
+
+        answer = question_service.get_answer_for_question(session, question_id)
+        response_data = SessionResponseBuilder.build_question_detail_response(session, question, answer)
+        return QuestionDetailResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.post("/sessions/{session_id}/questions", response_model=QuestionDetailResponse, status_code=201)
+async def create_question(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    request: QuestionCreateRequest,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    question_service: Annotated[QuestionCRUDService, Depends(get_question_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> QuestionDetailResponse:
+    """Create a new question for a session."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+
+        if session.conversation_complete:
+            raise SessionInvalidStateException("Cannot add questions to a completed session")
+
+        updated_session, new_question = question_service.create_question(
+            session, request.text, request.category, request.required
+        )
+
+        response_data = SessionResponseBuilder.build_question_detail_response(updated_session, new_question, None)
+        return QuestionDetailResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.put("/sessions/{session_id}/questions/{question_id}", response_model=QuestionDetailResponse)
+async def update_question(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    question_id: str,
+    request: QuestionUpdateRequest,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    question_service: Annotated[QuestionCRUDService, Depends(get_question_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> QuestionDetailResponse:
+    """Update an existing question."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+
+        try:
+            updated_session, updated_question = question_service.update_question(
+                session, question_id, request.text, request.category, request.required
+            )
+        except ValueError as e:
+            raise QuestionNotFoundException(question_id) from e
+
+        answer = question_service.get_answer_for_question(updated_session, question_id)
+        response_data = SessionResponseBuilder.build_question_detail_response(updated_session, updated_question, answer)
+        return QuestionDetailResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.delete("/sessions/{session_id}/questions/{question_id}")
+async def delete_question(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    question_id: str,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    question_service: Annotated[QuestionCRUDService, Depends(get_question_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict[str, str]:
+    """Delete a question and its associated answer."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+
+        if session.conversation_complete:
+            raise SessionInvalidStateException("Cannot delete questions from a completed session")
+
+        try:
+            question_service.delete_question(session, question_id)
+        except ValueError as e:
+            raise QuestionNotFoundException(question_id) from e
+
+        return {"message": f"Question {question_id} deleted successfully"}
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+# Answer CRUD endpoints
+@router.get("/sessions/{session_id}/answers", response_model=AnswerListResponse)
+async def list_answers(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    answer_service: Annotated[AnswerCRUDService, Depends(get_answer_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> AnswerListResponse:
+    """List all answers for a session."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+        response_data = SessionResponseBuilder.build_answer_list_response(session)
+        return AnswerListResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.get("/sessions/{session_id}/answers/{question_id}", response_model=AnswerDetailResponse)
+async def get_answer(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    question_id: str,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    answer_service: Annotated[AnswerCRUDService, Depends(get_answer_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> AnswerDetailResponse:
+    """Get details of a specific answer by question ID."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+        answer = answer_service.get_answer_by_question_id(session, question_id)
+
+        if not answer:
+            raise AnswerNotFoundException(question_id)
+
+        question = answer_service.get_question_for_answer(session, question_id)
+        if not question:
+            raise QuestionNotFoundException(question_id)
+
+        response_data = SessionResponseBuilder.build_answer_detail_response(session, answer, question)
+        return AnswerDetailResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.put("/sessions/{session_id}/answers/{question_id}", response_model=AnswerDetailResponse)
+async def update_answer(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    question_id: str,
+    request: AnswerUpdateRequest,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    answer_service: Annotated[AnswerCRUDService, Depends(get_answer_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> AnswerDetailResponse:
+    """Update an existing answer."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+
+        try:
+            updated_session, updated_answer = answer_service.update_answer(session, question_id, request.text)
+        except ValueError as e:
+            error_msg = str(e)
+            if "completed session" in error_msg:
+                raise SessionInvalidStateException(error_msg) from e
+            raise AnswerNotFoundException(question_id) from e
+
+        question = answer_service.get_question_for_answer(updated_session, question_id)
+        if not question:
+            raise QuestionNotFoundException(question_id)
+
+        response_data = SessionResponseBuilder.build_answer_detail_response(updated_session, updated_answer, question)
+        return AnswerDetailResponse(**response_data)
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
+
+
+@router.delete("/sessions/{session_id}/answers/{question_id}")
+async def delete_answer(
+    session_id: Annotated[str, Depends(get_validated_session_id)],
+    question_id: str,
+    session_service: Annotated[SessionService, Depends(get_session_service)],
+    answer_service: Annotated[AnswerCRUDService, Depends(get_answer_crud_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> dict[str, str]:
+    """Delete an answer, marking the question as unanswered."""
+    try:
+        session = session_service.load_session_with_validation(session_id, user_id)
+
+        try:
+            answer_service.delete_answer(session, question_id)
+        except ValueError as e:
+            error_msg = str(e)
+            if "completed session" in error_msg:
+                raise SessionInvalidStateException(error_msg) from e
+            raise AnswerNotFoundException(question_id) from e
+
+        return {"message": f"Answer for question {question_id} deleted successfully"}
+    except SessionValidationError:
+        raise SessionNotFoundAPIException(session_id)
