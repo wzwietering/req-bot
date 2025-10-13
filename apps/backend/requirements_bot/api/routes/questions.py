@@ -37,8 +37,11 @@ from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.logging import log_event
 from requirements_bot.core.services import (
     AnswerCRUDService,
+    AnswerNotFoundError,
     QuestionCRUDService,
+    QuestionNotFoundError,
     SessionAnswerService,
+    SessionCompleteError,
     SessionResponseBuilder,
     SessionService,
 )
@@ -313,11 +316,14 @@ async def update_question(
     try:
         session = session_service.load_session_with_validation(session_id, user_id)
 
+        if session.conversation_complete:
+            raise SessionInvalidStateException("Cannot update questions in a completed session")
+
         try:
             updated_session, updated_question = question_service.update_question(
                 session, question_id, request.text, request.category, request.required
             )
-        except ValueError as e:
+        except QuestionNotFoundError as e:
             raise QuestionNotFoundException(question_id) from e
 
         answer = question_service.get_answer_for_question(updated_session, question_id)
@@ -344,7 +350,7 @@ async def delete_question(
 
         try:
             question_service.delete_question(session, question_id)
-        except ValueError as e:
+        except QuestionNotFoundError as e:
             raise QuestionNotFoundException(question_id) from e
 
         return {"message": f"Question {question_id} deleted successfully"}
@@ -410,10 +416,9 @@ async def update_answer(
 
         try:
             updated_session, updated_answer = answer_service.update_answer(session, question_id, request.text)
-        except ValueError as e:
-            error_msg = str(e)
-            if "completed session" in error_msg:
-                raise SessionInvalidStateException(error_msg) from e
+        except SessionCompleteError as e:
+            raise SessionInvalidStateException(str(e)) from e
+        except AnswerNotFoundError as e:
             raise AnswerNotFoundException(question_id) from e
 
         question = answer_service.get_question_for_answer(updated_session, question_id)
@@ -440,10 +445,9 @@ async def delete_answer(
 
         try:
             answer_service.delete_answer(session, question_id)
-        except ValueError as e:
-            error_msg = str(e)
-            if "completed session" in error_msg:
-                raise SessionInvalidStateException(error_msg) from e
+        except SessionCompleteError as e:
+            raise SessionInvalidStateException(str(e)) from e
+        except AnswerNotFoundError as e:
             raise AnswerNotFoundException(question_id) from e
 
         return {"message": f"Answer for question {question_id} deleted successfully"}

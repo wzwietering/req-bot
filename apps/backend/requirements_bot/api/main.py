@@ -100,7 +100,7 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
         content={
             "error": "validation_failed",
             "message": "Request validation failed",
-            "details": [detail.dict() for detail in details],
+            "details": [detail.model_dump() for detail in details],
             "status_code": 422,
         },
     )

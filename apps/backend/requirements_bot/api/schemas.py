@@ -3,23 +3,25 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from requirements_bot.api.validation import validate_non_empty_text
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.models import Answer, Question, Requirement
 
 
 class SessionCreateRequest(BaseModel):
     project: str = Field(
-        ..., min_length=1, max_length=200, description="Project name for the requirements gathering session"
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Project name for the requirements gathering session",
+        examples=["E-commerce Mobile App"],
     )
 
     @field_validator("project")
     @classmethod
     def validate_project_name(cls, v):
-        # First trim whitespace including tabs
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Project name cannot be empty or only whitespace")
-        # Check for forbidden characters in the trimmed value (prevent XSS/injection)
+        trimmed = validate_non_empty_text(v, "Project name")
+        # Check for forbidden characters (prevent XSS/injection)
         forbidden_chars = ["<", ">", '"', "'", "&", "\n", "\r", "\t"]
         if any(char in trimmed for char in forbidden_chars):
             raise ValueError("Project name contains invalid characters")
@@ -69,19 +71,18 @@ class SessionContinueResponse(BaseModel):
 
 
 class QuestionAnswerRequest(BaseModel):
-    answer_text: str = Field(..., min_length=1, max_length=5000, description="Answer text for the current question")
+    answer_text: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="Answer text for the current question",
+        examples=["We need a web-based dashboard accessible from desktop and mobile devices"],
+    )
 
     @field_validator("answer_text")
     @classmethod
     def validate_answer_text(cls, v):
-        # First trim whitespace
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Answer cannot be empty or only whitespace")
-        # Check for excessively long answers that might indicate spam
-        if len(trimmed) > 5000:
-            raise ValueError("Answer exceeds maximum length of 5000 characters")
-        return trimmed
+        return validate_non_empty_text(v, "Answer", max_length=5000)
 
 
 class AnswerSubmissionResponse(BaseModel):
@@ -152,36 +153,40 @@ class SessionQAResponse(BaseModel):
 class QuestionCreateRequest(BaseModel):
     """Request to create a new question."""
 
-    text: str = Field(..., min_length=1, max_length=1000, description="Question text")
-    category: Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"]
-    required: bool = True
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="Question text",
+        examples=["What is the expected timeline for this project?"],
+    )
+    category: Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"] = (
+        Field(..., examples=["constraints"])
+    )
+    required: bool = Field(True, examples=[True])
 
     @field_validator("text")
     @classmethod
     def validate_text(cls, v):
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Question text cannot be empty or only whitespace")
-        return trimmed
+        return validate_non_empty_text(v, "Question text")
 
 
 class QuestionUpdateRequest(BaseModel):
     """Request to update a question."""
 
-    text: str | None = Field(None, min_length=1, max_length=1000, description="Question text")
+    text: str | None = Field(
+        None, min_length=1, max_length=1000, description="Question text", examples=["What is the project budget?"]
+    )
     category: (
         Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"] | None
-    ) = None
-    required: bool | None = None
+    ) = Field(None, examples=["constraints"])
+    required: bool | None = Field(None, examples=[False])
 
     @field_validator("text")
     @classmethod
     def validate_text(cls, v):
         if v is not None:
-            trimmed = v.strip()
-            if not trimmed:
-                raise ValueError("Question text cannot be empty or only whitespace")
-            return trimmed
+            return validate_non_empty_text(v, "Question text")
         return v
 
 
@@ -204,17 +209,18 @@ class QuestionDetailResponse(BaseModel):
 class AnswerUpdateRequest(BaseModel):
     """Request to update an answer."""
 
-    text: str = Field(..., min_length=1, max_length=5000, description="Answer text")
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="Answer text",
+        examples=["The project must be completed within 6 months with a budget of $100,000"],
+    )
 
     @field_validator("text")
     @classmethod
     def validate_text(cls, v):
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Answer text cannot be empty or only whitespace")
-        if len(trimmed) > 5000:
-            raise ValueError("Answer exceeds maximum length of 5000 characters")
-        return trimmed
+        return validate_non_empty_text(v, "Answer text", max_length=5000)
 
 
 class AnswerListResponse(BaseModel):

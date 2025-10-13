@@ -3,6 +3,7 @@
 from uuid import uuid4
 
 from requirements_bot.core.models import Answer, Question, Session
+from requirements_bot.core.services.exceptions import QuestionNotFoundError
 from requirements_bot.core.services.question_service import QuestionCategory
 from requirements_bot.core.storage import StorageInterface
 
@@ -88,11 +89,11 @@ class QuestionCRUDService:
             Tuple of (updated session, updated question)
 
         Raises:
-            ValueError: If question not found
+            QuestionNotFoundError: If question not found
         """
         question = self.get_question(session, question_id)
         if not question:
-            raise ValueError(f"Question {question_id} not found")
+            raise QuestionNotFoundError(question_id)
 
         # Find the question in the list and update it
         for i, q in enumerate(session.questions):
@@ -111,7 +112,7 @@ class QuestionCRUDService:
 
                 return session, updated_question
 
-        raise ValueError(f"Question {question_id} not found")
+        raise QuestionNotFoundError(question_id)
 
     def delete_question(self, session: Session, question_id: str) -> Session:
         """Delete a question from a session.
@@ -126,12 +127,12 @@ class QuestionCRUDService:
             Updated session
 
         Raises:
-            ValueError: If question not found
+            QuestionNotFoundError: If question not found
         """
         # Check if question exists
         question = self.get_question(session, question_id)
         if not question:
-            raise ValueError(f"Question {question_id} not found")
+            raise QuestionNotFoundError(question_id)
 
         # IMPORTANT: Remove associated answer FIRST, before removing question
         # This ensures the synchronizer deletes the answer before trying to delete

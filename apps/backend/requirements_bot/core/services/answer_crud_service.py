@@ -1,6 +1,7 @@
 """CRUD service for Answer management."""
 
 from requirements_bot.core.models import Answer, Question, Session
+from requirements_bot.core.services.exceptions import AnswerNotFoundError, SessionCompleteError
 from requirements_bot.core.storage import StorageInterface
 
 
@@ -48,10 +49,11 @@ class AnswerCRUDService:
             Tuple of (updated session, updated answer)
 
         Raises:
-            ValueError: If answer not found or session is complete
+            SessionCompleteError: If session is complete
+            AnswerNotFoundError: If answer not found
         """
         if session.conversation_complete:
-            raise ValueError("Cannot update answer for a completed session")
+            raise SessionCompleteError("update answer")
 
         # Find the answer
         answer_index = None
@@ -61,7 +63,7 @@ class AnswerCRUDService:
                 break
 
         if answer_index is None:
-            raise ValueError(f"Answer for question {question_id} not found")
+            raise AnswerNotFoundError(question_id)
 
         # Update the answer
         old_answer = session.answers[answer_index]
@@ -91,15 +93,16 @@ class AnswerCRUDService:
             Updated session
 
         Raises:
-            ValueError: If answer not found or session is complete
+            SessionCompleteError: If session is complete
+            AnswerNotFoundError: If answer not found
         """
         if session.conversation_complete:
-            raise ValueError("Cannot delete answer from a completed session")
+            raise SessionCompleteError("delete answer")
 
         # Find the answer
         answer = self.get_answer_by_question_id(session, question_id)
         if not answer:
-            raise ValueError(f"Answer for question {question_id} not found")
+            raise AnswerNotFoundError(question_id)
 
         # Remove answer from list
         session.answers = [a for a in session.answers if a.question_id != question_id]

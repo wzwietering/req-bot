@@ -2,6 +2,7 @@
 
 from .answer_crud_service import AnswerCRUDService
 from .completeness_assessment_service import CompletenessAssessmentService
+from .exceptions import AnswerNotFoundError, QuestionNotFoundError, SessionCompleteError
 from .interview_loop_manager import InterviewLoopManager
 from .question_crud_service import QuestionCRUDService
 from .question_generation_service import QuestionGenerationService
@@ -22,4 +23,7 @@ __all__ = [
     "SessionResponseBuilder",
     "QuestionCRUDService",
     "AnswerCRUDService",
+    "QuestionNotFoundError",
+    "AnswerNotFoundError",
+    "SessionCompleteError",
 ]
