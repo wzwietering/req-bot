@@ -8,15 +8,17 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function SessionQAPage({ params }: PageProps) {
+export default async function SessionQAPage({ params }: PageProps) {
+  const { id } = await params;
+
   return (
     <ProtectedRoute redirectTo="/login">
-      <QAPageClient sessionId={params.id} />
+      <QAPageClient sessionId={id} />
     </ProtectedRoute>
   );
 }
