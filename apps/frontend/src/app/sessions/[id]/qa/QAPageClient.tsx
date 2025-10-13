@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { useSessionQA } from '@/hooks/useSessionQA';
 import { Navigation } from '@/components/layout/Navigation';
 import { Container } from '@/components/ui/Container';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
-import { Button } from '@/components/ui/Button';
 import { CategorySection } from './components/CategorySection';
+import { QAHeader } from './components/QAHeader';
+import { EmptyQAState } from './components/EmptyQAState';
 import {
   groupByCategory,
   calculateProgress,
@@ -21,7 +21,6 @@ interface QAPageClientProps {
 }
 
 export function QAPageClient({ sessionId }: QAPageClientProps) {
-  const router = useRouter();
   const { data, isLoading, error, loadQA } = useSessionQA(sessionId);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -73,74 +72,17 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
             <ErrorDisplay error={error} onRetry={loadQA} />
           ) : data ? (
             <div className="space-y-6">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex-1">
-                  <nav className="text-sm text-deep-indigo-400 mb-2" aria-label="Breadcrumb">
-                    <ol className="flex items-center space-x-2">
-                      <li>
-                        <button
-                          onClick={() => router.push('/sessions')}
-                          className="hover:text-deep-indigo-500 focus:ring-2 focus:ring-benzol-green-500 focus:ring-offset-2 rounded px-1"
-                        >
-                          Sessions
-                        </button>
-                      </li>
-                      <li aria-hidden="true">/</li>
-                      <li>
-                        <span className="text-deep-indigo-500 font-medium">{data.project}</span>
-                      </li>
-                      <li aria-hidden="true">/</li>
-                      <li>
-                        <span className="text-deep-indigo-500 font-medium">Q&A</span>
-                      </li>
-                    </ol>
-                  </nav>
-                  <h1 className="text-3xl font-bold text-deep-indigo-500">{data.project}</h1>
-                  {progress && (
-                    <p className="text-base text-deep-indigo-400 mt-1">
-                      {progress.answered} of {progress.total} questions answered
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Button
-                    onClick={() => router.push('/sessions')}
-                    variant="secondary"
-                    size="md"
-                    className="w-full sm:w-auto"
-                  >
-                    Back to Sessions
-                  </Button>
-                  <Button
-                    onClick={handleExport}
-                    variant="primary"
-                    size="md"
-                    disabled={isExporting}
-                    className="w-full sm:w-auto"
-                    aria-label="Export Q&A as Markdown"
-                  >
-                    {isExporting ? 'Exporting...' : 'Export Markdown'}
-                  </Button>
-                </div>
-                {exportError && (
-                  <p className="text-sm text-jasper-red-500 mt-2" role="alert">
-                    {exportError}
-                  </p>
-                )}
-              </div>
+              <QAHeader
+                projectName={data.project}
+                answeredCount={progress?.answered || 0}
+                totalCount={progress?.total || 0}
+                onExport={handleExport}
+                isExporting={isExporting}
+                exportError={exportError}
+              />
 
-              {/* Q&A Content */}
               {categoryGroups.length === 0 ? (
-                <div className="text-center py-12 max-w-md mx-auto">
-                  <p className="text-deep-indigo-500 font-medium mb-2 text-lg">No Questions Yet</p>
-                  <p className="text-deep-indigo-400 mb-4">
-                    Questions will appear here after you start your interview session.
-                  </p>
-                  <Button onClick={() => router.push(`/interview/${sessionId}`)} variant="primary" size="md">
-                    Start Interview
-                  </Button>
-                </div>
+                <EmptyQAState sessionId={sessionId} />
               ) : (
                 <div className="space-y-8">
                   {categoryGroups.map((group) => (

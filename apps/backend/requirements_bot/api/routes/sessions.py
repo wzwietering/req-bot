@@ -20,6 +20,7 @@ from requirements_bot.api.schemas import (
     SessionSummary,
 )
 from requirements_bot.api.services.interview_service import APIInterviewService
+from requirements_bot.core.models import Session
 from requirements_bot.core.services import SessionResponseBuilder, SessionService
 from requirements_bot.core.services.session_service import SessionValidationError
 
@@ -86,7 +87,7 @@ async def get_session_qa(
         raise SessionNotFoundAPIException(session_id)
 
 
-def _build_qa_pairs(session) -> list[QuestionAnswerPair]:
+def _build_qa_pairs(session: Session) -> list[QuestionAnswerPair]:
     """Build question-answer pairs from session data."""
     qa_history = session.get_qa_history()
     return [QuestionAnswerPair(question=q, answer=a) for q, a in qa_history]

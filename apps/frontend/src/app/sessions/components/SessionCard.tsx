@@ -60,26 +60,26 @@ export function SessionCard({ session, onDelete }: SessionCardProps) {
           )}
 
           <div className="flex flex-col gap-2 pt-2">
+            <Button onClick={handleViewQA} variant="primary" size="md" className="w-full">
+              View Q&A
+            </Button>
             <div className="flex gap-2">
-              <Button onClick={handleCardClick} variant="primary" size="md" className="flex-1">
+              <Button onClick={handleCardClick} variant="success" size="md" className="flex-1">
                 {getSessionButtonText(session)}
               </Button>
-              <Button onClick={handleViewQA} variant="outline" size="md" className="flex-1">
-                View Q&A
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowConfirm(true);
+                }}
+                variant="danger-text"
+                size="md"
+                disabled={isDeleting}
+                className="flex-1"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowConfirm(true);
-              }}
-              variant="danger"
-              size="md"
-              disabled={isDeleting}
-              className="w-full"
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
           </div>
         </div>
       </Card>

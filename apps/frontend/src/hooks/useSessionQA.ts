@@ -9,35 +9,44 @@ interface UseSessionQAResult {
   loadQA: () => Promise<void>;
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 export function useSessionQA(sessionId: string): UseSessionQAResult {
   const [data, setData] = useState<SessionQAResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isMountedRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadQA = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       setIsLoading(true);
       setError(null);
       const qaData = await sessionsApi.getSessionQA(sessionId);
-      if (isMountedRef.current) {
-        setData(qaData);
-      }
+      setData(qaData);
     } catch (err) {
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to load Q&A data');
+      if (isAbortError(err)) {
+        return;
       }
+      setError(err instanceof Error ? err.message : 'Failed to load Q&A data');
     } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   }, [sessionId]);
 
   useEffect(() => {
-    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, []);
 
