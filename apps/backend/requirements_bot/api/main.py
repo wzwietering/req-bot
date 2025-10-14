@@ -12,7 +12,12 @@ from requirements_bot.api.dependencies import (
     get_refresh_token_service,
 )
 from requirements_bot.api.error_responses import ErrorDetail
-from requirements_bot.api.exceptions import SessionNotFoundAPIException, ValidationException
+from requirements_bot.api.exceptions import (
+    AnswerNotFoundException,
+    QuestionNotFoundException,
+    SessionNotFoundAPIException,
+    ValidationException,
+)
 from requirements_bot.api.middleware import (
     AuthenticationMiddleware,
     ExceptionHandlingMiddleware,
@@ -95,7 +100,7 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
         content={
             "error": "validation_failed",
             "message": "Request validation failed",
-            "details": [detail.dict() for detail in details],
+            "details": [detail.model_dump() for detail in details],
             "status_code": 422,
         },
     )
@@ -106,6 +111,22 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 async def session_not_found_exception_handler(request: Request, exc: SessionNotFoundAPIException):
     return JSONResponse(
         status_code=exc.status_code, content={"error": "SessionNotFound", "message": exc.detail, "details": None}
+    )
+
+
+# Exception handler for question not found errors
+@app.exception_handler(QuestionNotFoundException)
+async def question_not_found_exception_handler(request: Request, exc: QuestionNotFoundException):
+    return JSONResponse(
+        status_code=exc.status_code, content={"error": "QuestionNotFound", "message": exc.detail, "details": None}
+    )
+
+
+# Exception handler for answer not found errors
+@app.exception_handler(AnswerNotFoundException)
+async def answer_not_found_exception_handler(request: Request, exc: AnswerNotFoundException):
+    return JSONResponse(
+        status_code=exc.status_code, content={"error": "AnswerNotFound", "message": exc.detail, "details": None}
     )
 
 

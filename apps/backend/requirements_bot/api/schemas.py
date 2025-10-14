@@ -1,24 +1,30 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from requirements_bot.api.validation import validate_non_empty_text
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.models import Answer, Question, Requirement
+
+# Type alias for question categories
+QuestionCategory = Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"]
 
 
 class SessionCreateRequest(BaseModel):
     project: str = Field(
-        ..., min_length=1, max_length=200, description="Project name for the requirements gathering session"
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Project name for the requirements gathering session",
+        examples=["E-commerce Mobile App"],
     )
 
     @field_validator("project")
     @classmethod
     def validate_project_name(cls, v):
-        # First trim whitespace including tabs
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Project name cannot be empty or only whitespace")
-        # Check for forbidden characters in the trimmed value (prevent XSS/injection)
+        trimmed = validate_non_empty_text(v, "Project name")
+        # Check for forbidden characters (prevent XSS/injection)
         forbidden_chars = ["<", ">", '"', "'", "&", "\n", "\r", "\t"]
         if any(char in trimmed for char in forbidden_chars):
             raise ValueError("Project name contains invalid characters")
@@ -68,19 +74,18 @@ class SessionContinueResponse(BaseModel):
 
 
 class QuestionAnswerRequest(BaseModel):
-    answer_text: str = Field(..., min_length=1, max_length=5000, description="Answer text for the current question")
+    answer_text: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="Answer text for the current question",
+        examples=["We need a web-based dashboard accessible from desktop and mobile devices"],
+    )
 
     @field_validator("answer_text")
     @classmethod
     def validate_answer_text(cls, v):
-        # First trim whitespace
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("Answer cannot be empty or only whitespace")
-        # Check for excessively long answers that might indicate spam
-        if len(trimmed) > 5000:
-            raise ValueError("Answer exceeds maximum length of 5000 characters")
-        return trimmed
+        return validate_non_empty_text(v, "Answer", max_length=5000)
 
 
 class AnswerSubmissionResponse(BaseModel):
@@ -145,3 +150,71 @@ class SessionQAResponse(BaseModel):
     session_id: str
     project: str
     qa_pairs: list[QuestionAnswerPair]
+
+
+# Question CRUD schemas
+class QuestionCreateRequest(BaseModel):
+    """Request to create a new question."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="Question text",
+        examples=["What is the expected timeline for this project?"],
+    )
+    category: QuestionCategory = Field(..., examples=["constraints"])
+    required: bool = Field(True, examples=[True])
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v):
+        return validate_non_empty_text(v, "Question text")
+
+
+class QuestionListResponse(BaseModel):
+    """Response containing list of questions for a session."""
+
+    session_id: str
+    questions: list[Question]
+
+
+class QuestionDetailResponse(BaseModel):
+    """Response containing question details with optional answer."""
+
+    session_id: str
+    question: Question
+    answer: Answer | None
+
+
+# Answer CRUD schemas
+class AnswerUpdateRequest(BaseModel):
+    """Request to update an answer."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="Answer text",
+        examples=["The project must be completed within 6 months with a budget of $100,000"],
+    )
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v):
+        return validate_non_empty_text(v, "Answer text", max_length=5000)
+
+
+class AnswerListResponse(BaseModel):
+    """Response containing list of answers for a session."""
+
+    session_id: str
+    answers: list[Answer]
+
+
+class AnswerDetailResponse(BaseModel):
+    """Response containing answer details with associated question."""
+
+    session_id: str
+    answer: Answer
+    question: Question

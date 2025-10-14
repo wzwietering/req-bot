@@ -42,6 +42,24 @@ class InvalidSessionIdException(ValidationException):
         super().__init__(f"Invalid session ID format: {session_id}")
 
 
+class QuestionNotFoundException(APIException):
+    def __init__(self, question_id: str):
+        super().__init__(status_code=HTTP_404_NOT_FOUND, detail=f"Question {question_id} not found")
+
+
+class AnswerNotFoundException(APIException):
+    def __init__(self, answer_id: str):
+        super().__init__(status_code=HTTP_404_NOT_FOUND, detail=f"Answer {answer_id} not found")
+
+
+class QuestionAlreadyAnsweredException(APIException):
+    def __init__(self, question_id: str):
+        super().__init__(
+            status_code=HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Question {question_id} has already been answered. Delete the answer first.",
+        )
+
+
 async def storage_exception_handler(request: Request, exc: StorageError) -> JSONResponse:
     """Handle storage-related exceptions."""
     if isinstance(exc, SessionNotFoundError):

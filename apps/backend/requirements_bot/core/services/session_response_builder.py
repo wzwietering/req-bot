@@ -4,7 +4,7 @@ This module provides utilities to build consistent API responses from session da
 reducing duplication between different API endpoints.
 """
 
-from requirements_bot.core.models import Session
+from requirements_bot.core.models import Answer, Question, Session
 
 
 class SessionResponseBuilder:
@@ -144,3 +144,55 @@ class SessionResponseBuilder:
             "conversation_state": session.conversation_state,
             "requirements_generated": requirements_generated,
         }
+
+    @staticmethod
+    def build_question_list_response(session: Session) -> dict:
+        """Create a question list response.
+
+        Args:
+            session: The session object
+
+        Returns:
+            dict: Formatted question list response
+        """
+        return {"session_id": session.id, "questions": session.questions}
+
+    @staticmethod
+    def build_question_detail_response(session: Session, question: Question, answer: Answer | None) -> dict:
+        """Create a question detail response.
+
+        Args:
+            session: The session object
+            question: The question object
+            answer: The answer object (if exists)
+
+        Returns:
+            dict: Formatted question detail response
+        """
+        return {"session_id": session.id, "question": question, "answer": answer}
+
+    @staticmethod
+    def build_answer_list_response(session: Session) -> dict:
+        """Create an answer list response.
+
+        Args:
+            session: The session object
+
+        Returns:
+            dict: Formatted answer list response
+        """
+        return {"session_id": session.id, "answers": session.answers}
+
+    @staticmethod
+    def build_answer_detail_response(session: Session, answer: Answer, question: Question) -> dict:
+        """Create an answer detail response.
+
+        Args:
+            session: The session object
+            answer: The answer object
+            question: The question object
+
+        Returns:
+            dict: Formatted answer detail response
+        """
+        return {"session_id": session.id, "answer": answer, "question": question}

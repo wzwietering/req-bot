@@ -153,9 +153,17 @@ RETRY_WINDOW_SECONDS = int(os.getenv("RETRY_RATE_LIMIT_WINDOW_SECONDS", "600"))
 RETRY_USER_MAX_REQUESTS = int(os.getenv("RETRY_USER_RATE_LIMIT_MAX_REQUESTS", "15"))
 RETRY_USER_WINDOW_SECONDS = int(os.getenv("RETRY_USER_RATE_LIMIT_WINDOW_SECONDS", "600"))
 
+# CRUD operations: 30 requests per minute per user
+# - Protects against spam and abuse of create/update/delete operations
+# - Allows legitimate bulk operations while preventing excessive API use
+# - 1 minute window for quick throttling of abusive behavior
+CRUD_MAX_REQUESTS = int(os.getenv("CRUD_RATE_LIMIT_MAX_REQUESTS", "30"))
+CRUD_WINDOW_SECONDS = int(os.getenv("CRUD_RATE_LIMIT_WINDOW_SECONDS", "60"))
+
 # Global rate limiters
 oauth_rate_limiter = RateLimiter(max_requests=OAUTH_MAX_REQUESTS, window_seconds=OAUTH_WINDOW_SECONDS)
 refresh_token_rate_limiter = RateLimiter(max_requests=REFRESH_MAX_REQUESTS, window_seconds=REFRESH_WINDOW_SECONDS)
 retry_requirements_rate_limiter = RateLimiter(max_requests=RETRY_MAX_REQUESTS, window_seconds=RETRY_WINDOW_SECONDS)
 retry_user_rate_limiter = RateLimiter(max_requests=RETRY_USER_MAX_REQUESTS, window_seconds=RETRY_USER_WINDOW_SECONDS)
+crud_rate_limiter = RateLimiter(max_requests=CRUD_MAX_REQUESTS, window_seconds=CRUD_WINDOW_SECONDS)
 rate_limit_middleware = RateLimitMiddleware(oauth_rate_limiter)

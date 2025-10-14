@@ -8,10 +8,20 @@ from sqlalchemy.orm import Session as DBSession
 
 from requirements_bot.api.auth import JWTService, OAuth2Providers, get_jwt_service, get_oauth_providers
 from requirements_bot.api.exceptions import InvalidSessionIdException
-from requirements_bot.api.rate_limiting import retry_requirements_rate_limiter, retry_user_rate_limiter
+from requirements_bot.api.rate_limiting import (
+    crud_rate_limiter,
+    retry_requirements_rate_limiter,
+    retry_user_rate_limiter,
+)
 from requirements_bot.api.services.interview_service import APIInterviewService
 from requirements_bot.core.models import User
-from requirements_bot.core.services import SessionAnswerService, SessionService, SessionSetupManager
+from requirements_bot.core.services import (
+    AnswerCRUDService,
+    QuestionCRUDService,
+    SessionAnswerService,
+    SessionService,
+    SessionSetupManager,
+)
 from requirements_bot.core.services.refresh_token_service import RefreshTokenService
 from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
 from requirements_bot.core.services.session_service import SessionValidationError
@@ -154,6 +164,18 @@ def get_api_interview_service() -> APIInterviewService:
     return APIInterviewService(storage, model_id)
 
 
+def get_question_crud_service() -> QuestionCRUDService:
+    """Get question CRUD service instance."""
+    storage = get_storage()
+    return QuestionCRUDService(storage)
+
+
+def get_answer_crud_service() -> AnswerCRUDService:
+    """Get answer CRUD service instance."""
+    storage = get_storage()
+    return AnswerCRUDService(storage)
+
+
 def check_retry_rate_limit(
     session_id: Annotated[str, Depends(get_validated_session_id)], user_id: Annotated[str, Depends(get_current_user_id)]
 ) -> None:
@@ -193,4 +215,26 @@ def check_retry_rate_limit(
                 "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
             },
             headers={"Retry-After": str(user_reset_time - int(time.time()))},
+        )
+
+
+def check_crud_rate_limit(user_id: Annotated[str, Depends(get_current_user_id)]) -> None:
+    """Check rate limit for CRUD operations (create, update, delete).
+
+    Enforces per-user rate limiting to prevent spam and abuse.
+
+    Raises HTTPException if rate limit is exceeded.
+    """
+    allowed, reset_time = crud_rate_limiter.is_allowed(user_id)
+
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "rate_limit_exceeded",
+                "message": "Too many CRUD operations. Please slow down.",
+                "details": [{"type": "rate_limit", "message": f"Rate limit reset at {reset_time}"}],
+                "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
+            },
+            headers={"Retry-After": str(reset_time - int(time.time()))},
         )
