@@ -29,6 +29,7 @@ export function useAnswerEdit(
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editedText, setEditedText] = useState('');
+  const [originalText, setOriginalText] = useState('');
 
   const charCount = editedText.length;
   const charCountColor = getCharCountColor(charCount, ANSWER_CHARACTER_LIMIT);
@@ -36,6 +37,7 @@ export function useAnswerEdit(
 
   const startEdit = useCallback((initialText: string) => {
     setEditedText(initialText);
+    setOriginalText(initialText);
     setIsEditing(true);
     setError(null);
   }, []);
@@ -65,10 +67,23 @@ export function useAnswerEdit(
   }, [sessionId, questionId, editedText, isSaveDisabled, onSuccess]);
 
   const cancelEdit = useCallback(() => {
+    const UNSAVED_CHANGES_THRESHOLD = 50;
+    const trimmedText = editedText.trim();
+    const trimmedOriginal = originalText.trim();
+    const hasChanges = trimmedText !== trimmedOriginal;
+
+    if (hasChanges && trimmedText.length > UNSAVED_CHANGES_THRESHOLD) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Are you sure you want to discard them?'
+      );
+      if (!confirmed) return;
+    }
+
     setIsEditing(false);
     setEditedText('');
+    setOriginalText('');
     setError(null);
-  }, []);
+  }, [editedText, originalText]);
 
   const deleteAnswer = useCallback(async () => {
     setIsDeleting(true);

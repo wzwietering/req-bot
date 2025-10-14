@@ -53,6 +53,16 @@ export function useQuestionCreate(
   }, []);
 
   const closeForm = useCallback(() => {
+    const UNSAVED_CHANGES_THRESHOLD = 50;
+    const trimmedText = formData.text.trim();
+
+    if (trimmedText.length > UNSAVED_CHANGES_THRESHOLD) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Are you sure you want to discard them?'
+      );
+      if (!confirmed) return;
+    }
+
     setShowForm(false);
     setFormData({
       text: '',
@@ -60,7 +70,7 @@ export function useQuestionCreate(
       required: true,
     });
     setError(null);
-  }, []);
+  }, [formData.text]);
 
   const updateText = useCallback((text: string) => {
     setFormData((prev) => ({ ...prev, text }));

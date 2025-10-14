@@ -42,17 +42,21 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [sessionStatusLoading, setSessionStatusLoading] = useState(true);
 
   useEffect(() => {
     loadQA();
 
     const fetchSessionStatus = async () => {
+      setSessionStatusLoading(true);
       try {
         const { sessionsApi } = await import('@/lib/api/sessions');
         const session = await sessionsApi.getSession(sessionId);
         setSessionComplete(session.conversation_complete);
       } catch (err) {
         console.error('Failed to fetch session status:', err);
+      } finally {
+        setSessionStatusLoading(false);
       }
     };
 
@@ -127,6 +131,7 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
                 group={group}
                 sessionId={sessionId}
                 sessionComplete={sessionComplete}
+                sessionStatusLoading={sessionStatusLoading}
                 onRefresh={loadQA}
               />
             ))}

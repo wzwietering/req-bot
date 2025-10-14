@@ -17,6 +17,7 @@ interface QAPairCardProps {
   pair: QuestionAnswerPair;
   sessionId: string;
   sessionComplete: boolean;
+  sessionStatusLoading: boolean;
   onRefresh: () => void;
 }
 
@@ -29,7 +30,7 @@ function handleSuccess(
   setTimeout(() => setSavedSuccess(false), FEEDBACK_DURATIONS.SUCCESS);
 }
 
-export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPairCardProps) {
+export function QAPairCard({ pair, sessionId, sessionComplete, sessionStatusLoading, onRefresh }: QAPairCardProps) {
   const [showCopyFeedback, setShowCopyFeedback] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copyError, setCopyError] = useState(false);
@@ -82,7 +83,7 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
   };
 
   const isEditing = answerEdit.isEditing;
-  const isLocked = sessionComplete || answerEdit.isSaving || answerEdit.isDeleting || questionDelete.isDeleting;
+  const isLocked = sessionStatusLoading || sessionComplete || answerEdit.isSaving || answerEdit.isDeleting || questionDelete.isDeleting;
 
   return (
     <>
@@ -97,7 +98,7 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
               <div className="flex flex-wrap items-center gap-2">
                 <CategoryBadge category={pair.question.category} />
                 {pair.question.required && (
-                  <span className="text-xs font-medium text-deep-indigo-700 px-2 py-1 bg-deep-indigo-50 border border-deep-indigo-200 rounded-full">
+                  <span className="text-xs font-semibold text-jasper-red-700 px-2 py-1 bg-jasper-red-50 border border-jasper-red-300 rounded-full">
                     Required
                   </span>
                 )}

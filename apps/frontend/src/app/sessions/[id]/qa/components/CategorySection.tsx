@@ -11,6 +11,7 @@ interface CategorySectionProps {
   group: CategoryGroup;
   sessionId: string;
   sessionComplete: boolean;
+  sessionStatusLoading: boolean;
   onRefresh: () => void;
 }
 
@@ -26,7 +27,7 @@ function getStatusVariant(answeredCount: number, totalCount: number) {
   return 'notStarted';
 }
 
-export function CategorySection({ group, sessionId, sessionComplete, onRefresh }: CategorySectionProps) {
+export function CategorySection({ group, sessionId, sessionComplete, sessionStatusLoading, onRefresh }: CategorySectionProps) {
   const config = categoryConfig[group.category];
   const statusVariant = getStatusVariant(group.answeredCount, group.totalCount);
 
@@ -117,6 +118,7 @@ export function CategorySection({ group, sessionId, sessionComplete, onRefresh }
                 pair={pair}
                 sessionId={sessionId}
                 sessionComplete={sessionComplete}
+                sessionStatusLoading={sessionStatusLoading}
                 onRefresh={onRefresh}
               />
             ))}
