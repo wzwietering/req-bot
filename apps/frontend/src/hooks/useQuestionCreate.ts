@@ -1,16 +1,7 @@
 import { useState, useCallback } from 'react';
 import { sessionsApi } from '@/lib/api/sessions';
 import { Question } from '@/lib/api/types';
-import { CharCountColor } from './useAnswerEdit';
-
-const MAX_QUESTION_LENGTH = 1000;
-const AMBER_WARNING_THRESHOLD = 900;
-
-export function getQuestionCharCountColor(count: number): CharCountColor {
-  if (count > MAX_QUESTION_LENGTH) return 'red';
-  if (count > AMBER_WARNING_THRESHOLD) return 'amber';
-  return 'gray';
-}
+import { CharCountColor, QUESTION_CHARACTER_LIMIT, getCharCountColor } from '@/types/form';
 
 interface QuestionFormData {
   text: string;
@@ -48,8 +39,8 @@ export function useQuestionCreate(
   });
 
   const charCount = formData.text.length;
-  const charCountColor = getQuestionCharCountColor(charCount);
-  const isCreateDisabled = charCount === 0 || charCount > MAX_QUESTION_LENGTH;
+  const charCountColor = getCharCountColor(charCount, QUESTION_CHARACTER_LIMIT);
+  const isCreateDisabled = charCount === 0 || charCount > QUESTION_CHARACTER_LIMIT.max;
 
   const openForm = useCallback((category: Question['category']) => {
     setFormData({

@@ -1,16 +1,6 @@
 import { useState, useCallback } from 'react';
 import { sessionsApi } from '@/lib/api/sessions';
-
-const MAX_ANSWER_LENGTH = 5000;
-const AMBER_WARNING_THRESHOLD = 4500;
-
-export type CharCountColor = 'gray' | 'amber' | 'red';
-
-export function getCharCountColor(count: number): CharCountColor {
-  if (count > MAX_ANSWER_LENGTH) return 'red';
-  if (count > AMBER_WARNING_THRESHOLD) return 'amber';
-  return 'gray';
-}
+import { CharCountColor, ANSWER_CHARACTER_LIMIT, getCharCountColor } from '@/types/form';
 
 interface UseAnswerEditResult {
   isEditing: boolean;
@@ -41,8 +31,8 @@ export function useAnswerEdit(
   const [editedText, setEditedText] = useState('');
 
   const charCount = editedText.length;
-  const charCountColor = getCharCountColor(charCount);
-  const isSaveDisabled = charCount === 0 || charCount > MAX_ANSWER_LENGTH;
+  const charCountColor = getCharCountColor(charCount, ANSWER_CHARACTER_LIMIT);
+  const isSaveDisabled = charCount === 0 || charCount > ANSWER_CHARACTER_LIMIT.max;
 
   const startEdit = useCallback((initialText: string) => {
     setEditedText(initialText);

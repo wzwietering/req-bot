@@ -1,17 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { FiCheck, FiCopy, FiX, FiLoader, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiCheck, FiCopy, FiX, FiLoader } from 'react-icons/fi';
 import { QuestionAnswerPair } from '@/lib/api/types';
 import { Card } from '@/components/ui/Card';
 import { CategoryBadge } from '@/components/ui/CategoryBadge';
-import { Button } from '@/components/ui/Button';
-import { Textarea } from '@/components/ui/Textarea';
 import { copyToClipboard } from '../utils/categoryHelpers';
 import { useAnswerEdit } from '@/hooks/useAnswerEdit';
 import { useQuestionDelete } from '@/hooks/useQuestionDelete';
 import { DeleteAnswerDialog } from './DeleteAnswerDialog';
 import { DeleteQuestionDialog } from './DeleteQuestionDialog';
+import { AnswerEditForm, AnswerActions } from './QAPairCardHelpers';
+import { FEEDBACK_DURATIONS } from '@/constants/ui';
 
 interface QAPairCardProps {
   pair: QuestionAnswerPair;
@@ -20,11 +20,14 @@ interface QAPairCardProps {
   onRefresh: () => void;
 }
 
-const charCountColorClasses = {
-  gray: 'text-deep-indigo-400',
-  amber: 'text-amber-600 font-medium',
-  red: 'text-jasper-red-600 font-semibold',
-};
+function handleSuccess(
+  onRefresh: () => void,
+  setSavedSuccess: (value: boolean) => void
+) {
+  onRefresh();
+  setSavedSuccess(true);
+  setTimeout(() => setSavedSuccess(false), FEEDBACK_DURATIONS.SUCCESS);
+}
 
 export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPairCardProps) {
   const [showCopyFeedback, setShowCopyFeedback] = useState(false);
@@ -35,11 +38,9 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
 
   const isAnswered = pair.answer !== null;
 
-  const answerEdit = useAnswerEdit(sessionId, pair.question.id, () => {
-    onRefresh();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2000);
-  });
+  const answerEdit = useAnswerEdit(sessionId, pair.question.id, () =>
+    handleSuccess(onRefresh, setSavedSuccess)
+  );
 
   const questionDelete = useQuestionDelete(sessionId, pair.question.id, onRefresh);
 
@@ -52,11 +53,11 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
     try {
       await copyToClipboard(text);
       setShowCopyFeedback(true);
-      setTimeout(() => setShowCopyFeedback(false), 3000);
+      setTimeout(() => setShowCopyFeedback(false), FEEDBACK_DURATIONS.INFO);
     } catch (err) {
       console.error('Failed to copy:', err);
       setCopyError(true);
-      setTimeout(() => setCopyError(false), 3000);
+      setTimeout(() => setCopyError(false), FEEDBACK_DURATIONS.ERROR);
     } finally {
       setIsCopying(false);
     }
@@ -140,55 +141,19 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
           {/* Answer Section */}
           <div className={`pt-3 border-t ${isAnswered && !isEditing ? 'border-deep-indigo-100' : 'border-amber-200'}`}>
             {isEditing ? (
-              /* Edit Mode */
-              <div className="space-y-3">
-                <Textarea
-                  value={answerEdit.editedText}
-                  onChange={(e) => answerEdit.updateText(e.target.value)}
-                  placeholder="Enter your answer..."
-                  rows={4}
-                  maxLength={5000}
-                  disabled={answerEdit.isSaving}
-                  aria-label="Answer text"
-                />
-
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`text-sm ${charCountColorClasses[answerEdit.charCountColor]}`}
-                    aria-live="polite"
-                    aria-atomic="true"
-                  >
-                    {answerEdit.charCount}/5000 characters
-                  </span>
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={answerEdit.cancelEdit}
-                      variant="secondary"
-                      size="md"
-                      disabled={answerEdit.isSaving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={answerEdit.saveAnswer}
-                      variant="success"
-                      size="md"
-                      disabled={answerEdit.isSaveDisabled || answerEdit.isSaving}
-                    >
-                      {savedSuccess ? '✓ Saved' : answerEdit.isSaving ? 'Saving...' : 'Save'}
-                    </Button>
-                  </div>
-                </div>
-
-                {answerEdit.error && (
-                  <div className="p-3 bg-jasper-red-50 border border-jasper-red-200 rounded-md" role="alert">
-                    <p className="text-sm text-jasper-red-700">{answerEdit.error}</p>
-                  </div>
-                )}
-              </div>
+              <AnswerEditForm
+                editedText={answerEdit.editedText}
+                charCount={answerEdit.charCount}
+                charCountColor={answerEdit.charCountColor}
+                isSaving={answerEdit.isSaving}
+                isSaveDisabled={answerEdit.isSaveDisabled}
+                savedSuccess={savedSuccess}
+                error={answerEdit.error}
+                onTextChange={answerEdit.updateText}
+                onCancel={answerEdit.cancelEdit}
+                onSave={answerEdit.saveAnswer}
+              />
             ) : (
-              /* View Mode */
               <div>
                 <div role="definition" className="mb-3">
                   <p className={`text-base ${isAnswered ? 'text-deep-indigo-500' : 'text-amber-800'}`}>
@@ -197,62 +162,15 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
                   </p>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 justify-end">
-                  {isAnswered ? (
-                    <>
-                      <Button
-                        onClick={handleEditAnswer}
-                        variant="secondary"
-                        size="sm"
-                        disabled={isLocked}
-                        title={sessionComplete ? 'Editing locked - session is complete' : 'Edit answer'}
-                        aria-label={`Edit answer for question: ${pair.question.text}`}
-                        className="min-h-[44px]"
-                      >
-                        <FiEdit2 className="w-4 h-4 sm:mr-2" aria-hidden="true" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
-                      <Button
-                        onClick={handleDeleteAnswer}
-                        variant="danger-text"
-                        size="sm"
-                        disabled={isLocked}
-                        title={sessionComplete ? 'Editing locked - session is complete' : 'Delete answer'}
-                        aria-label={`Delete answer for question: ${pair.question.text}`}
-                        className="min-h-[44px]"
-                      >
-                        <FiTrash2 className="w-4 h-4 sm:mr-2" aria-hidden="true" />
-                        <span className="hidden sm:inline">Delete Answer</span>
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      onClick={handleEditAnswer}
-                      variant="secondary"
-                      size="sm"
-                      disabled={isLocked}
-                      title={sessionComplete ? 'Editing locked - session is complete' : 'Add answer'}
-                      aria-label={`Add answer for question: ${pair.question.text}`}
-                      className="min-h-[44px]"
-                    >
-                      Add Answer
-                    </Button>
-                  )}
-
-                  <Button
-                    onClick={questionDelete.openConfirm}
-                    variant="danger-text"
-                    size="sm"
-                    disabled={isLocked}
-                    title={sessionComplete ? 'Editing locked - session is complete' : 'Delete question and answer'}
-                    aria-label={`Delete question and answer: ${pair.question.text}`}
-                    className="min-h-[44px]"
-                  >
-                    <FiTrash2 className="w-4 h-4 sm:mr-2" aria-hidden="true" />
-                    <span className="hidden sm:inline">Delete Question</span>
-                  </Button>
-                </div>
+                <AnswerActions
+                  isAnswered={isAnswered}
+                  isLocked={isLocked}
+                  sessionComplete={sessionComplete}
+                  questionText={pair.question.text}
+                  onEdit={handleEditAnswer}
+                  onDelete={handleDeleteAnswer}
+                  onDeleteQuestion={questionDelete.openConfirm}
+                />
               </div>
             )}
           </div>

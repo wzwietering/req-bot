@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { CategoryBadge } from '@/components/ui/CategoryBadge';
 import { Question } from '@/lib/api/types';
-import { CharCountColor } from '@/hooks/useAnswerEdit';
+import { CharCountColor, QUESTION_CHARACTER_LIMIT } from '@/types/form';
 
 interface QuestionCreateFormProps {
   category: Question['category'];
@@ -53,7 +53,7 @@ export function QuestionCreateForm({
         onChange={(e) => onTextChange(e.target.value)}
         placeholder="Enter your question text..."
         rows={3}
-        maxLength={1000}
+        maxLength={QUESTION_CHARACTER_LIMIT.max}
         disabled={isCreating}
         aria-label="Question text"
         className="mb-2"
@@ -82,7 +82,7 @@ export function QuestionCreateForm({
           aria-live="polite"
           aria-atomic="true"
         >
-          {charCount}/1000 characters
+          {charCount}/{QUESTION_CHARACTER_LIMIT.max} characters
         </span>
       </div>
 

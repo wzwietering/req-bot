@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/Button';
+import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
+import { MAX_DISPLAY_LENGTH } from '@/constants/ui';
 
 interface DeleteQuestionDialogProps {
   isOpen: boolean;
@@ -11,6 +13,10 @@ interface DeleteQuestionDialogProps {
   onCancel: () => void;
   error?: string | null;
   isLoading?: boolean;
+}
+
+function truncateText(text: string, maxLength: number): string {
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 }
 
 export function DeleteQuestionDialog({
@@ -23,65 +29,10 @@ export function DeleteQuestionDialog({
   isLoading = false,
 }: DeleteQuestionDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // Truncate question text for display
-  const truncatedQuestion = questionText.length > 80 ? `${questionText.substring(0, 80)}...` : questionText;
+  useDialogAccessibility(isOpen, dialogRef, onCancel, isLoading);
 
-  // Handle escape key
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLoading) {
-        onCancel();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, isLoading, onCancel]);
-
-  // Focus management and trap
-  useEffect(() => {
-    if (!isOpen) return;
-
-    previousFocusRef.current = document.activeElement as HTMLElement;
-
-    const dialog = dialogRef.current;
-    if (dialog) {
-      const focusableElements = dialog.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const firstElement = focusableElements[0] as HTMLElement;
-      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-      firstElement?.focus();
-
-      const handleTab = (e: KeyboardEvent) => {
-        if (e.key !== 'Tab') return;
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement?.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement?.focus();
-          }
-        }
-      };
-
-      document.addEventListener('keydown', handleTab);
-
-      return () => {
-        document.removeEventListener('keydown', handleTab);
-        previousFocusRef.current?.focus();
-      };
-    }
-  }, [isOpen]);
+  const truncatedQuestion = truncateText(questionText, MAX_DISPLAY_LENGTH.QUESTION_TRUNCATE);
 
   if (!isOpen) return null;
 
