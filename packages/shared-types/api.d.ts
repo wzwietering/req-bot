@@ -241,7 +241,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Answers
+         * @description List all answers for a session.
+         */
+        get: operations["list_answers_api_v1_sessions__session_id__answers_get"];
         put?: never;
         /**
          * Submit Answer
@@ -316,6 +320,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Questions
+         * @description List all questions for a session.
+         */
+        get: operations["list_questions_api_v1_sessions__session_id__questions_get"];
+        put?: never;
+        /**
+         * Create Question
+         * @description Create a new question for a session.
+         */
+        post: operations["create_question_api_v1_sessions__session_id__questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Question
+         * @description Get details of a specific question with its answer if available.
+         */
+        get: operations["get_question_api_v1_sessions__session_id__questions__question_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Question
+         * @description Delete a question and its associated answer.
+         */
+        delete: operations["delete_question_api_v1_sessions__session_id__questions__question_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/answers/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Answer
+         * @description Get details of a specific answer by question ID.
+         */
+        get: operations["get_answer_api_v1_sessions__session_id__answers__question_id__get"];
+        /**
+         * Update Answer
+         * @description Update an existing answer.
+         */
+        put: operations["update_answer_api_v1_sessions__session_id__answers__question_id__put"];
+        post?: never;
+        /**
+         * Delete Answer
+         * @description Delete an answer, marking the question as unanswered.
+         */
+        delete: operations["delete_answer_api_v1_sessions__session_id__answers__question_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -371,6 +451,26 @@ export interface components {
              */
             needs_followup: boolean;
         };
+        /**
+         * AnswerDetailResponse
+         * @description Response containing answer details with associated question.
+         */
+        AnswerDetailResponse: {
+            /** Session Id */
+            session_id: string;
+            answer: components["schemas"]["Answer"];
+            question: components["schemas"]["Question"];
+        };
+        /**
+         * AnswerListResponse
+         * @description Response containing list of answers for a session.
+         */
+        AnswerListResponse: {
+            /** Session Id */
+            session_id: string;
+            /** Answers */
+            answers: components["schemas"]["Answer"][];
+        };
         /** AnswerSubmissionResponse */
         AnswerSubmissionResponse: {
             /** Session Id */
@@ -385,6 +485,18 @@ export interface components {
              * @default false
              */
             requirements_generated: boolean;
+        };
+        /**
+         * AnswerUpdateRequest
+         * @description Request to update an answer.
+         */
+        AnswerUpdateRequest: {
+            /**
+             * Text
+             * @description Answer text
+             * @example The project must be completed within 6 months with a budget of $100,000
+             */
+            text: string;
         };
         /**
          * ConversationState
@@ -427,8 +539,53 @@ export interface components {
             /**
              * Answer Text
              * @description Answer text for the current question
+             * @example We need a web-based dashboard accessible from desktop and mobile devices
              */
             answer_text: string;
+        };
+        /**
+         * QuestionCreateRequest
+         * @description Request to create a new question.
+         */
+        QuestionCreateRequest: {
+            /**
+             * Text
+             * @description Question text
+             * @example What is the expected timeline for this project?
+             */
+            text: string;
+            /**
+             * Category
+             * @example constraints
+             * @enum {string}
+             */
+            category: "scope" | "users" | "constraints" | "nonfunctional" | "interfaces" | "data" | "risks" | "success";
+            /**
+             * Required
+             * @default true
+             * @example true
+             */
+            required: boolean;
+        };
+        /**
+         * QuestionDetailResponse
+         * @description Response containing question details with optional answer.
+         */
+        QuestionDetailResponse: {
+            /** Session Id */
+            session_id: string;
+            question: components["schemas"]["Question"];
+            answer: components["schemas"]["Answer"] | null;
+        };
+        /**
+         * QuestionListResponse
+         * @description Response containing list of questions for a session.
+         */
+        QuestionListResponse: {
+            /** Session Id */
+            session_id: string;
+            /** Questions */
+            questions: components["schemas"]["Question"][];
         };
         /** Requirement */
         Requirement: {
@@ -472,6 +629,7 @@ export interface components {
             /**
              * Project
              * @description Project name for the requirements gathering session
+             * @example E-commerce Mobile App
              */
             project: string;
         };
@@ -958,6 +1116,37 @@ export interface operations {
             };
         };
     };
+    list_answers_api_v1_sessions__session_id__answers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_answer_api_v1_sessions__session_id__answers_post: {
         parameters: {
             query?: never;
@@ -1073,6 +1262,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetryRequirementsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_questions_api_v1_sessions__session_id__questions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_question_api_v1_sessions__session_id__questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_question_api_v1_sessions__session_id__questions__question_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_question_api_v1_sessions__session_id__questions__question_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_answer_api_v1_sessions__session_id__answers__question_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_answer_api_v1_sessions__session_id__answers__question_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_answer_api_v1_sessions__session_id__answers__question_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
             /** @description Validation Error */
