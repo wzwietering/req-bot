@@ -7,6 +7,9 @@ from requirements_bot.api.validation import validate_non_empty_text
 from requirements_bot.core.conversation_state import ConversationState
 from requirements_bot.core.models import Answer, Question, Requirement
 
+# Type alias for question categories
+QuestionCategory = Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"]
+
 
 class SessionCreateRequest(BaseModel):
     project: str = Field(
@@ -160,9 +163,7 @@ class QuestionCreateRequest(BaseModel):
         description="Question text",
         examples=["What is the expected timeline for this project?"],
     )
-    category: Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"] = (
-        Field(..., examples=["constraints"])
-    )
+    category: QuestionCategory = Field(..., examples=["constraints"])
     required: bool = Field(True, examples=[True])
 
     @field_validator("text")
@@ -177,9 +178,7 @@ class QuestionUpdateRequest(BaseModel):
     text: str | None = Field(
         None, min_length=1, max_length=1000, description="Question text", examples=["What is the project budget?"]
     )
-    category: (
-        Literal["scope", "users", "constraints", "nonfunctional", "interfaces", "data", "risks", "success"] | None
-    ) = Field(None, examples=["constraints"])
+    category: QuestionCategory | None = Field(None, examples=["constraints"])
     required: bool | None = Field(None, examples=[False])
 
     @field_validator("text")

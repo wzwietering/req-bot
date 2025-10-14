@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from requirements_bot.core.models import Answer, Question, Session
-from requirements_bot.core.services.exceptions import QuestionNotFoundError
+from requirements_bot.core.services.exceptions import QuestionNotFoundError, SessionCompleteError
 from requirements_bot.core.services.question_service import QuestionCategory
 from requirements_bot.core.storage import StorageInterface
 
@@ -24,10 +24,7 @@ class QuestionCRUDService:
         Returns:
             Question object if found, None otherwise
         """
-        for question in session.questions:
-            if question.id == question_id:
-                return question
-        return None
+        return next((q for q in session.questions if q.id == question_id), None)
 
     def list_questions(self, session: Session) -> list[Question]:
         """List all questions for a session.
@@ -53,7 +50,13 @@ class QuestionCRUDService:
 
         Returns:
             Tuple of (updated session, new question)
+
+        Raises:
+            SessionCompleteError: If session is complete
         """
+        if session.conversation_complete:
+            raise SessionCompleteError("add questions to")
+
         # Generate unique question ID
         question_id = f"q_{uuid4().hex[:8]}"
 
@@ -89,30 +92,33 @@ class QuestionCRUDService:
             Tuple of (updated session, updated question)
 
         Raises:
+            SessionCompleteError: If session is complete
             QuestionNotFoundError: If question not found
         """
-        question = self.get_question(session, question_id)
-        if not question:
+        if session.conversation_complete:
+            raise SessionCompleteError("update questions in")
+
+        # Find the question and its index in one pass
+        question_with_index = next(((i, q) for i, q in enumerate(session.questions) if q.id == question_id), None)
+
+        if question_with_index is None:
             raise QuestionNotFoundError(question_id)
 
-        # Find the question in the list and update it
-        for i, q in enumerate(session.questions):
-            if q.id == question_id:
-                # Create updated question with new values
-                updated_question = Question(
-                    id=q.id,
-                    text=text if text is not None else q.text,
-                    category=category if category is not None else q.category,
-                    required=required if required is not None else q.required,
-                )
-                session.questions[i] = updated_question
+        index, old_question = question_with_index
 
-                # Save session
-                self.storage.save_session(session)
+        # Create updated question with new values
+        updated_question = Question(
+            id=old_question.id,
+            text=text if text is not None else old_question.text,
+            category=category if category is not None else old_question.category,
+            required=required if required is not None else old_question.required,
+        )
+        session.questions[index] = updated_question
 
-                return session, updated_question
+        # Save session
+        self.storage.save_session(session)
 
-        raise QuestionNotFoundError(question_id)
+        return session, updated_question
 
     def delete_question(self, session: Session, question_id: str) -> Session:
         """Delete a question from a session.
@@ -127,8 +133,12 @@ class QuestionCRUDService:
             Updated session
 
         Raises:
+            SessionCompleteError: If session is complete
             QuestionNotFoundError: If question not found
         """
+        if session.conversation_complete:
+            raise SessionCompleteError("delete questions from")
+
         # Check if question exists
         question = self.get_question(session, question_id)
         if not question:
@@ -157,7 +167,4 @@ class QuestionCRUDService:
         Returns:
             Answer object if found, None otherwise
         """
-        for answer in session.answers:
-            if answer.question_id == question_id:
-                return answer
-        return None
+        return next((a for a in session.answers if a.question_id == question_id), None)
