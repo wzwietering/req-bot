@@ -24,10 +24,25 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
   const { data, isLoading, error, loadQA } = useSessionQA(sessionId);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [sessionComplete, setSessionComplete] = useState(false);
 
   useEffect(() => {
     loadQA();
-  }, [loadQA]);
+
+    // Fetch session details to get conversation_complete status
+    const fetchSessionStatus = async () => {
+      try {
+        const { sessionsApi } = await import('@/lib/api/sessions');
+        const session = await sessionsApi.getSession(sessionId);
+        setSessionComplete(session.conversation_complete);
+      } catch (err) {
+        console.error('Failed to fetch session status:', err);
+        // Session status is optional, continue with default (not complete)
+      }
+    };
+
+    fetchSessionStatus();
+  }, [loadQA, sessionId]);
 
   const handleExport = useCallback(() => {
     if (!data) return;
@@ -86,7 +101,13 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
               ) : (
                 <div className="space-y-8">
                   {categoryGroups.map((group) => (
-                    <CategorySection key={group.category} group={group} />
+                    <CategorySection
+                      key={group.category}
+                      group={group}
+                      sessionId={sessionId}
+                      sessionComplete={sessionComplete}
+                      onRefresh={loadQA}
+                    />
                   ))}
                 </div>
               )}

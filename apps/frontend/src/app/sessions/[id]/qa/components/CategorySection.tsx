@@ -3,9 +3,15 @@
 import { CategoryGroup, categoryConfig } from '../utils/categoryHelpers';
 import { QAPairCard } from './QAPairCard';
 import { StatusBadge } from './StatusBadge';
+import { QuestionCreateForm } from './QuestionCreateForm';
+import { useQuestionCreate } from '@/hooks/useQuestionCreate';
+import { FiPlus, FiInfo } from 'react-icons/fi';
 
 interface CategorySectionProps {
   group: CategoryGroup;
+  sessionId: string;
+  sessionComplete: boolean;
+  onRefresh: () => void;
 }
 
 function getStatusVariant(answeredCount: number, totalCount: number) {
@@ -20,9 +26,14 @@ function getStatusVariant(answeredCount: number, totalCount: number) {
   return 'notStarted';
 }
 
-export function CategorySection({ group }: CategorySectionProps) {
+export function CategorySection({ group, sessionId, sessionComplete, onRefresh }: CategorySectionProps) {
   const config = categoryConfig[group.category];
   const statusVariant = getStatusVariant(group.answeredCount, group.totalCount);
+
+  const questionCreate = useQuestionCreate(sessionId, () => {
+    onRefresh();
+    questionCreate.closeForm();
+  });
 
   return (
     <section
@@ -30,22 +41,73 @@ export function CategorySection({ group }: CategorySectionProps) {
       aria-labelledby={`category-${group.category}`}
     >
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <StatusBadge variant={statusVariant} />
-          <h2
-            id={`category-${group.category}`}
-            className="text-xl font-semibold text-deep-indigo-500"
-          >
-            {group.label}
-          </h2>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.colors}`}>
-            {group.answeredCount}/{group.totalCount}
-          </span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <StatusBadge variant={statusVariant} />
+            <h2
+              id={`category-${group.category}`}
+              className="text-xl font-semibold text-deep-indigo-500"
+            >
+              {group.label}
+            </h2>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.colors}`}>
+              {group.answeredCount}/{group.totalCount}
+            </span>
+          </div>
+
+          {!sessionComplete && !questionCreate.showForm && (
+            <button
+              onClick={() => questionCreate.openForm(group.category)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-benzol-green-700 hover:text-benzol-green-800 hover:bg-benzol-green-50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-benzol-green-500 focus:ring-offset-2 min-h-[44px]"
+              aria-label={`Add question to ${group.label} category`}
+            >
+              <FiPlus className="w-4 h-4" aria-hidden="true" />
+              <span>Add Question</span>
+            </button>
+          )}
         </div>
 
+        {/* Session Complete Banner */}
+        {sessionComplete && (
+          <div
+            className="flex items-start gap-2 p-3 bg-deep-indigo-50 border border-deep-indigo-200 rounded-md"
+            role="status"
+          >
+            <FiInfo className="w-5 h-5 text-deep-indigo-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-sm text-deep-indigo-700">
+              Session complete - View only
+            </p>
+          </div>
+        )}
+
+        {/* Question Creation Form */}
+        {questionCreate.showForm && (
+          <QuestionCreateForm
+            category={group.category}
+            questionText={questionCreate.formData.text}
+            isRequired={questionCreate.formData.required}
+            charCount={questionCreate.charCount}
+            charCountColor={questionCreate.charCountColor}
+            isCreating={questionCreate.isCreating}
+            error={questionCreate.error}
+            isCreateDisabled={questionCreate.isCreateDisabled}
+            onTextChange={questionCreate.updateText}
+            onRequiredChange={questionCreate.updateRequired}
+            onCreate={questionCreate.createQuestion}
+            onCancel={questionCreate.closeForm}
+          />
+        )}
+
+        {/* Q&A Pairs */}
         <div className="space-y-3">
           {group.pairs.map((pair) => (
-            <QAPairCard key={pair.question.id} pair={pair} />
+            <QAPairCard
+              key={pair.question.id}
+              pair={pair}
+              sessionId={sessionId}
+              sessionComplete={sessionComplete}
+              onRefresh={onRefresh}
+            />
           ))}
         </div>
       </div>
