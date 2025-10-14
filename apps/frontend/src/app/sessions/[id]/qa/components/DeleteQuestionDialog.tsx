@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { FiAlertTriangle } from 'react-icons/fi';
 import { Button } from '@/components/ui/Button';
 import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
 import { MAX_DISPLAY_LENGTH } from '@/constants/ui';
@@ -57,7 +58,8 @@ export function DeleteQuestionDialog({
         role="document"
       >
         <div className="flex items-start justify-between mb-2">
-          <h2 id="dialog-title" className="text-xl font-semibold text-jasper-red-600">
+          <h2 id="dialog-title" className="text-xl font-bold text-jasper-red-600 flex items-center gap-2">
+            <FiAlertTriangle className="w-6 h-6" aria-hidden="true" />
             Delete Question?
           </h2>
           <button
@@ -79,18 +81,24 @@ export function DeleteQuestionDialog({
         </div>
 
         <div id="dialog-description" className="text-base text-deep-indigo-400 mb-4">
-          <p className="mb-3 font-medium">This will permanently delete:</p>
-          <ul className="space-y-2 ml-4">
-            <li className="flex items-start">
-              <span className="text-jasper-red-500 mr-2">•</span>
+          <p className="mb-3 font-semibold text-jasper-red-700">
+            This action cannot be undone. This will permanently delete:
+          </p>
+          <ul className="space-y-2 ml-0">
+            <li className="flex items-start p-3 bg-jasper-red-50 rounded-md">
+              <span className="text-jasper-red-500 mr-2 mt-0.5">•</span>
               <span className="flex-1">
-                The question: <span className="italic">&ldquo;{truncatedQuestion}&rdquo;</span>
+                <span className="font-medium text-deep-indigo-600">Question:</span>{' '}
+                <span className="italic text-deep-indigo-500">&ldquo;{truncatedQuestion}&rdquo;</span>
               </span>
             </li>
             {answerLength !== null && (
-              <li className="flex items-start">
-                <span className="text-jasper-red-500 mr-2">•</span>
-                <span className="flex-1">Its answer ({answerLength} characters)</span>
+              <li className="flex items-start p-3 bg-jasper-red-50 rounded-md">
+                <span className="text-jasper-red-500 mr-2 mt-0.5">•</span>
+                <span className="flex-1">
+                  <span className="font-medium text-deep-indigo-600">Answer:</span>{' '}
+                  <span className="text-deep-indigo-500">({answerLength} characters)</span>
+                </span>
               </li>
             )}
           </ul>

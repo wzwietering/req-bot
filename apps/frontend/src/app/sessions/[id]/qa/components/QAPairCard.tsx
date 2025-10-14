@@ -110,7 +110,7 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
             <button
               onClick={handleCopy}
               disabled={isCopying}
-              className="flex-shrink-0 transition-opacity p-2 rounded hover:bg-deep-indigo-50 focus:outline-none focus:ring-2 focus:ring-benzol-green-500 focus:ring-offset-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="flex-shrink-0 transition-opacity p-2 rounded hover:bg-deep-indigo-50 focus:outline-none focus:ring-2 focus:ring-benzol-green-500 focus:ring-offset-2 min-h-[44px] flex items-center gap-2"
               aria-label="Copy question and answer"
               title="Copy to clipboard"
             >
@@ -123,6 +123,9 @@ export function QAPairCard({ pair, sessionId, sessionComplete, onRefresh }: QAPa
               ) : (
                 <FiCopy className="w-5 h-5 text-deep-indigo-400" aria-hidden="true" />
               )}
+              <span className="hidden lg:inline text-sm text-deep-indigo-500">
+                {isCopying ? 'Copying...' : showCopyFeedback ? 'Copied!' : 'Copy'}
+              </span>
             </button>
           </div>
 

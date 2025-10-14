@@ -70,13 +70,18 @@ export function CategorySection({ group, sessionId, sessionComplete, onRefresh }
         {/* Session Complete Banner */}
         {sessionComplete && (
           <div
-            className="flex items-start gap-2 p-3 bg-deep-indigo-50 border border-deep-indigo-200 rounded-md"
-            role="status"
+            className="flex items-start gap-3 p-4 bg-amber-50 border-2 border-amber-400 rounded-lg shadow-sm"
+            role="alert"
           >
-            <FiInfo className="w-5 h-5 text-deep-indigo-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-sm text-deep-indigo-700">
-              Session complete - View only
-            </p>
+            <FiInfo className="w-6 h-6 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="text-base font-semibold text-amber-900 mb-1">
+                Session Complete - Read Only
+              </p>
+              <p className="text-sm text-amber-800">
+                This session is locked. Questions and answers cannot be edited. To make changes, create a new session.
+              </p>
+            </div>
           </div>
         )}
 
@@ -99,17 +104,24 @@ export function CategorySection({ group, sessionId, sessionComplete, onRefresh }
         )}
 
         {/* Q&A Pairs */}
-        <div className="space-y-3">
-          {group.pairs.map((pair) => (
-            <QAPairCard
-              key={pair.question.id}
-              pair={pair}
-              sessionId={sessionId}
-              sessionComplete={sessionComplete}
-              onRefresh={onRefresh}
-            />
-          ))}
-        </div>
+        {group.pairs.length === 0 ? (
+          <div className="text-center py-6 text-deep-indigo-400 text-sm">
+            No questions in this category yet.
+            {!sessionComplete && ' Click "Add Question" to get started.'}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {group.pairs.map((pair) => (
+              <QAPairCard
+                key={pair.question.id}
+                pair={pair}
+                sessionId={sessionId}
+                sessionComplete={sessionComplete}
+                onRefresh={onRefresh}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

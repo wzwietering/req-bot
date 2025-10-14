@@ -36,34 +36,59 @@ export function AnswerEditForm({
   onCancel,
   onSave,
 }: AnswerEditFormProps) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape' && !isSaving) {
+      e.preventDefault();
+      onCancel();
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isSaveDisabled && !isSaving) {
+      e.preventDefault();
+      onSave();
+    }
+  };
+
   return (
     <div className="space-y-3">
       <Textarea
         value={editedText}
         onChange={(e) => onTextChange(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Enter your answer..."
         rows={4}
         maxLength={ANSWER_CHARACTER_LIMIT.max}
         disabled={isSaving}
         aria-label="Answer text"
+        aria-description="Press Escape to cancel, Ctrl+Enter to save"
       />
 
-      <div className="flex items-center justify-between">
-        <span
-          className={`text-sm ${charCountColorClasses[charCountColor]}`}
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {charCount}/{ANSWER_CHARACTER_LIMIT.max} characters
-        </span>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <span
+              className={`text-sm ${charCountColorClasses[charCountColor]}`}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {charCount}/{ANSWER_CHARACTER_LIMIT.max} characters
+            </span>
+            {charCount > ANSWER_CHARACTER_LIMIT.warningThreshold && (
+              <p className={`text-xs mt-1 ${charCount <= ANSWER_CHARACTER_LIMIT.max ? 'text-amber-600' : 'text-jasper-red-600'}`}>
+                {charCount <= ANSWER_CHARACTER_LIMIT.max
+                  ? `Approaching character limit (${ANSWER_CHARACTER_LIMIT.max - charCount} remaining)`
+                  : `Character limit exceeded by ${charCount - ANSWER_CHARACTER_LIMIT.max}`
+                }
+              </p>
+            )}
+          </div>
 
-        <div className="flex gap-2">
-          <Button onClick={onCancel} variant="secondary" size="md" disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={onSave} variant="success" size="md" disabled={isSaveDisabled || isSaving}>
-            {savedSuccess ? '✓ Saved' : isSaving ? 'Saving...' : 'Save'}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={onCancel} variant="secondary" size="md" disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={onSave} variant="success" size="md" disabled={isSaveDisabled || isSaving}>
+              {savedSuccess ? '✓ Saved' : isSaving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
         </div>
       </div>
 

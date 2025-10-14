@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
+  confirmVariant?: 'primary' | 'danger';
   onConfirm: () => void;
   onCancel: () => void;
   error?: string | null;
@@ -21,6 +22,7 @@ export function ConfirmDialog({
   message,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
+  confirmVariant = 'primary',
   onConfirm,
   onCancel,
   error,
@@ -144,7 +146,7 @@ export function ConfirmDialog({
           <Button onClick={onCancel} variant="secondary" size="md" disabled={isLoading}>
             {cancelText}
           </Button>
-          <Button onClick={onConfirm} variant="primary" size="md" disabled={isLoading}>
+          <Button onClick={onConfirm} variant={confirmVariant} size="md" disabled={isLoading}>
             {confirmText}
           </Button>
         </div>

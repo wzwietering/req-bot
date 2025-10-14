@@ -28,6 +28,7 @@ export function DeleteAnswerDialog({
       message={message}
       confirmText="Delete Answer"
       cancelText="Cancel"
+      confirmVariant="danger"
       onConfirm={onConfirm}
       onCancel={onCancel}
       error={error}
