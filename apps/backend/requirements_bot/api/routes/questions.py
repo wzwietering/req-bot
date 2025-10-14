@@ -35,7 +35,6 @@ from requirements_bot.api.schemas import (
     QuestionCreateRequest,
     QuestionDetailResponse,
     QuestionListResponse,
-    QuestionUpdateRequest,
     RetryRequirementsResponse,
     SessionContinueResponse,
     SessionStatusResponse,
@@ -275,46 +274,6 @@ async def create_question(
             raise SessionInvalidStateException(str(e)) from e
 
         response_data = SessionResponseBuilder.build_question_detail_response(updated_session, new_question, None)
-        return QuestionDetailResponse(**response_data)
-    except SessionValidationError:
-        raise SessionNotFoundAPIException(session_id)
-
-
-@router.put(
-    "/sessions/{session_id}/questions/{question_id}",
-    response_model=QuestionDetailResponse,
-    dependencies=[Depends(check_crud_rate_limit)],
-)
-async def update_question(
-    session_id: Annotated[str, Depends(get_validated_session_id)],
-    question_id: str,
-    request: QuestionUpdateRequest,
-    session_service: Annotated[SessionService, Depends(get_session_service)],
-    question_service: Annotated[QuestionCRUDService, Depends(get_question_crud_service)],
-    user_id: Annotated[str, Depends(get_current_user_id)],
-) -> QuestionDetailResponse:
-    """Update an existing question."""
-    try:
-        session = session_service.load_session_with_validation(session_id, user_id)
-
-        try:
-            updated_session, updated_question = question_service.update_question(
-                session, question_id, request.text, request.category, request.required
-            )
-            log_event(
-                "question.updated",
-                session_id=session_id,
-                question_id=question_id,
-                user_id=user_id,
-                category=updated_question.category,
-            )
-        except SessionCompleteError as e:
-            raise SessionInvalidStateException(str(e)) from e
-        except QuestionNotFoundError as e:
-            raise QuestionNotFoundException(question_id) from e
-
-        answer = question_service.get_answer_for_question(updated_session, question_id)
-        response_data = SessionResponseBuilder.build_question_detail_response(updated_session, updated_question, answer)
         return QuestionDetailResponse(**response_data)
     except SessionValidationError:
         raise SessionNotFoundAPIException(session_id)

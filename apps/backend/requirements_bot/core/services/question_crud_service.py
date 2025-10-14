@@ -71,55 +71,6 @@ class QuestionCRUDService:
 
         return session, new_question
 
-    def update_question(
-        self,
-        session: Session,
-        question_id: str,
-        text: str | None = None,
-        category: QuestionCategory | None = None,
-        required: bool | None = None,
-    ) -> tuple[Session, Question]:
-        """Update an existing question.
-
-        Args:
-            session: The session object
-            question_id: ID of the question to update
-            text: New question text (if provided)
-            category: New category (if provided)
-            required: New required status (if provided)
-
-        Returns:
-            Tuple of (updated session, updated question)
-
-        Raises:
-            SessionCompleteError: If session is complete
-            QuestionNotFoundError: If question not found
-        """
-        if session.conversation_complete:
-            raise SessionCompleteError("update questions in")
-
-        # Find the question and its index in one pass
-        question_with_index = next(((i, q) for i, q in enumerate(session.questions) if q.id == question_id), None)
-
-        if question_with_index is None:
-            raise QuestionNotFoundError(question_id)
-
-        index, old_question = question_with_index
-
-        # Create updated question with new values
-        updated_question = Question(
-            id=old_question.id,
-            text=text if text is not None else old_question.text,
-            category=category if category is not None else old_question.category,
-            required=required if required is not None else old_question.required,
-        )
-        session.questions[index] = updated_question
-
-        # Save session
-        self.storage.save_session(session)
-
-        return session, updated_question
-
     def delete_question(self, session: Session, question_id: str) -> Session:
         """Delete a question from a session.
 

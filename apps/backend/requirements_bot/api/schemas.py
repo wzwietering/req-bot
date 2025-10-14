@@ -172,23 +172,6 @@ class QuestionCreateRequest(BaseModel):
         return validate_non_empty_text(v, "Question text")
 
 
-class QuestionUpdateRequest(BaseModel):
-    """Request to update a question."""
-
-    text: str | None = Field(
-        None, min_length=1, max_length=1000, description="Question text", examples=["What is the project budget?"]
-    )
-    category: QuestionCategory | None = Field(None, examples=["constraints"])
-    required: bool | None = Field(None, examples=[False])
-
-    @field_validator("text")
-    @classmethod
-    def validate_text(cls, v):
-        if v is not None:
-            return validate_non_empty_text(v, "Question text")
-        return v
-
-
 class QuestionListResponse(BaseModel):
     """Response containing list of questions for a session."""
 
