@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { CategoryGroup, categoryConfig } from '../utils/categoryHelpers';
 import { QAPairCard } from './QAPairCard';
 import { StatusBadge } from './StatusBadge';
@@ -15,15 +16,11 @@ interface CategorySectionProps {
   onRefresh: () => void;
 }
 
-function getStatusVariant(answeredCount: number, totalCount: number) {
-  if (answeredCount === totalCount) {
-    return 'complete';
-  }
+type StatusVariant = 'complete' | 'partial' | 'notStarted';
 
-  if (answeredCount > 0) {
-    return 'partial';
-  }
-
+function getStatusVariant(answeredCount: number, totalCount: number): StatusVariant {
+  if (answeredCount === totalCount) return 'complete';
+  if (answeredCount > 0) return 'partial';
   return 'notStarted';
 }
 
@@ -31,10 +28,11 @@ export function CategorySection({ group, sessionId, sessionComplete, sessionStat
   const config = categoryConfig[group.category];
   const statusVariant = getStatusVariant(group.answeredCount, group.totalCount);
 
-  const questionCreate = useQuestionCreate(sessionId, () => {
+  const handleQuestionCreated = useCallback(() => {
     onRefresh();
-    questionCreate.closeForm();
-  });
+  }, [onRefresh]);
+
+  const questionCreate = useQuestionCreate(sessionId, handleQuestionCreated);
 
   return (
     <section

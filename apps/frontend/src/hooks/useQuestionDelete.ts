@@ -7,7 +7,7 @@ interface UseQuestionDeleteResult {
   showConfirm: boolean;
   openConfirm: () => void;
   closeConfirm: () => void;
-  deleteQuestion: () => Promise<void>;
+  deleteQuestion: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -30,7 +30,7 @@ export function useQuestionDelete(
     setError(null);
   }, []);
 
-  const deleteQuestion = useCallback(async () => {
+  const deleteQuestion = useCallback(async (): Promise<boolean> => {
     setIsDeleting(true);
     setError(null);
 
@@ -38,10 +38,12 @@ export function useQuestionDelete(
       await sessionsApi.deleteQuestion(sessionId, questionId);
       setShowConfirm(false);
       onSuccess();
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete question';
       setError(message);
       console.error('Failed to delete question:', err);
+      return false;
     } finally {
       setIsDeleting(false);
     }

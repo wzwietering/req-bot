@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { sessionsApi } from '@/lib/api/sessions';
 import { CharCountColor, ANSWER_CHARACTER_LIMIT, getCharCountColor } from '@/types/form';
+import { UNSAVED_CHANGES_THRESHOLD } from '@/constants/ui';
+import { validateAnswer, sanitizeInput } from '@/lib/utils/validation';
 
 interface UseAnswerEditResult {
   isEditing: boolean;
@@ -15,7 +17,7 @@ interface UseAnswerEditResult {
   updateText: (text: string) => void;
   saveAnswer: () => Promise<void>;
   cancelEdit: () => void;
-  deleteAnswer: () => Promise<void>;
+  deleteAnswer: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -50,11 +52,18 @@ export function useAnswerEdit(
   const saveAnswer = useCallback(async () => {
     if (isSaveDisabled) return;
 
+    const validation = validateAnswer(editedText);
+    if (!validation.isValid) {
+      setError(validation.error);
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
 
     try {
-      await sessionsApi.updateAnswer(sessionId, questionId, { text: editedText });
+      const sanitized = sanitizeInput(editedText);
+      await sessionsApi.updateAnswer(sessionId, questionId, { text: sanitized });
       setIsEditing(false);
       onSuccess();
     } catch (err) {
@@ -67,7 +76,6 @@ export function useAnswerEdit(
   }, [sessionId, questionId, editedText, isSaveDisabled, onSuccess]);
 
   const cancelEdit = useCallback(() => {
-    const UNSAVED_CHANGES_THRESHOLD = 50;
     const trimmedText = editedText.trim();
     const trimmedOriginal = originalText.trim();
     const hasChanges = trimmedText !== trimmedOriginal;
@@ -85,17 +93,19 @@ export function useAnswerEdit(
     setError(null);
   }, [editedText, originalText]);
 
-  const deleteAnswer = useCallback(async () => {
+  const deleteAnswer = useCallback(async (): Promise<boolean> => {
     setIsDeleting(true);
     setError(null);
 
     try {
       await sessionsApi.deleteAnswer(sessionId, questionId);
       onSuccess();
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete answer';
       setError(message);
       console.error('Failed to delete answer:', err);
+      return false;
     } finally {
       setIsDeleting(false);
     }

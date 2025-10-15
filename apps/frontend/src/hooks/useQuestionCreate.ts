@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { sessionsApi } from '@/lib/api/sessions';
 import { Question } from '@/lib/api/types';
 import { CharCountColor, QUESTION_CHARACTER_LIMIT, getCharCountColor } from '@/types/form';
+import { UNSAVED_CHANGES_THRESHOLD } from '@/constants/ui';
+import { validateQuestion, sanitizeInput } from '@/lib/utils/validation';
 
 interface QuestionFormData {
   text: string;
@@ -53,7 +55,6 @@ export function useQuestionCreate(
   }, []);
 
   const closeForm = useCallback(() => {
-    const UNSAVED_CHANGES_THRESHOLD = 50;
     const trimmedText = formData.text.trim();
 
     if (trimmedText.length > UNSAVED_CHANGES_THRESHOLD) {
@@ -84,11 +85,21 @@ export function useQuestionCreate(
   const createQuestion = useCallback(async () => {
     if (isCreateDisabled) return;
 
+    const validation = validateQuestion(formData.text);
+    if (!validation.isValid) {
+      setError(validation.error);
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
 
     try {
-      await sessionsApi.createQuestion(sessionId, formData);
+      const sanitizedData = {
+        ...formData,
+        text: sanitizeInput(formData.text),
+      };
+      await sessionsApi.createQuestion(sessionId, sanitizedData);
       setShowForm(false);
       setFormData({
         text: '',

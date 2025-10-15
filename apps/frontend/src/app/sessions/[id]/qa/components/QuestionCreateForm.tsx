@@ -5,6 +5,33 @@ import { Textarea } from '@/components/ui/Textarea';
 import { CategoryBadge } from '@/components/ui/CategoryBadge';
 import { Question } from '@/lib/api/types';
 import { CharCountColor, QUESTION_CHARACTER_LIMIT } from '@/types/form';
+import { CHAR_COUNT_COLOR_CLASSES } from '@/constants/ui';
+
+function handleFormKeyDown(
+  e: React.KeyboardEvent<HTMLTextAreaElement>,
+  isLoading: boolean,
+  isDisabled: boolean,
+  onCancel: () => void,
+  onSubmit: () => void
+) {
+  if (e.key === 'Escape' && !isLoading) {
+    e.preventDefault();
+    onCancel();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isDisabled && !isLoading) {
+    e.preventDefault();
+    onSubmit();
+  }
+}
+
+function getCharCountMessage(charCount: number, maxLimit: number): string {
+  if (charCount <= maxLimit) {
+    const remaining = maxLimit - charCount;
+    return `Approaching limit (${remaining} remaining)`;
+  }
+  const exceeded = charCount - maxLimit;
+  return `Limit exceeded by ${exceeded}`;
+}
 
 interface QuestionCreateFormProps {
   category: Question['category'];
@@ -21,12 +48,6 @@ interface QuestionCreateFormProps {
   onCancel: () => void;
 }
 
-const charCountColorClasses: Record<CharCountColor, string> = {
-  gray: 'text-deep-indigo-400',
-  amber: 'text-amber-600 font-medium',
-  red: 'text-jasper-red-600 font-semibold',
-};
-
 export function QuestionCreateForm({
   category,
   questionText,
@@ -42,15 +63,11 @@ export function QuestionCreateForm({
   onCancel,
 }: QuestionCreateFormProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Escape' && !isCreating) {
-      e.preventDefault();
-      onCancel();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isCreateDisabled && !isCreating) {
-      e.preventDefault();
-      onCreate();
-    }
+    handleFormKeyDown(e, isCreating, isCreateDisabled, onCancel, onCreate);
   };
+
+  const charCountMsg = getCharCountMessage(charCount, QUESTION_CHARACTER_LIMIT.max);
+  const showCharWarning = charCount > QUESTION_CHARACTER_LIMIT.warningThreshold;
 
   return (
     <div className="bg-deep-indigo-50 border border-deep-indigo-200 rounded-lg p-4 mb-4">
@@ -93,18 +110,15 @@ export function QuestionCreateForm({
 
           <div className="text-right">
             <span
-              className={`text-sm ${charCountColorClasses[charCountColor]}`}
+              className={`text-sm ${CHAR_COUNT_COLOR_CLASSES[charCountColor]}`}
               aria-live="polite"
               aria-atomic="true"
             >
               {charCount}/{QUESTION_CHARACTER_LIMIT.max} characters
             </span>
-            {charCount > QUESTION_CHARACTER_LIMIT.warningThreshold && (
+            {showCharWarning && (
               <p className={`text-xs mt-1 ${charCount <= QUESTION_CHARACTER_LIMIT.max ? 'text-amber-600' : 'text-jasper-red-600'}`}>
-                {charCount <= QUESTION_CHARACTER_LIMIT.max
-                  ? `Approaching limit (${QUESTION_CHARACTER_LIMIT.max - charCount} remaining)`
-                  : `Limit exceeded by ${charCount - QUESTION_CHARACTER_LIMIT.max}`
-                }
+                {charCountMsg}
               </p>
             )}
           </div>

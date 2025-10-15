@@ -4,12 +4,33 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { CharCountColor, ANSWER_CHARACTER_LIMIT } from '@/types/form';
+import { CHAR_COUNT_COLOR_CLASSES } from '@/constants/ui';
 
-const charCountColorClasses: Record<CharCountColor, string> = {
-  gray: 'text-deep-indigo-400',
-  amber: 'text-amber-600 font-medium',
-  red: 'text-jasper-red-600 font-semibold',
-};
+function handleFormKeyDown(
+  e: React.KeyboardEvent<HTMLTextAreaElement>,
+  isLoading: boolean,
+  isDisabled: boolean,
+  onCancel: () => void,
+  onSubmit: () => void
+) {
+  if (e.key === 'Escape' && !isLoading) {
+    e.preventDefault();
+    onCancel();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isDisabled && !isLoading) {
+    e.preventDefault();
+    onSubmit();
+  }
+}
+
+function getCharCountMessage(charCount: number, maxLimit: number): string {
+  if (charCount <= maxLimit) {
+    const remaining = maxLimit - charCount;
+    return `Approaching character limit (${remaining} remaining)`;
+  }
+  const exceeded = charCount - maxLimit;
+  return `Character limit exceeded by ${exceeded}`;
+}
 
 interface AnswerEditFormProps {
   editedText: string;
@@ -37,15 +58,11 @@ export function AnswerEditForm({
   onSave,
 }: AnswerEditFormProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Escape' && !isSaving) {
-      e.preventDefault();
-      onCancel();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isSaveDisabled && !isSaving) {
-      e.preventDefault();
-      onSave();
-    }
+    handleFormKeyDown(e, isSaving, isSaveDisabled, onCancel, onSave);
   };
+
+  const charCountMsg = getCharCountMessage(charCount, ANSWER_CHARACTER_LIMIT.max);
+  const showCharWarning = charCount > ANSWER_CHARACTER_LIMIT.warningThreshold;
 
   return (
     <div className="space-y-3">
@@ -65,18 +82,15 @@ export function AnswerEditForm({
         <div className="flex items-center justify-between">
           <div>
             <span
-              className={`text-sm ${charCountColorClasses[charCountColor]}`}
+              className={`text-sm ${CHAR_COUNT_COLOR_CLASSES[charCountColor]}`}
               aria-live="polite"
               aria-atomic="true"
             >
               {charCount}/{ANSWER_CHARACTER_LIMIT.max} characters
             </span>
-            {charCount > ANSWER_CHARACTER_LIMIT.warningThreshold && (
+            {showCharWarning && (
               <p className={`text-xs mt-1 ${charCount <= ANSWER_CHARACTER_LIMIT.max ? 'text-amber-600' : 'text-jasper-red-600'}`}>
-                {charCount <= ANSWER_CHARACTER_LIMIT.max
-                  ? `Approaching character limit (${ANSWER_CHARACTER_LIMIT.max - charCount} remaining)`
-                  : `Character limit exceeded by ${charCount - ANSWER_CHARACTER_LIMIT.max}`
-                }
+                {charCountMsg}
               </p>
             )}
           </div>

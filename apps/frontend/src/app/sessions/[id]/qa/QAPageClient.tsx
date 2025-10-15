@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSessionQA } from '@/hooks/useSessionQA';
+import { sessionsApi } from '@/lib/api/sessions';
 import { Navigation } from '@/components/layout/Navigation';
 import { Container } from '@/components/ui/Container';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -45,22 +46,35 @@ export function QAPageClient({ sessionId }: QAPageClientProps) {
   const [sessionStatusLoading, setSessionStatusLoading] = useState(true);
 
   useEffect(() => {
-    loadQA();
+    let cancelled = false;
 
-    const fetchSessionStatus = async () => {
+    const fetchData = async () => {
+      await loadQA();
+
+      if (cancelled) return;
+
       setSessionStatusLoading(true);
       try {
-        const { sessionsApi } = await import('@/lib/api/sessions');
         const session = await sessionsApi.getSession(sessionId);
-        setSessionComplete(session.conversation_complete);
+        if (!cancelled) {
+          setSessionComplete(session.conversation_complete);
+        }
       } catch (err) {
-        console.error('Failed to fetch session status:', err);
+        if (!cancelled) {
+          console.error('Failed to fetch session status:', err);
+        }
       } finally {
-        setSessionStatusLoading(false);
+        if (!cancelled) {
+          setSessionStatusLoading(false);
+        }
       }
     };
 
-    fetchSessionStatus();
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId, loadQA]);
 
   const handleExport = useCallback(() => {

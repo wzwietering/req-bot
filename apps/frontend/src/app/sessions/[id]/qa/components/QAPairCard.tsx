@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { FiCheck, FiCopy, FiX, FiLoader } from 'react-icons/fi';
 import { QuestionAnswerPair } from '@/lib/api/types';
 import { Card } from '@/components/ui/Card';
@@ -30,6 +30,31 @@ function handleSuccess(
   setTimeout(() => setSavedSuccess(false), FEEDBACK_DURATIONS.SUCCESS);
 }
 
+function formatCopyText(
+  questionText: string,
+  category: string,
+  answerText: string | null | undefined
+): string {
+  return `Q: ${questionText}\nCategory: ${category}\n\nA: ${answerText || 'Not answered yet'}`;
+}
+
+function getCopyButtonIcon(
+  isCopying: boolean,
+  copyError: boolean,
+  showFeedback: boolean
+) {
+  if (isCopying) return { Icon: FiLoader, className: 'animate-spin' };
+  if (copyError) return { Icon: FiX, className: '' };
+  if (showFeedback) return { Icon: FiCheck, className: '' };
+  return { Icon: FiCopy, className: '' };
+}
+
+function getCopyButtonText(isCopying: boolean, showFeedback: boolean): string {
+  if (isCopying) return 'Copying...';
+  if (showFeedback) return 'Copied!';
+  return 'Copy';
+}
+
 export function QAPairCard({ pair, sessionId, sessionComplete, sessionStatusLoading, onRefresh }: QAPairCardProps) {
   const [showCopyFeedback, setShowCopyFeedback] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -45,11 +70,11 @@ export function QAPairCard({ pair, sessionId, sessionComplete, sessionStatusLoad
 
   const questionDelete = useQuestionDelete(sessionId, pair.question.id, onRefresh);
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (isCopying) return;
 
     setIsCopying(true);
-    const text = `Q: ${pair.question.text}\nCategory: ${pair.question.category}\n\nA: ${pair.answer?.text || 'Not answered yet'}`;
+    const text = formatCopyText(pair.question.text, pair.question.category, pair.answer?.text);
 
     try {
       await copyToClipboard(text);
@@ -62,28 +87,32 @@ export function QAPairCard({ pair, sessionId, sessionComplete, sessionStatusLoad
     } finally {
       setIsCopying(false);
     }
-  };
+  }, [isCopying, pair.question.text, pair.question.category, pair.answer?.text]);
 
-  const handleEditAnswer = () => {
+  const handleEditAnswer = useCallback(() => {
     if (isAnswered && pair.answer) {
       answerEdit.startEdit(pair.answer.text);
     } else {
       answerEdit.startEdit('');
     }
-  };
+  }, [isAnswered, pair.answer, answerEdit]);
 
-  const handleDeleteAnswer = () => {
+  const handleDeleteAnswer = useCallback(() => {
     if (!isAnswered) return;
     setShowAnswerDeleteConfirm(true);
-  };
+  }, [isAnswered]);
 
-  const confirmDeleteAnswer = async () => {
-    await answerEdit.deleteAnswer();
-    setShowAnswerDeleteConfirm(false);
-  };
+  const confirmDeleteAnswer = useCallback(async () => {
+    const success = await answerEdit.deleteAnswer();
+    if (success) {
+      setShowAnswerDeleteConfirm(false);
+    }
+  }, [answerEdit]);
 
   const isEditing = answerEdit.isEditing;
   const isLocked = sessionStatusLoading || sessionComplete || answerEdit.isSaving || answerEdit.isDeleting || questionDelete.isDeleting;
+  const { Icon, className: iconClassName } = getCopyButtonIcon(isCopying, copyError, showCopyFeedback);
+  const copyButtonText = getCopyButtonText(isCopying, showCopyFeedback);
 
   return (
     <>
@@ -115,17 +144,9 @@ export function QAPairCard({ pair, sessionId, sessionComplete, sessionStatusLoad
               aria-label="Copy question and answer"
               title="Copy to clipboard"
             >
-              {isCopying ? (
-                <FiLoader className="w-5 h-5 text-deep-indigo-400 animate-spin" aria-hidden="true" />
-              ) : copyError ? (
-                <FiX className="w-5 h-5 text-jasper-red-500" aria-hidden="true" />
-              ) : showCopyFeedback ? (
-                <FiCheck className="w-5 h-5 text-benzol-green-500" aria-hidden="true" />
-              ) : (
-                <FiCopy className="w-5 h-5 text-deep-indigo-400" aria-hidden="true" />
-              )}
+              <Icon className={`w-5 h-5 text-deep-indigo-400 ${iconClassName}`} aria-hidden="true" />
               <span className="hidden lg:inline text-sm text-deep-indigo-500">
-                {isCopying ? 'Copying...' : showCopyFeedback ? 'Copied!' : 'Copy'}
+                {copyButtonText}
               </span>
             </button>
           </div>
