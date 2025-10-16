@@ -9,6 +9,10 @@ import {
   SessionStatusResponse,
   CurrentQuestionResponse,
   SessionQAResponse,
+  QuestionCreateRequest,
+  QuestionDetailResponse,
+  AnswerUpdateRequest,
+  AnswerDetailResponse,
 } from './types';
 import { apiClient } from './apiClient';
 
@@ -48,5 +52,34 @@ export const sessionsApi = {
 
   async getSessionQA(sessionId: string): Promise<SessionQAResponse> {
     return apiClient.get<SessionQAResponse>(`/api/v1/sessions/${sessionId}/qa`);
+  },
+
+  async createQuestion(
+    sessionId: string,
+    data: QuestionCreateRequest
+  ): Promise<QuestionDetailResponse> {
+    return apiClient.post<QuestionDetailResponse>(
+      `/api/v1/sessions/${sessionId}/questions`,
+      data
+    );
+  },
+
+  async deleteQuestion(sessionId: string, questionId: string): Promise<void> {
+    await apiClient.delete(`/api/v1/sessions/${sessionId}/questions/${questionId}`);
+  },
+
+  async updateAnswer(
+    sessionId: string,
+    questionId: string,
+    data: AnswerUpdateRequest
+  ): Promise<AnswerDetailResponse> {
+    return apiClient.put<AnswerDetailResponse>(
+      `/api/v1/sessions/${sessionId}/answers/${questionId}`,
+      data
+    );
+  },
+
+  async deleteAnswer(sessionId: string, questionId: string): Promise<void> {
+    await apiClient.delete(`/api/v1/sessions/${sessionId}/answers/${questionId}`);
   },
 };

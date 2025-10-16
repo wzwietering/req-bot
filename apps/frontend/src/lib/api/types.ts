@@ -58,3 +58,25 @@ export interface CurrentQuestionResponse {
   conversation_complete: boolean;
   conversation_state: ConversationState;
 }
+
+export interface QuestionCreateRequest {
+  text: string;
+  category: Question['category'];
+  required: boolean;
+}
+
+export interface QuestionDetailResponse {
+  session_id: string;
+  question: Question;
+  answer: Answer | null;
+}
+
+export interface AnswerUpdateRequest {
+  text: string;
+}
+
+export interface AnswerDetailResponse {
+  session_id: string;
+  answer: Answer;
+  question: Question;
+}
