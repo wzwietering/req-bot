@@ -206,9 +206,9 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup and workflows.
 
 SpecScribe supports multiple AI providers—choose the one that fits your needs and budget:
 
-- **Anthropic Claude** (3.5 Haiku, 3.5 Sonnet, 3 Opus)
-- **OpenAI GPT** (GPT-4, GPT-4 Turbo, GPT-3.5)
-- **Google Gemini** (Gemini 1.5 Pro, Gemini 1.0 Pro)
+- **Anthropic Claude** (4.5 Haiku, 4.5 Sonnet, 4.1 Opus)
+- **OpenAI GPT** (GPT-5)
+- **Google Gemini** (Gemini 2.5 Pro, Gemini 2.0 Pro)
 
 Switch providers anytime with the `--model` flag.
 
