@@ -6,7 +6,7 @@ import { ValueProposition } from './ValueProposition';
 
 export function FinalCTA() {
   return (
-    <section className="py-20 bg-gradient-to-br from-benzol-green-50 to-jasper-red-50">
+    <section className="py-20 bg-gradient-to-br from-deep-indigo-50 to-benzol-green-50">
       <Container>
         <CTAHeader />
         <CTAButtons />

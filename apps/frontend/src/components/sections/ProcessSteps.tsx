@@ -5,17 +5,17 @@ const steps = [
   {
     icon: <PlusIcon />,
     title: 'Start Interview',
-    description: 'Begin with your project name and initial description. Choose your preferred AI provider and interview style.'
+    description: 'Describe your project idea in your own words. Choose your preferred AI provider (Claude, GPT, or Gemini) and interview depth.'
   },
   {
     icon: <ChatIcon />,
-    title: 'AI Asks Questions',
-    description: 'Our AI conducts an intelligent interview, asking targeted questions across 8 key categories and following up based on your responses.'
+    title: 'SpecScribe Guides the Interview',
+    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories—SCOPE, USERS, CONSTRAINTS, SUCCESS, and more—with intelligent follow-ups based on your answers.'
   },
   {
     icon: <FileIcon />,
-    title: 'Get Documentation',
-    description: 'Receive a comprehensive, professionally formatted requirements document ready for your development team to use.'
+    title: 'Receive Your Specification',
+    description: 'Download a structured Markdown document with prioritized requirements (MUST/SHOULD/COULD), user stories, technical constraints, and success metrics—ready for developers immediately.'
   }
 ];
 

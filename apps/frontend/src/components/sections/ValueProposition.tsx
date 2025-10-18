@@ -3,15 +3,15 @@ import { CheckIcon } from '../icons';
 const benefits = [
   {
     title: 'Comprehensive Coverage',
-    description: '8+ question categories ensure nothing is missed'
+    description: '8 comprehensive question categories ensure every requirement is captured'
   },
   {
     title: 'Professional Documentation',
-    description: 'Ready-to-use Markdown requirements documents'
+    description: 'Structured Markdown with prioritized requirements (MUST/SHOULD/COULD)'
   },
   {
-    title: 'AI-Powered Intelligence',
-    description: 'Smart follow-up questions based on your responses'
+    title: 'Adaptive Interview Process',
+    description: 'Intelligent follow-ups that dig deeper when answers need clarification'
   }
 ];
 
@@ -33,7 +33,7 @@ export function ValueProposition() {
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm border border-deep-indigo-100">
       <h3 className="text-feature-title text-deep-indigo-500 mb-4">
-        What you&apos;ll get with Requirements Bot:
+        What you&apos;ll get with SpecScribe:
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
         {benefits.map((benefit, index) => (
