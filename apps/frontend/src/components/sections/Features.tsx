@@ -8,11 +8,11 @@ export function Features() {
       <Container>
         <div className="text-center mb-16">
           <h2 className="text-section-heading text-deep-indigo-500 mb-4">
-            Everything you need for better requirements
+            The Features of a Professional Business Analyst
           </h2>
           <p className="text-lead text-deep-indigo-300 max-w-3xl mx-auto">
-            Our AI-powered platform transforms how development teams gather and document project requirements,
-            ensuring nothing falls through the cracks.
+            SpecScribe conducts intelligent interviews using 8 comprehensive question categories,
+            ensuring every project starts with a clear, actionable blueprint.
           </p>
         </div>
         <FeatureGrid />

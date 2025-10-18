@@ -5,19 +5,19 @@ const features = [
   {
     icon: <ChatIcon />,
     title: 'Intelligent Interviews',
-    description: 'AI asks targeted follow-up questions based on your responses, ensuring comprehensive requirement coverage without missing critical details.',
+    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories, asking intelligent follow-ups to uncover requirements you might have missed.',
     iconColor: 'green' as const
   },
   {
     icon: <GridIcon />,
     title: 'Multi-Provider Support',
-    description: 'Works seamlessly with Anthropic Claude, OpenAI GPT, and Google Gemini. Choose your preferred AI provider or switch between them.',
+    description: 'Your choice, your workflow. SpecScribe adapts to work with Claude, GPT, or Gemini—switch providers anytime without changing your process.',
     iconColor: 'indigo' as const
   },
   {
     icon: <DocumentIcon />,
     title: 'Professional Documentation',
-    description: 'Automatically generates comprehensive, well-structured requirements documents in Markdown format, ready for your development team.',
+    description: 'Every interview produces a structured Markdown document with prioritized requirements (MUST/SHOULD/COULD), ready for developers to build from immediately.',
     iconColor: 'red' as const
   }
 ];
