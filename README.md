@@ -1,8 +1,14 @@
-# Requirements Bot
+# SpecScribe
+
+![SpecScribe Logo](./logo-full.svg)
+
+**Your AI Business Analyst**
 
 [![codecov](https://codecov.io/gh/wzwietering/req-bot/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/req-bot)
 
-AI-powered requirements gathering through structured interviews. FastAPI backend + Next.js frontend.
+SpecScribe is your AI-powered business analyst that transforms vague ideas into precise, code-ready specifications. Using an intelligent 8-category interview methodology, it asks the right follow-up questions to capture every critical detail—ensuring developers have complete context from day one.
+
+**Three interfaces, one powerful methodology:** Web UI for project managers, CLI for developers, REST API for automation.
 
 ## Quick Start
 
@@ -29,14 +35,26 @@ cp apps/frontend/.env.local.example apps/frontend/.env.local
 
 See `.env.example` files for all options.
 
+## Why SpecScribe?
+
+Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA—available instantly, adapting to your workflow.
+
+**Built for three personas:**
+- **Project Managers**: Generate professional specs in minutes, not hours—stop chasing stakeholders for missing details
+- **Developers**: Get clear, unambiguous requirements with technical constraints included
+- **Founders**: Turn your idea into a technical blueprint that developers understand
+
+**The difference:** Not just a chatbot that records what you say, but an intelligent interviewer that knows what questions to ask, when to dig deeper, and how to structure results into developer-ready specifications.
+
 ## Features
 
-- **Conversational interview mode**: natural, adaptive question flow
-- **Multi-provider**: Anthropic Claude, OpenAI, Google Gemini
-- **Three interfaces**: Web UI, CLI, REST API
+- **Guided interview methodology**: 8 comprehensive question categories with intelligent follow-ups that adapt based on your answers
+- **Prioritized requirements**: Generates MUST/SHOULD/COULD classifications with clear rationale—developers know what to build first
+- **Your choice of AI**: Claude, GPT, or Gemini—not locked into one provider
+- **Three interfaces**: Web UI for project managers, CLI for developers, REST API for automation
+- **Session persistence**: Save progress and resume anytime with SQLite storage
 - **Auto-generated TypeScript types** from backend OpenAPI spec
-- **OAuth + JWT** for web authentication
-- **Session persistence** with SQLite
+- **Secure authentication**: OAuth + JWT for web interface
 
 ## Usage
 
@@ -103,12 +121,13 @@ poetry run python -m requirements_bot.cli conversational \
   --max-questions 15
 ```
 
-#### Output Format
+#### What You Get
 
-Generated Markdown includes:
-- Project description and context
-- Interview Q&A organized by category (Scope, Users, Constraints, etc.)
-- Prioritized requirements (MUST/SHOULD/COULD) with rationale
+Generated Markdown specifications include:
+- **Project Overview**: Clear description and business context
+- **Structured Interview**: Q&A organized by 8 categories (Scope, Users, Technical Constraints, Success Metrics, Risks, Timeline, Budget, and Stakeholders)
+- **Prioritized Requirements**: MUST/SHOULD/COULD classification with rationale explaining why each requirement matters
+- **Developer-Ready**: Clear enough to start coding immediately—no guesswork required
 
 </details>
 
@@ -183,11 +202,22 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup and workflows.
 
 **Key rules**: Functions ≤20 lines, single responsibility, type everything, test everything.
 
+## Powered By
+
+SpecScribe supports multiple AI providers—choose the one that fits your needs and budget:
+
+- **Anthropic Claude** (3.5 Haiku, 3.5 Sonnet, 3 Opus)
+- **OpenAI GPT** (GPT-4, GPT-4 Turbo, GPT-3.5)
+- **Google Gemini** (Gemini 1.5 Pro, Gemini 1.0 Pro)
+
+Switch providers anytime with the `--model` flag.
+
 ## Support
 
-- [GitHub Issues](https://github.com/wzwietering/req-bot/issues) - Bug reports and features
-- [API Docs](http://localhost:8080/docs) - When backend running
-- [DEVELOPMENT.md](DEVELOPMENT.md) - Setup help
+- [GitHub Issues](https://github.com/wzwietering/req-bot/issues) - Bug reports, feature requests, and discussions
+- [API Docs](http://localhost:8080/docs) - Interactive API documentation (when backend is running)
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Detailed setup and workflow guide
+- [BRAND_GUIDE.md](BRAND_GUIDE.md) - Brand identity quick reference for contributors
 
 ## License
 
