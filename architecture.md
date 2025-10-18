@@ -1,8 +1,8 @@
-# Requirements Bot - Software Architecture Analysis
+# SpecScribe - Software Architecture Analysis
 
 ## Overview
 
-Requirements Bot is a Python-based console application that conducts AI-powered interviews to gather software requirements. The system employs a modular architecture with clean separation of concerns, supporting multiple AI providers and generating structured requirements documents.
+SpecScribe is an AI-powered requirements gathering system that conducts intelligent interviews to transform conversations into code-ready specifications. The system employs a modular architecture with clean separation of concerns, supporting multiple AI providers and offering three interfaces: Web UI, CLI, and REST API.
 
 ## System Architecture
 
@@ -309,4 +309,4 @@ The system organizes questions into eight categories:
 
 ## Summary
 
-Requirements Bot demonstrates a well-structured, modular architecture that effectively separates concerns while maintaining flexibility. The use of established design patterns, comprehensive error handling, and multi-provider support creates a robust foundation for requirements gathering. The system balances simplicity with extensibility, making it suitable for both immediate use and future enhancement.
+SpecScribe demonstrates a well-structured, modular architecture that effectively separates concerns while maintaining flexibility. The use of established design patterns, comprehensive error handling, and multi-provider support creates a robust foundation for requirements gathering. The system balances simplicity with extensibility, offering three distinct interfaces (Web UI, CLI, and REST API) that serve different user personas while sharing the same core methodology.

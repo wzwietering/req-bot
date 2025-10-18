@@ -1,7 +1,7 @@
 {
   "name": "req-bot",
   "version": "1.0.0",
-  "description": "AI-powered Requirements Bot",
+  "description": "SpecScribe - Your AI Business Analyst. Transform conversations into code-ready specifications.",
   "private": true,
   "workspaces": [
     "apps/*",

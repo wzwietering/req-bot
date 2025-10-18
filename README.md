@@ -182,7 +182,7 @@ npm run type-check   # Type checking
 <summary>Project Structure</summary>
 
 ```
-req-bot/
+specscribe/
 ├── apps/
 │   ├── backend/          # FastAPI Python app
 │   └── frontend/         # Next.js React app

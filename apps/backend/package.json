@@ -1,7 +1,7 @@
 {
   "name": "@req-bot/backend",
   "version": "1.0.0",
-  "description": "FastAPI backend for Requirements Bot",
+  "description": "FastAPI backend for SpecScribe - AI-powered requirements gathering",
   "private": true,
   "scripts": {
     "dev": "poetry run python requirements_bot/api_server.py --reload",

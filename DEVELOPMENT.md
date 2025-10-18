@@ -18,7 +18,7 @@ Install: `nvm install 18 && nvm use 18` | `pipx install poetry`
 ## Project Structure
 
 ```
-req-bot/
+specscribe/
 ├── apps/backend/         # FastAPI Python
 ├── apps/frontend/        # Next.js React
 ├── packages/shared-types/  # Auto-generated types

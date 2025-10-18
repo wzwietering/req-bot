@@ -1,6 +1,6 @@
-# Requirements Bot Frontend
+# SpecScribe Frontend
 
-Next.js web interface for AI-powered requirements gathering.
+Next.js web interface for SpecScribe - Your AI Business Analyst.
 
 ## Quick Start
 
