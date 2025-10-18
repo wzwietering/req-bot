@@ -3,7 +3,7 @@ import { SessionsPageClient } from './SessionsPageClient';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'My Sessions | Requirements Bot',
+  title: 'My Sessions | SpecScribe',
   description: 'View and manage your requirements gathering sessions',
 };
 

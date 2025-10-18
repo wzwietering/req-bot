@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Container } from '../ui';
 
 export function Footer() {
@@ -10,10 +11,14 @@ export function Footer() {
           <div className="flex flex-col md:flex-row items-center justify-between">
             {/* Brand */}
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-jasper-red-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">R</span>
-              </div>
-              <span className="text-xl font-semibold">Requirements Bot</span>
+              <Image
+                src="/logos/logo-icon.svg"
+                alt="SpecScribe"
+                width={32}
+                height={32}
+                className="w-8 h-8"
+              />
+              <span className="text-xl font-semibold">SpecScribe</span>
             </div>
 
             {/* GitHub Link */}
@@ -30,7 +35,7 @@ export function Footer() {
                 <span className="text-sm">GitHub</span>
               </a>
               <span className="text-deep-indigo-300 text-sm">
-                © {currentYear} Requirements Bot
+                © {currentYear} SpecScribe
               </span>
             </div>
           </div>

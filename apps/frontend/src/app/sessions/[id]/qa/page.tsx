@@ -3,7 +3,7 @@ import { QAPageClient } from './QAPageClient';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Q&A | Requirements Bot',
+  title: 'Q&A | SpecScribe',
   description: 'View questions and answers for your session',
 };
 
