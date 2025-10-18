@@ -48,24 +48,14 @@ export function Hero() {
 
       <Container>
         <div className="relative text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center px-3 py-1.5 mb-6 md:mb-8 text-xs md:text-sm font-medium text-benzol-green-700 bg-benzol-green-50 border border-benzol-green-200 rounded-full">
-            <svg className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            AI-Powered Requirements Gathering
-          </div>
-
           {/* Main Headline */}
           <h1 className="text-hero text-deep-indigo-500 mb-6 max-w-4xl mx-auto">
-            Stop Gathering{' '}
-            <span className="text-jasper-red-500">Incomplete Requirements</span>
+            Turn Conversations Into Code-Ready Specs
           </h1>
 
           {/* Subheading */}
           <p className="text-lead text-deep-indigo-300 mb-10 max-w-2xl mx-auto">
-            AI-powered interviews ensure your development projects start with comprehensive,
-            well-documented requirements every time. No more missed details or unclear specifications.
+            A guided 8-question interview that captures requirements with the precision of a business analyst—in 15 minutes, not hours
           </p>
 
           {/* CTAs */}

@@ -1,0 +1,10 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="scribe-mark-title">
+  <title id="scribe-mark-title">SpecScribe Logo</title>
+  <desc>A solid indigo square representing a data foundation, with a vibrant green arrow emerging from the top-right corner, symbolizing the transformation into an actionable specification.</desc>
+  
+  <!-- The Foundation (Architect) -->
+  <rect x="10" y="30" width="50" height="50" fill="#000831" />
+  
+  <!-- The Catalyst (Sage) -->
+  <path d="M 40 30 L 70 0 L 90 20 L 60 50 L 60 30 L 40 30 Z" fill="#00d471" />
+</svg>

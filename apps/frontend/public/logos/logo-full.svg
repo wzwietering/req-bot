@@ -1,0 +1,18 @@
+<svg width="320" height="100" viewBox="0 0 320 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="scribe-mark-lockup-title">
+  <title id="scribe-mark-lockup-title">SpecScribe Logo</title>
+  <desc>The SpecScribe logo, featuring the Scribe's Mark icon next to the wordmark. The wordmark has "Spec" in bold and "Scribe" in a regular weight.</desc>
+  
+  <!-- Logo Icon -->
+  <g id="scribe-mark">
+    <!-- The Foundation (Architect) -->
+    <rect x="10" y="30" width="50" height="50" fill="#000831" />
+    <!-- The Catalyst (Sage) -->
+    <path d="M 40 30 L 70 0 L 90 20 L 60 50 L 60 30 L 40 30 Z" fill="#00d471" />
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="110" y="55" font-family="IBM Plex Sans, sans-serif" font-size="32" fill="#000831">
+    <tspan font-weight="700">Spec</tspan>
+    <tspan font-weight="400">Scribe</tspan>
+  </text>
+</svg>
