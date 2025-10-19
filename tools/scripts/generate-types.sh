@@ -25,7 +25,7 @@ export OAUTH_CLIENT_SECRET="dummy"
 
 # 2. Start server
 echo "🚀 Starting FastAPI server..."
-poetry run python requirements_bot/api_server.py &
+poetry run python specscribe/api_server.py &
 BACKEND_PID=$!
 
 # 3. Wait for server to be online

@@ -238,8 +238,8 @@ pytest -v -m slow
 ### Run Tests with Coverage
 ```bash
 pytest tests/unit/ tests/integration/ tests/security/ \
-    --cov=requirements_bot.core.services \
-    --cov=requirements_bot.api.rate_limiting \
+    --cov=specscribe.core.services \
+    --cov=specscribe.api.rate_limiting \
     --cov-report=html \
     --cov-report=term-missing
 ```

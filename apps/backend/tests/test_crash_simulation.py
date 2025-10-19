@@ -4,10 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from requirements_bot.core.conversation_state import ConversationState
-from requirements_bot.core.models import Answer, Question, Session
-from requirements_bot.core.recovery import StateRecoveryManager
-from requirements_bot.core.state_manager import ConversationStateManager
+from specscribe.core.conversation_state import ConversationState
+from specscribe.core.models import Answer, Question, Session
+from specscribe.core.recovery import StateRecoveryManager
+from specscribe.core.state_manager import ConversationStateManager
 
 
 class CrashSimulator:

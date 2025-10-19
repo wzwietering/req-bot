@@ -4,8 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from requirements_bot.api.error_responses import OAuthError, ValidationError
-from requirements_bot.core.services.oauth_callback_validator import OAuthCallbackValidator
+from specscribe.api.error_responses import OAuthError, ValidationError
+from specscribe.core.services.oauth_callback_validator import OAuthCallbackValidator
 
 
 class TestOAuthCallbackValidator:

@@ -2,11 +2,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from requirements_bot.core.conversation_state import (
+from specscribe.core.conversation_state import (
     ConversationState,
 )
-from requirements_bot.core.models import Question, Session
-from requirements_bot.core.services.question_generation_service import (
+from specscribe.core.models import Question, Session
+from specscribe.core.services.question_generation_service import (
     QuestionGenerationService,
 )
 

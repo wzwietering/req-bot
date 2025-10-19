@@ -1,4 +1,4 @@
-from requirements_bot.core.conversation_state import (
+from specscribe.core.conversation_state import (
     ConversationState,
     StateContext,
     can_recover_from_state,

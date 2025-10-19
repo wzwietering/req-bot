@@ -6,7 +6,7 @@ on:
     paths:
       - 'apps/frontend/**'
       - 'packages/shared-types/**'
-      - 'apps/backend/requirements_bot/api/**'
+      - 'apps/backend/specscribe/api/**'
       - 'tools/scripts/generate-types.sh'
       - '.github/workflows/frontend.yml'
   pull_request:
@@ -14,7 +14,7 @@ on:
     paths:
       - 'apps/frontend/**'
       - 'packages/shared-types/**'
-      - 'apps/backend/requirements_bot/api/**'
+      - 'apps/backend/specscribe/api/**'
       - 'tools/scripts/generate-types.sh'
       - '.github/workflows/frontend.yml'
 
@@ -160,7 +160,7 @@ jobs:
         # Clean database before migrations (tables may exist from generate-types step)
         rm -f test.db
         poetry run alembic upgrade head
-        poetry run python requirements_bot/api_server.py &
+        poetry run python specscribe/api_server.py &
         BACKEND_PID=$!
         sleep 5
 

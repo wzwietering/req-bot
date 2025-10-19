@@ -71,13 +71,13 @@ cd apps/backend
 export ANTHROPIC_API_KEY=your-key
 
 # Start conversational interview
-poetry run python -m requirements_bot.cli conversational --project "My Project"
+poetry run python -m specscribe.cli conversational --project "My Project"
 
 # List sessions
-poetry run python -m requirements_bot.cli sessions list
+poetry run python -m specscribe.cli sessions list
 
 # Load saved session
-poetry run python -m requirements_bot.cli load <session-id>
+poetry run python -m specscribe.cli load <session-id>
 ```
 
 <details>
@@ -99,23 +99,23 @@ poetry run python -m requirements_bot.cli load <session-id>
 | `--project TEXT` | (required) | Project name |
 | `--out PATH` | requirements.md | Output file path |
 | `--model TEXT` | anthropic:claude-3-5-haiku-20241022 | Format: `provider:model-name` |
-| `--db-path PATH` | requirements_bot.db | Database location |
+| `--db-path PATH` | specscribe.db | Database location |
 | `--max-questions INT` | 25 | Max questions (conversational only) |
 
 #### Examples
 
 ```bash
 # Different AI providers
-poetry run python -m requirements_bot.cli conversational \
+poetry run python -m specscribe.cli conversational \
   --project "E-commerce App" \
   --model "openai:gpt-4"
 
-poetry run python -m requirements_bot.cli conversational \
+poetry run python -m specscribe.cli conversational \
   --project "Mobile App" \
   --model "gemini:gemini-1.5-pro"
 
 # Custom output
-poetry run python -m requirements_bot.cli conversational \
+poetry run python -m specscribe.cli conversational \
   --project "My Project" \
   --out "./docs/requirements.md" \
   --max-questions 15
@@ -153,9 +153,9 @@ npm run generate:types   # Backend API changes → regenerate types
 ```bash
 cd apps/backend
 
-poetry run python requirements_bot/api_server.py  # Start server
+poetry run python specscribe/api_server.py  # Start server
 poetry run pytest                                 # Tests
-poetry run pytest --cov=requirements_bot         # Tests + coverage
+poetry run pytest --cov=specscribe         # Tests + coverage
 poetry run ruff check .                          # Lint
 poetry run ruff format .                         # Format
 poetry run alembic upgrade head                  # Run migrations

@@ -157,7 +157,7 @@ def test_create_session_endpoint(client):
 # Run tests
 cd apps/backend
 poetry run pytest
-poetry run pytest --cov=requirements_bot  # With coverage
+poetry run pytest --cov=specscribe  # With coverage
 ```
 
 </details>

@@ -4,7 +4,6 @@ version = "1.0.0"
 description = "SpecScribe - Your AI Business Analyst for software requirements"
 keywords = ["business-analyst", "specifications", "requirements-engineering", "ai", "developer-tools"]
 authors = ["Your Name <your.email@example.com>"]
-packages = [{include = "requirements_bot"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
@@ -35,7 +34,7 @@ types-authlib = "1.6.5.20251005"
 types-python-jose = "3.5.0.20250531"
 
 [tool.coverage.run]
-source = ["requirements_bot"]
+source = ["specscribe"]
 branch = true
 omit = [
     "*/tests/*",
@@ -85,7 +84,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint.isort]
-known-first-party = ["requirements_bot"]
+known-first-party = ["specscribe"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

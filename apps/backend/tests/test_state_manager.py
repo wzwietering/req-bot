@@ -2,12 +2,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from requirements_bot.core.conversation_state import (
+from specscribe.core.conversation_state import (
     ConversationState,
     StateTransitionError,
 )
-from requirements_bot.core.models import Session
-from requirements_bot.core.state_manager import ConversationStateManager
+from specscribe.core.models import Session
+from specscribe.core.state_manager import ConversationStateManager
 
 
 class TestConversationStateManager:

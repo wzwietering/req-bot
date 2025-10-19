@@ -809,12 +809,12 @@ Users complete interviews and return for new projects (validates "guided methodo
 
 **Files to Update:**
 
-5. **API Documentation** (`apps/backend/requirements_bot/api/main.py`)
+5. **API Documentation** (`apps/backend/specscribe/api/main.py`)
    - Update `title`: "SpecScribe API"
    - Update `description`: "Your AI Business Analyst - Transform conversations into specifications"
    - Update version to 1.0.0 (signaling rebrand ready for launch)
 
-6. **CLI Help Text** (`apps/backend/requirements_bot/cli.py`)
+6. **CLI Help Text** (`apps/backend/specscribe/cli.py`)
    - Update command descriptions with brand voice
    - Add tagline to main help text
    - Ensure tone is "methodical, insightful, helpful"
@@ -957,7 +957,7 @@ Users complete interviews and return for new projects (validates "guided methodo
 
 **Tasks:**
 - Rename GitHub repository: `req-bot` → `specscribe`
-- Rename Python module: `requirements_bot` → `specscribe`
+- Rename Python module: `specscribe` → `specscribe`
 - Update all imports across codebase
 - Rename database files (with migration script)
 - Update environment variable prefixes

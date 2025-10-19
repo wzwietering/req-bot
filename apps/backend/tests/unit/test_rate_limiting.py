@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import HTTPException, status
 
-from requirements_bot.api.rate_limiting import RateLimiter, RateLimitMiddleware
+from specscribe.api.rate_limiting import RateLimiter, RateLimitMiddleware
 
 
 class TestRateLimiter:

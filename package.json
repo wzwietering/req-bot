@@ -16,7 +16,7 @@
     "type-check": "turbo run type-check",
     "clean": "turbo run clean",
     "generate:types": "turbo run generate:types",
-    "dev:backend": "cd apps/backend && poetry run python requirements_bot/api_server.py --reload",
+    "dev:backend": "cd apps/backend && poetry run python specscribe/api_server.py --reload",
     "dev:frontend": "cd apps/frontend && npm run dev",
     "install:backend": "cd apps/backend && poetry install",
     "install:frontend": "cd apps/frontend && npm install",

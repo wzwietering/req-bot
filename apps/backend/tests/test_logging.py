@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from requirements_bot.core.logging import (
+from specscribe.core.logging import (
     ContextFilter,
     JsonFormatter,
     _coerce_level,
@@ -450,7 +450,7 @@ class TestInitLogging:
         with clean_logging_context():
             logger = init_logging()
 
-            assert logger.name == "requirements_bot"
+            assert logger.name == "specscribe"
             assert get_run_id() is not None
             assert len(get_run_id()) == EXPECTED_UUID_LENGTH
 

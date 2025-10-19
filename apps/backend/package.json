@@ -4,8 +4,8 @@
   "description": "FastAPI backend for SpecScribe - AI-powered requirements gathering",
   "private": true,
   "scripts": {
-    "dev": "poetry run python requirements_bot/api_server.py --reload",
-    "start": "poetry run python requirements_bot/api_server.py",
+    "dev": "poetry run python specscribe/api_server.py --reload",
+    "start": "poetry run python specscribe/api_server.py",
     "test": "poetry run pytest",
     "lint": "poetry run ruff check .",
     "format": "poetry run ruff format .",

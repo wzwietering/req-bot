@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from requirements_bot.core.memory_storage import MemoryStorage
-from requirements_bot.core.models import Answer, Question, Requirement, Session, UserCreate
-from requirements_bot.core.services.user_service import UserService
-from requirements_bot.core.storage import DatabaseManager
+from specscribe.core.memory_storage import MemoryStorage
+from specscribe.core.models import Answer, Question, Requirement, Session, UserCreate
+from specscribe.core.services.user_service import UserService
+from specscribe.core.storage import DatabaseManager
 
 
 class TestMemoryStorage:
