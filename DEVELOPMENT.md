@@ -5,7 +5,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/wzwietering/req-bot.git
+git clone https://github.com/wzwietering/specscribe.git
 cd specscribe
 npm run setup    # Install dependencies
 npm run dev      # Start backend (8080) + frontend (3000)
@@ -132,7 +132,7 @@ Functions ≤20 lines, single responsibility | Early returns | Max 2-level nesti
 
 ## Resources
 
-[CONTRIBUTING.md](CONTRIBUTING.md) | [GitHub Issues](https://github.com/wzwietering/req-bot/issues) | API docs: `localhost:8080/docs` | Test files for examples
+[CONTRIBUTING.md](CONTRIBUTING.md) | [GitHub Issues](https://github.com/wzwietering/specscribe/issues) | API docs: `localhost:8080/docs` | Test files for examples
 
 ## Next Steps
 

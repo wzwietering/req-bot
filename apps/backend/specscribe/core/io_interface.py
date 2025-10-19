@@ -95,7 +95,7 @@ class RichConsoleIO(IOInterface):
 
         if RICH_AVAILABLE and session_id:
             sanitized_id = self._sanitize_session_id(session_id)
-            history_dir = Path.home() / ".req_bot" / "history"
+            history_dir = Path.home() / ".specscribe" / "history"
             history_dir.mkdir(parents=True, exist_ok=True)
             self.history_file = str(history_dir / f"{sanitized_id}.txt")
 

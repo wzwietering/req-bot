@@ -24,7 +24,7 @@ export function Footer() {
             {/* GitHub Link */}
             <div className="flex items-center space-x-4">
               <a
-                href="https://github.com/wzwietering/req-bot"
+                href="https://github.com/wzwietering/specscribe"
                 className="text-deep-indigo-200 hover:text-white transition-colors flex items-center space-x-2"
                 target="_blank"
                 rel="noopener noreferrer"

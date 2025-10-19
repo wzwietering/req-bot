@@ -246,12 +246,12 @@ Closes #123
 
 **Medium Priority**: UI/UX, documentation, refactoring, question templates, accessibility
 
-**Good First Issues**: Check [issue tracker](https://github.com/wzwietering/req-bot/issues) for `good-first-issue` label
+**Good First Issues**: Check [issue tracker](https://github.com/wzwietering/specscribe/issues) for `good-first-issue` label
 
 ## Getting Help
 
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Setup and workflows
-- [GitHub Issues](https://github.com/wzwietering/req-bot/issues) - Search existing issues
+- [GitHub Issues](https://github.com/wzwietering/specscribe/issues) - Search existing issues
 - PR comments - Ask questions
 
 Thank you for contributing!

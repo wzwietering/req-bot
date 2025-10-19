@@ -4,7 +4,7 @@
 
 **Your AI Business Analyst**
 
-[![codecov](https://codecov.io/gh/wzwietering/req-bot/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/req-bot)
+[![codecov](https://codecov.io/gh/wzwietering/specscribe/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/specscribe)
 
 SpecScribe is your AI-powered business analyst that transforms vague ideas into precise, code-ready specifications. Using an intelligent 8-category interview methodology, it asks the right follow-up questions to capture every critical detail—ensuring developers have complete context from day one.
 
@@ -13,7 +13,7 @@ SpecScribe is your AI-powered business analyst that transforms vague ideas into 
 ## Quick Start
 
 ```bash
-git clone https://github.com/wzwietering/req-bot.git
+git clone https://github.com/wzwietering/specscribe.git
 cd specscribe
 npm run setup    # Install all dependencies
 npm run dev      # Start backend (8080) + frontend (3000)
@@ -214,7 +214,7 @@ Switch providers anytime with the `--model` flag.
 
 ## Support
 
-- [GitHub Issues](https://github.com/wzwietering/req-bot/issues) - Bug reports, feature requests, and discussions
+- [GitHub Issues](https://github.com/wzwietering/specscribe/issues) - Bug reports, feature requests, and discussions
 - [API Docs](http://localhost:8080/docs) - Interactive API documentation (when backend is running)
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Detailed setup and workflow guide
 - [BRAND_GUIDE.md](BRAND_GUIDE.md) - Brand identity quick reference for contributors
