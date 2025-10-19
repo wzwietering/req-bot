@@ -27,17 +27,17 @@ from requirements_bot.api.routes import auth, questions, sessions
 from requirements_bot.core.logging import init_logging
 
 app = FastAPI(
-    title="Requirements Bot API",
-    description="HTTP API for the Requirements Bot - AI-powered requirements gathering tool",
-    version="0.1.0",
+    title="SpecScribe API",
+    description="Your AI Business Analyst - Transform conversations into code-ready specifications",
+    version="1.0.0",
 )
 
 # Initialize structured logging for the API server
 init_logging(
-    level=os.getenv("REQBOT_LOG_LEVEL", "INFO"),
-    fmt=os.getenv("REQBOT_LOG_FORMAT", "json"),
-    file_path=os.getenv("REQBOT_LOG_FILE"),
-    mask=os.getenv("REQBOT_LOG_MASK", "false").lower() in ("true", "1", "yes", "on"),
+    level=os.getenv("SPECSCRIBE_LOG_LEVEL", "INFO"),
+    fmt=os.getenv("SPECSCRIBE_LOG_FORMAT", "json"),
+    file_path=os.getenv("SPECSCRIBE_LOG_FILE"),
+    mask=os.getenv("SPECSCRIBE_LOG_MASK", "false").lower() in ("true", "1", "yes", "on"),
     use_stderr=True,  # Use stderr for better separation from app output
 )
 
@@ -132,7 +132,7 @@ async def answer_not_found_exception_handler(request: Request, exc: AnswerNotFou
 
 @app.get("/")
 async def root():
-    return {"message": "Requirements Bot API", "version": "0.1.0"}
+    return {"message": "SpecScribe API", "version": "1.0.0"}
 
 
 @app.get("/health")

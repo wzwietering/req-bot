@@ -19,7 +19,7 @@ DEFAULT_MAX_RETRIES = 3
 RETRY_BASE_DELAY = 0.1  # Base delay in seconds for exponential backoff
 
 # Default Paths
-DEFAULT_DB_PATH = "requirements_bot.db"
+DEFAULT_DB_PATH = "specscribe.db"
 
 # Interview Defaults
 DEFAULT_MAX_QUESTIONS = 15

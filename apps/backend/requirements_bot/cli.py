@@ -16,7 +16,7 @@ from requirements_bot.core.logging import (
 )
 from requirements_bot.core.storage import DatabaseManager
 
-app = typer.Typer(help="Requirements Bot - console assistant for gathering software requirements.")
+app = typer.Typer(help="SpecScribe - Your AI Business Analyst for gathering software requirements.")
 
 
 def _init_logging_from_cli(
@@ -27,7 +27,7 @@ def _init_logging_from_cli(
     session_id: str | None = None,
 ) -> None:
     # Use stderr by default for better UX (separates logs from user conversation)
-    # Can be overridden with REQBOT_LOG_STDERR=0 environment variable
+    # Can be overridden with SPECSCRIBE_LOG_STDERR=0 environment variable
     init_logging(
         level=log_level,
         fmt=log_format,

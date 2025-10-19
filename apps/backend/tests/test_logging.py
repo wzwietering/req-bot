@@ -499,9 +499,9 @@ class TestInitLogging:
     def test_init_logging_with_environment_variables(self):
         with clean_logging_context():
             env_vars = {
-                "REQBOT_LOG_LEVEL": "DEBUG",
-                "REQBOT_LOG_FORMAT": "json",
-                "REQBOT_LOG_MASK": "true",
+                "SPECSCRIBE_LOG_LEVEL": "DEBUG",
+                "SPECSCRIBE_LOG_FORMAT": "json",
+                "SPECSCRIBE_LOG_MASK": "true",
             }
 
             with patch.dict(os.environ, env_vars):

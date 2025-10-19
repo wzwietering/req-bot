@@ -18,8 +18,8 @@ class TestGeneralErrorHandling:
         data = response.json()
         assert "message" in data
         assert "version" in data
-        assert data["message"] == "Requirements Bot API"
-        assert data["version"] == "0.1.0"
+        assert data["message"] == "SpecScribe API"
+        assert data["version"] == "1.0.0"
 
     def test_health_check_endpoint(self, client: TestClient):
         """Test the health check endpoint."""

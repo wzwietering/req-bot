@@ -1,8 +1,10 @@
 [tool.poetry]
-name = "requirements-bot"
-version = "0.1.0"
-description = "A bot to help figure out software requirements."
+name = "specscribe"
+version = "1.0.0"
+description = "SpecScribe - Your AI Business Analyst for software requirements"
+keywords = ["business-analyst", "specifications", "requirements-engineering", "ai", "developer-tools"]
 authors = ["Your Name <your.email@example.com>"]
+packages = [{include = "requirements_bot"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"

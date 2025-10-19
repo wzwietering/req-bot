@@ -118,20 +118,20 @@ def init_logging(
 ) -> logging.Logger:
     """Initialize application-wide logging.
 
-    - level: log level or env `REQBOT_LOG_LEVEL` (default INFO)
-    - fmt: 'json' or 'text' or env `REQBOT_LOG_FORMAT` (default 'json')
-    - file_path: file path or env `REQBOT_LOG_FILE` (default session-based file)
-    - mask: whether to mask sensitive text or env `REQBOT_LOG_MASK` (default False)
+    - level: log level or env `SPECSCRIBE_LOG_LEVEL` (default INFO)
+    - fmt: 'json' or 'text' or env `SPECSCRIBE_LOG_FORMAT` (default 'json')
+    - file_path: file path or env `SPECSCRIBE_LOG_FILE` (default session-based file)
+    - mask: whether to mask sensitive text or env `SPECSCRIBE_LOG_MASK` (default False)
     - session_id: session ID for generating unique log filenames
     - use_stderr: log to stderr instead of stdout for better UX separation (default True)
-                 Can be overridden by env `REQBOT_LOG_STDERR` (1/true/yes/on for True)
+                 Can be overridden by env `SPECSCRIBE_LOG_STDERR` (1/true/yes/on for True)
     """
 
-    env_level = os.getenv("REQBOT_LOG_LEVEL")
-    env_format = os.getenv("REQBOT_LOG_FORMAT")
-    env_file = os.getenv("REQBOT_LOG_FILE")
-    env_mask = os.getenv("REQBOT_LOG_MASK")
-    env_stderr = os.getenv("REQBOT_LOG_STDERR")
+    env_level = os.getenv("SPECSCRIBE_LOG_LEVEL")
+    env_format = os.getenv("SPECSCRIBE_LOG_FORMAT")
+    env_file = os.getenv("SPECSCRIBE_LOG_FILE")
+    env_mask = os.getenv("SPECSCRIBE_LOG_MASK")
+    env_stderr = os.getenv("SPECSCRIBE_LOG_STDERR")
 
     resolved_level = _coerce_level(level or env_level or logging.INFO)
     resolved_format = (fmt or env_format or "json").lower()

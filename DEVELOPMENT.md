@@ -65,7 +65,7 @@ See `.env.example` files for all configuration options.
 ### Type Generation
 Backend API changes → `npm run generate:types`
 
-Use in frontend: `import type { components } from '@req-bot/shared-types'`
+Use in frontend: `import type { components } from '@specscribe/shared-types'`
 
 ### Database
 ```bash
@@ -126,7 +126,7 @@ Functions ≤20 lines, single responsibility | Early returns | Max 2-level nesti
 
 **Frontend Performance**: React Query caching, code splitting, Image optimization, lazy loading
 
-**Backend Debug**: `export REQBOT_LOG_LEVEL=DEBUG` | `python -m pdb api_server.py` | Use `log_event()`
+**Backend Debug**: `export SPECSCRIBE_LOG_LEVEL=DEBUG` | `python -m pdb api_server.py` | Use `log_event()`
 
 **Frontend Debug**: React DevTools, Network tab, `console.log`, build output
 
