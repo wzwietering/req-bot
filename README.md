@@ -14,7 +14,7 @@ SpecScribe is your AI-powered business analyst that transforms vague ideas into 
 
 ```bash
 git clone https://github.com/wzwietering/req-bot.git
-cd req-bot
+cd specscribe
 npm run setup    # Install all dependencies
 npm run dev      # Start backend (8080) + frontend (3000)
 ```

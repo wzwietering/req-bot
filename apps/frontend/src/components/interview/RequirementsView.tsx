@@ -32,7 +32,7 @@ function generateMarkdown(requirements: Requirement[], projectName: string): str
     const reqs = grouped[priority];
     if (reqs && reqs.length > 0) {
       markdown += `## ${priority} Have\n\n`;
-      reqs.forEach((req, index) => {
+      reqs.forEach((req: Requirement, index: number) => {
         markdown += `### ${index + 1}. ${req.title}\n\n`;
         if (req.rationale) {
           markdown += `${req.rationale}\n\n`;
@@ -119,7 +119,7 @@ export function RequirementsView({ requirements, projectName }: RequirementsView
                 {priority} Have ({reqs.length})
               </h3>
               <div className="space-y-3">
-                {reqs.map((req) => (
+                {reqs.map((req: Requirement) => (
                   <Card key={req.id} padding="md" hover>
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-4">

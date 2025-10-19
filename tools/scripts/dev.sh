@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Starting req-bot development environment..."
+echo "🚀 Starting specscribe development environment..."
 
 # Check if poetry is installed
 if ! command -v poetry &> /dev/null; then

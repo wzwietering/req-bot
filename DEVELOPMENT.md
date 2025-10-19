@@ -6,7 +6,7 @@
 
 ```bash
 git clone https://github.com/wzwietering/req-bot.git
-cd req-bot
+cd specscribe
 npm run setup    # Install dependencies
 npm run dev      # Start backend (8080) + frontend (3000)
 ```

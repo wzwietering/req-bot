@@ -1,4 +1,4 @@
-"""Persistence services for the requirements bot."""
+"""Persistence services for SpecScribe."""
 
 from .answer_synchronizer import AnswerSynchronizer
 from .question_synchronizer import QuestionSynchronizer

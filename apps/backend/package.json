@@ -1,5 +1,5 @@
 {
-  "name": "@req-bot/backend",
+  "name": "@specscribe/backend",
   "version": "1.0.0",
   "description": "FastAPI backend for SpecScribe - AI-powered requirements gathering",
   "private": true,

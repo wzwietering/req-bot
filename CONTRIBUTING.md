@@ -57,7 +57,7 @@ def handle_user(data, config, mode=None):
 
 **Required**:
 - Strict TypeScript (no `any`)
-- Import types from `@req-bot/shared-types`
+- Import types from `@specscribe/shared-types`
 - Component composition over large components
 - Custom hooks for reusable logic
 
@@ -82,7 +82,7 @@ function UserThing({ data, callbacks }: any) {
 ### Type Safety
 
 ```typescript
-import type { paths, components } from '@req-bot/shared-types';
+import type { paths, components } from '@specscribe/shared-types';
 
 type SessionResponse = components['schemas']['SessionResponse'];
 type CreateSessionRequest = components['schemas']['CreateSessionRequest'];

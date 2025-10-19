@@ -47,7 +47,7 @@ WORKDIR /app
 
 # Copy virtual environment from builder stage
 ENV VIRTUAL_ENV=/app/.venv
-COPY --from=builder /opt/poetry_venvs/requirements-bot-9TtSrW0h-py3.13 ${VIRTUAL_ENV}
+COPY --from=builder /opt/poetry_venvs/specscribe-9TtSrW0h-py3.13 ${VIRTUAL_ENV}
 
 # Make sure to use venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"

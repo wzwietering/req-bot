@@ -1,4 +1,4 @@
-"""Core services for the requirements bot."""
+"""Core services for SpecScribe."""
 
 from .answer_crud_service import AnswerCRUDService
 from .completeness_assessment_service import CompletenessAssessmentService

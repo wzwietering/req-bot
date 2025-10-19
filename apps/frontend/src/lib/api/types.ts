@@ -1,4 +1,4 @@
-import { components } from '@req-bot/shared-types';
+import { components } from '@specscribe/shared-types';
 
 export type Session = components['schemas']['SessionDetailResponse'];
 export type SessionSummary = components['schemas']['SessionSummary'];
