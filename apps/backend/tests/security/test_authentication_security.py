@@ -6,11 +6,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from requirements_bot.api.error_responses import ValidationError
-from requirements_bot.api.rate_limiting import RateLimiter
-from requirements_bot.core.services.oauth_callback_validator import OAuthCallbackValidator
-from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectConfig
-from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
+from specscribe.api.error_responses import ValidationError
+from specscribe.api.rate_limiting import RateLimiter
+from specscribe.core.services.oauth_callback_validator import OAuthCallbackValidator
+from specscribe.core.services.oauth_redirect_config import OAuthRedirectConfig
+from specscribe.core.services.session_cookie_config import SessionCookieConfig
 
 
 class TestSecurityVulnerabilities:

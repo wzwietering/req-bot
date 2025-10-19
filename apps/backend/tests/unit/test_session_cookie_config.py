@@ -4,7 +4,7 @@ import os
 import threading
 from unittest.mock import patch
 
-from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
+from specscribe.core.services.session_cookie_config import SessionCookieConfig
 
 
 class TestSessionCookieConfig:

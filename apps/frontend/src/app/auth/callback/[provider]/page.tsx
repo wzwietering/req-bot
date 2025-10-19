@@ -136,7 +136,7 @@ export default function CallbackPage({ params }: CallbackPageProps) {
                   Sign in successful!
                 </h1>
                 <p className="text-gray-600 mb-4">
-                  Welcome to Requirements Bot. Redirecting you now...
+                  Welcome to SpecScribe. Redirecting you now...
                 </p>
                 <div className="w-8 h-8 border-4 border-benzol-green-200 border-t-benzol-green-500 rounded-full animate-spin mx-auto"></div>
               </>

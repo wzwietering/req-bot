@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi import Request
 
-from requirements_bot.api.rate_limiting import RateLimiter, RateLimitMiddleware
-from requirements_bot.core.models import UserCreate
-from requirements_bot.core.services.oauth_callback_validator import OAuthCallbackValidator
-from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectConfig
-from requirements_bot.core.services.session_cookie_config import SessionCookieConfig
-from requirements_bot.core.services.user_authentication_service import UserAuthenticationService
-from requirements_bot.core.services.user_registration_service import UserRegistrationService
+from specscribe.api.rate_limiting import RateLimiter, RateLimitMiddleware
+from specscribe.core.models import UserCreate
+from specscribe.core.services.oauth_callback_validator import OAuthCallbackValidator
+from specscribe.core.services.oauth_redirect_config import OAuthRedirectConfig
+from specscribe.core.services.session_cookie_config import SessionCookieConfig
+from specscribe.core.services.user_authentication_service import UserAuthenticationService
+from specscribe.core.services.user_registration_service import UserRegistrationService
 
 
 @pytest.fixture

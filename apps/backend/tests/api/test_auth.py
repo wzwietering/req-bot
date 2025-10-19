@@ -11,12 +11,12 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from jose import jwt
 
-from requirements_bot.api.auth import JWTService, get_jwt_service
-from requirements_bot.api.error_responses import AuthenticationError
-from requirements_bot.core.models import UserCreate
-from requirements_bot.core.services.refresh_token_service import RefreshTokenService
-from requirements_bot.core.services.user_service import UserService
-from requirements_bot.core.storage import DatabaseManager
+from specscribe.api.auth import JWTService, get_jwt_service
+from specscribe.api.error_responses import AuthenticationError
+from specscribe.core.models import UserCreate
+from specscribe.core.services.refresh_token_service import RefreshTokenService
+from specscribe.core.services.user_service import UserService
+from specscribe.core.storage import DatabaseManager
 
 
 class TestJWTTokens:
@@ -220,7 +220,7 @@ class TestAuthSecurity:
 
     def test_auth_status_information_disclosure(self, client: TestClient):
         """Test auth status endpoint doesn't disclose sensitive information."""
-        with patch("requirements_bot.api.dependencies.get_oauth_providers_with_db") as mock_oauth:
+        with patch("specscribe.api.dependencies.get_oauth_providers_with_db") as mock_oauth:
             mock_oauth_providers = Mock()
             mock_oauth_providers.get_configuration_status.return_value = {
                 "google": "configured",

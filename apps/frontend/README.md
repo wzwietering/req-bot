@@ -1,6 +1,6 @@
-# Requirements Bot Frontend
+# SpecScribe Frontend
 
-Next.js web interface for AI-powered requirements gathering.
+Next.js web interface for SpecScribe - Your AI Business Analyst.
 
 ## Quick Start
 
@@ -35,7 +35,7 @@ GOOGLE_CLIENT_ID=your-google-oauth-client-id
 - React 19.1+
 - TypeScript 5.9+ (strict)
 - Tailwind CSS 4.1+
-- Auto-generated types from `@req-bot/shared-types`
+- Auto-generated types from `@specscribe/shared-types`
 
 ## Scripts
 
@@ -50,7 +50,7 @@ npm run type-check   # TypeScript check
 ## Type Safety
 
 ```typescript
-import type { paths, components } from '@req-bot/shared-types';
+import type { paths, components } from '@specscribe/shared-types';
 
 type SessionResponse = components['schemas']['SessionResponse'];
 type CreateSessionRequest = components['schemas']['CreateSessionRequest'];
@@ -81,7 +81,7 @@ apps/frontend/src/
 
 ## Common Issues
 
-**Type errors from `@req-bot/shared-types`**
+**Type errors from `@specscribe/shared-types`**
 ```bash
 cd ../..  # Go to monorepo root
 npm run generate:types

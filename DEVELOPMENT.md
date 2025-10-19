@@ -5,8 +5,8 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/wzwietering/req-bot.git
-cd req-bot
+git clone https://github.com/wzwietering/specscribe.git
+cd specscribe
 npm run setup    # Install dependencies
 npm run dev      # Start backend (8080) + frontend (3000)
 ```
@@ -18,7 +18,7 @@ Install: `nvm install 18 && nvm use 18` | `pipx install poetry`
 ## Project Structure
 
 ```
-req-bot/
+specscribe/
 ├── apps/backend/         # FastAPI Python
 ├── apps/frontend/        # Next.js React
 ├── packages/shared-types/  # Auto-generated types
@@ -55,7 +55,7 @@ See `.env.example` files for all configuration options.
 | | `poetry run ruff format .` | Format |
 | | `alembic upgrade head` | Apply migrations |
 | | `alembic revision -m "msg"` | Create migration |
-| | `python -m requirements_bot.cli conversational` | CLI mode |
+| | `python -m specscribe.cli conversational` | CLI mode |
 | **Frontend** | `npm run dev` | Dev server |
 | `apps/frontend` | `npm run build` | Production build |
 | | `npm run lint` | ESLint |
@@ -65,7 +65,7 @@ See `.env.example` files for all configuration options.
 ### Type Generation
 Backend API changes → `npm run generate:types`
 
-Use in frontend: `import type { components } from '@req-bot/shared-types'`
+Use in frontend: `import type { components } from '@specscribe/shared-types'`
 
 ### Database
 ```bash
@@ -110,13 +110,13 @@ Functions ≤20 lines, single responsibility | Early returns | Max 2-level nesti
 
 **Frontend**: Edit `apps/frontend/src/` → `npm run type-check` → `npm run lint` → Test at `localhost:3000`
 
-**CLI**: Edit `apps/backend/requirements_bot/cli.py` → Test with `python -m requirements_bot.cli conversational`
+**CLI**: Edit `apps/backend/specscribe/cli.py` → Test with `python -m specscribe.cli conversational`
 
 **Add AI Provider**: Create `providers/my_provider.py` → Implement interface → Add to factory → Add env var → Tests
 
 ## Production Deployment
 
-**Backend**: `poetry build && alembic upgrade head && uvicorn requirements_bot.api_server:app --host 0.0.0.0 --port 8080`
+**Backend**: `poetry build && alembic upgrade head && uvicorn specscribe.api_server:app --host 0.0.0.0 --port 8080`
 
 **Frontend**: `npm run build && npm run start`
 
@@ -126,14 +126,14 @@ Functions ≤20 lines, single responsibility | Early returns | Max 2-level nesti
 
 **Frontend Performance**: React Query caching, code splitting, Image optimization, lazy loading
 
-**Backend Debug**: `export REQBOT_LOG_LEVEL=DEBUG` | `python -m pdb api_server.py` | Use `log_event()`
+**Backend Debug**: `export SPECSCRIBE_LOG_LEVEL=DEBUG` | `python -m pdb api_server.py` | Use `log_event()`
 
 **Frontend Debug**: React DevTools, Network tab, `console.log`, build output
 
 ## Resources
 
-[CONTRIBUTING.md](CONTRIBUTING.md) | [GitHub Issues](https://github.com/wzwietering/req-bot/issues) | API docs: `localhost:8080/docs` | Test files for examples
+[CONTRIBUTING.md](CONTRIBUTING.md) | [GitHub Issues](https://github.com/wzwietering/specscribe/issues) | API docs: `localhost:8080/docs` | Test files for examples
 
 ## Next Steps
 
-Explore: `localhost:8080/docs` + `localhost:3000` | Try CLI: `python -m requirements_bot.cli conversational` | Read tests + [CONTRIBUTING.md](CONTRIBUTING.md)
+Explore: `localhost:8080/docs` + `localhost:3000` | Try CLI: `python -m specscribe.cli conversational` | Read tests + [CONTRIBUTING.md](CONTRIBUTING.md)

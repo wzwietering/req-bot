@@ -1,7 +1,7 @@
 {
-  "name": "req-bot",
+  "name": "specscribe",
   "version": "1.0.0",
-  "description": "AI-powered Requirements Bot",
+  "description": "SpecScribe - Your AI Business Analyst. Transform conversations into code-ready specifications.",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -16,7 +16,7 @@
     "type-check": "turbo run type-check",
     "clean": "turbo run clean",
     "generate:types": "turbo run generate:types",
-    "dev:backend": "cd apps/backend && poetry run python requirements_bot/api_server.py --reload",
+    "dev:backend": "cd apps/backend && poetry run python specscribe/api_server.py --reload",
     "dev:frontend": "cd apps/frontend && npm run dev",
     "install:backend": "cd apps/backend && poetry install",
     "install:frontend": "cd apps/frontend && npm install",
@@ -33,7 +33,7 @@
   "packageManager": "npm@11.6.2",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wzwietering/req-bot.git"
+    "url": "https://github.com/wzwietering/specscribe.git"
   },
   "author": "wzwietering",
   "license": "MIT"

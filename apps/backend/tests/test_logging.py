@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from requirements_bot.core.logging import (
+from specscribe.core.logging import (
     ContextFilter,
     JsonFormatter,
     _coerce_level,
@@ -450,7 +450,7 @@ class TestInitLogging:
         with clean_logging_context():
             logger = init_logging()
 
-            assert logger.name == "requirements_bot"
+            assert logger.name == "specscribe"
             assert get_run_id() is not None
             assert len(get_run_id()) == EXPECTED_UUID_LENGTH
 
@@ -499,9 +499,9 @@ class TestInitLogging:
     def test_init_logging_with_environment_variables(self):
         with clean_logging_context():
             env_vars = {
-                "REQBOT_LOG_LEVEL": "DEBUG",
-                "REQBOT_LOG_FORMAT": "json",
-                "REQBOT_LOG_MASK": "true",
+                "SPECSCRIBE_LOG_LEVEL": "DEBUG",
+                "SPECSCRIBE_LOG_FORMAT": "json",
+                "SPECSCRIBE_LOG_MASK": "true",
             }
 
             with patch.dict(os.environ, env_vars):

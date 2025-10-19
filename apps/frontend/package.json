@@ -1,5 +1,5 @@
 {
-  "name": "@req-bot/frontend",
+  "name": "@specscribe/frontend",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@req-bot/shared-types": "file:../../packages/shared-types",
+    "@specscribe/shared-types": "file:../../packages/shared-types",
     "@tailwindcss/postcss": "4.1.14",
     "next": "15.5.4",
     "postcss": "8.5.6",

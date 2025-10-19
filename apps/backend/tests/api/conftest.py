@@ -16,12 +16,12 @@ os.environ.setdefault("MODEL_ID", "mock:test-model")
 import pytest
 from fastapi.testclient import TestClient
 
-from requirements_bot.api.dependencies import get_current_user_id, get_storage
-from requirements_bot.api.main import app
-from requirements_bot.api.middleware import AuthenticationMiddleware
-from requirements_bot.core.models import UserCreate
-from requirements_bot.core.services.user_service import UserService
-from requirements_bot.core.storage import DatabaseManager
+from specscribe.api.dependencies import get_current_user_id, get_storage
+from specscribe.api.main import app
+from specscribe.api.middleware import AuthenticationMiddleware
+from specscribe.core.models import UserCreate
+from specscribe.core.services.user_service import UserService
+from specscribe.core.storage import DatabaseManager
 
 logger = logging.getLogger(__name__)
 

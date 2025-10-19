@@ -6,9 +6,9 @@ import pytest
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 
-from requirements_bot.api.error_responses import ValidationError
-from requirements_bot.core.models import UserCreate
-from requirements_bot.core.services.user_registration_service import UserRegistrationService
+from specscribe.api.error_responses import ValidationError
+from specscribe.core.models import UserCreate
+from specscribe.core.services.user_registration_service import UserRegistrationService
 
 
 class TestUserRegistrationService:

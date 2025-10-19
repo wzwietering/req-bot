@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../components/auth/AuthProvider";
 
@@ -13,10 +13,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-ibm-plex-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "Requirements Bot - AI-Powered Requirements Gathering",
-  description: "Stop gathering incomplete requirements. AI-powered interviews ensure comprehensive, well-documented requirements for every development project.",
-  keywords: "requirements gathering, AI, software development, project management, specifications, documentation",
+  title: "SpecScribe - Your AI Business Analyst",
+  description: "Turn conversations into code-ready specifications in minutes. SpecScribe uses a guided 8-question interview to capture precise, prioritized requirements—MUST, SHOULD, COULD.",
+  keywords: "SpecScribe, AI business analyst, requirements gathering, software specifications, developer tools, project management, business analyst, requirements engineering",
 };
 
 export default function RootLayout({
@@ -27,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${ibmPlexSans.variable} antialiased`}
       >
         <AuthProvider>
           {children}

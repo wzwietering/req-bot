@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from requirements_bot.api.error_responses import ValidationError
-from requirements_bot.core.services.oauth_redirect_config import OAuthRedirectConfig
+from specscribe.api.error_responses import ValidationError
+from specscribe.core.services.oauth_redirect_config import OAuthRedirectConfig
 
 
 class TestOAuthRedirectConfig:

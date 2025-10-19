@@ -47,7 +47,7 @@ WORKDIR /app
 
 # Copy virtual environment from builder stage
 ENV VIRTUAL_ENV=/app/.venv
-COPY --from=builder /opt/poetry_venvs/requirements-bot-9TtSrW0h-py3.13 ${VIRTUAL_ENV}
+COPY --from=builder /opt/poetry_venvs/specscribe-9TtSrW0h-py3.13 ${VIRTUAL_ENV}
 
 # Make sure to use venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -69,7 +69,7 @@ USER appuser
 EXPOSE 8080
 
 # Environment variables
-ENV DATABASE_URL=sqlite:////app/data/requirements_bot.db
+ENV DATABASE_URL=sqlite:////app/data/specscribe.db
 ENV PYTHONPATH=/app
 
 # Health check
@@ -90,7 +90,7 @@ echo "Running database migrations..."
 
 # Start the application
 echo "Starting FastAPI application..."
-exec /app/.venv/bin/python requirements_bot/api_server.py --host 0.0.0.0 --port 8080
+exec /app/.venv/bin/python specscribe/api_server.py --host 0.0.0.0 --port 8080
 EOF
 
 RUN chmod +x /app/start.sh

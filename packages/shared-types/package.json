@@ -1,7 +1,7 @@
 {
-  "name": "@req-bot/shared-types",
+  "name": "@specscribe/shared-types",
   "version": "1.0.0",
-  "description": "Shared TypeScript types generated from FastAPI backend",
+  "description": "Shared TypeScript types for SpecScribe - generated from FastAPI backend",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [

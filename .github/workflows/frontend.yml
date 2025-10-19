@@ -6,7 +6,7 @@ on:
     paths:
       - 'apps/frontend/**'
       - 'packages/shared-types/**'
-      - 'apps/backend/requirements_bot/api/**'
+      - 'apps/backend/specscribe/api/**'
       - 'tools/scripts/generate-types.sh'
       - '.github/workflows/frontend.yml'
   pull_request:
@@ -14,7 +14,7 @@ on:
     paths:
       - 'apps/frontend/**'
       - 'packages/shared-types/**'
-      - 'apps/backend/requirements_bot/api/**'
+      - 'apps/backend/specscribe/api/**'
       - 'tools/scripts/generate-types.sh'
       - '.github/workflows/frontend.yml'
 
@@ -88,7 +88,7 @@ jobs:
         path: packages/shared-types/
 
     - name: Install dependencies
-      run: npm install --workspace=@req-bot/frontend --workspace=@req-bot/shared-types
+      run: npm install --workspace=@specscribe/frontend --workspace=@specscribe/shared-types
 
     - name: Type check
       working-directory: ./apps/frontend
@@ -160,7 +160,7 @@ jobs:
         # Clean database before migrations (tables may exist from generate-types step)
         rm -f test.db
         poetry run alembic upgrade head
-        poetry run python requirements_bot/api_server.py &
+        poetry run python specscribe/api_server.py &
         BACKEND_PID=$!
         sleep 5
 
@@ -198,13 +198,13 @@ jobs:
         file: ./apps/frontend/Dockerfile
         push: false
         load: true
-        tags: req-bot-frontend:latest
+        tags: specscribe-frontend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
     - name: Test Docker image
       run: |
-        docker run -d -p 3000:3000 --name test-container req-bot-frontend:latest
+        docker run -d -p 3000:3000 --name test-container specscribe-frontend:latest
         sleep 10
         curl -f http://localhost:3000 || exit 1
         docker stop test-container

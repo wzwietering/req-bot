@@ -92,6 +92,7 @@ body {
 
 /* Typography Utility Classes */
 .text-hero {
+  font-family: var(--font-ibm-plex-sans), var(--font-sans);
   font-size: var(--font-size-5xl);
   font-weight: 700;
   line-height: 1.1;
@@ -99,12 +100,14 @@ body {
 }
 
 .text-section-heading {
+  font-family: var(--font-ibm-plex-sans), var(--font-sans);
   font-size: var(--font-size-3xl);
   font-weight: 600;
   line-height: 1.2;
 }
 
 .text-feature-title {
+  font-family: var(--font-ibm-plex-sans), var(--font-sans);
   font-size: var(--font-size-xl);
   font-weight: 500;
   line-height: 1.3;

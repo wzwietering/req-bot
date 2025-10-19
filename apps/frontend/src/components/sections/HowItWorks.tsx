@@ -11,8 +11,7 @@ export function HowItWorks() {
             How It Works
           </h2>
           <p className="text-lead text-deep-indigo-300 max-w-2xl mx-auto">
-            Get from idea to comprehensive requirements in three simple steps.
-            Our AI guides you through the entire process.
+            From conversation to specification in 15 minutes. SpecScribe&apos;s guided interview ensures nothing is missed—just like working with an experienced business analyst.
           </p>
         </div>
         <ProcessSteps />

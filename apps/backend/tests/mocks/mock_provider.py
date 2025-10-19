@@ -2,7 +2,7 @@
 
 import uuid
 
-from requirements_bot.core.models import (
+from specscribe.core.models import (
     Answer,
     AnswerAnalysis,
     CompletenessAssessment,
@@ -10,7 +10,7 @@ from requirements_bot.core.models import (
     Requirement,
     Session,
 )
-from requirements_bot.providers.base import Provider
+from specscribe.providers.base import Provider
 
 
 class MockProvider(Provider):

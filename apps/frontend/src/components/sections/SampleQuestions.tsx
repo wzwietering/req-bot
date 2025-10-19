@@ -31,7 +31,7 @@ export function SampleQuestions() {
   return (
     <div className="mt-16 bg-white rounded-2xl p-8 shadow-sm">
       <h3 className="text-feature-title text-deep-indigo-500 mb-6 text-center">
-        Sample Interview Questions
+        Questions a Business Analyst Would Ask
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">

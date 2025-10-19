@@ -2,12 +2,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from requirements_bot.api.services.interview_service import APIInterviewService
-from requirements_bot.core.conversation_state import (
+from specscribe.api.services.interview_service import APIInterviewService
+from specscribe.core.conversation_state import (
     ConversationState,
 )
-from requirements_bot.core.models import Answer, Question, Session
-from requirements_bot.core.services.completeness_assessment_service import (
+from specscribe.core.models import Answer, Question, Session
+from specscribe.core.services.completeness_assessment_service import (
     CompletenessAssessmentService,
 )
 
@@ -98,9 +98,7 @@ class TestInterviewServiceStateTransitions:
         mock_storage.load_session.return_value = session_in_assessing_completeness
 
         # Mock the pipeline components to prevent actual LLM calls
-        with patch(
-            "requirements_bot.api.services.interview_service.ConversationalInterviewPipeline"
-        ) as mock_pipeline_class:
+        with patch("specscribe.api.services.interview_service.ConversationalInterviewPipeline") as mock_pipeline_class:
             mock_pipeline = Mock()
             mock_pipeline_class.return_value = mock_pipeline
 
@@ -137,9 +135,7 @@ class TestInterviewServiceStateTransitions:
         """Test normal answer processing when in WAITING_FOR_INPUT state."""
         mock_storage.load_session.return_value = session_with_unanswered_questions
 
-        with patch(
-            "requirements_bot.api.services.interview_service.ConversationalInterviewPipeline"
-        ) as mock_pipeline_class:
+        with patch("specscribe.api.services.interview_service.ConversationalInterviewPipeline") as mock_pipeline_class:
             mock_pipeline = Mock()
             mock_pipeline_class.return_value = mock_pipeline
 
@@ -169,9 +165,7 @@ class TestInterviewServiceStateTransitions:
         """Test that _assess_and_finalize handles sessions already in assessment state."""
         mock_storage.load_session.return_value = session_in_assessing_completeness
 
-        with patch(
-            "requirements_bot.api.services.interview_service.ConversationalInterviewPipeline"
-        ) as mock_pipeline_class:
+        with patch("specscribe.api.services.interview_service.ConversationalInterviewPipeline") as mock_pipeline_class:
             mock_pipeline = Mock()
             mock_pipeline_class.return_value = mock_pipeline
 
@@ -329,9 +323,7 @@ class TestEndToEndStateFlow:
         )
         mock_storage.load_session.return_value = session
 
-        with patch(
-            "requirements_bot.api.services.interview_service.ConversationalInterviewPipeline"
-        ) as mock_pipeline_class:
+        with patch("specscribe.api.services.interview_service.ConversationalInterviewPipeline") as mock_pipeline_class:
             mock_pipeline = Mock()
             mock_pipeline_class.return_value = mock_pipeline
 

@@ -34,7 +34,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-hero text-deep-indigo-500 mb-4">
-          Welcome to Requirements Bot
+          Welcome to SpecScribe
         </h1>
         <p className="text-lead text-gray-600">
           Sign in with your preferred developer account

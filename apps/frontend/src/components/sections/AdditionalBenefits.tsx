@@ -8,7 +8,7 @@ export function AdditionalBenefits() {
           Built for development teams
         </h3>
         <p className="text-body text-deep-indigo-300">
-          Requirements Bot integrates seamlessly into your existing workflow
+          SpecScribe integrates seamlessly into your existing workflow
         </p>
       </div>
       <BenefitStats />

@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from requirements_bot.api.error_responses import AuthenticationError
-from requirements_bot.core.models import UserCreate
-from requirements_bot.core.services.user_authentication_service import UserAuthenticationService
+from specscribe.api.error_responses import AuthenticationError
+from specscribe.core.models import UserCreate
+from specscribe.core.services.user_authentication_service import UserAuthenticationService
 
 
 class TestUserAuthenticationService:

@@ -1,14 +1,20 @@
-# Requirements Bot
+# SpecScribe
 
-[![codecov](https://codecov.io/gh/wzwietering/req-bot/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/req-bot)
+![SpecScribe Logo](./logo-full.svg)
 
-AI-powered requirements gathering through structured interviews. FastAPI backend + Next.js frontend.
+**Your AI Business Analyst**
+
+[![codecov](https://codecov.io/gh/wzwietering/specscribe/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/specscribe)
+
+SpecScribe is your AI-powered business analyst that transforms vague ideas into precise, code-ready specifications. Using an intelligent 8-category interview methodology, it asks the right follow-up questions to capture every critical detail—ensuring developers have complete context from day one.
+
+**Three interfaces, one powerful methodology:** Web UI for project managers, CLI for developers, REST API for automation.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/wzwietering/req-bot.git
-cd req-bot
+git clone https://github.com/wzwietering/specscribe.git
+cd specscribe
 npm run setup    # Install all dependencies
 npm run dev      # Start backend (8080) + frontend (3000)
 ```
@@ -29,14 +35,26 @@ cp apps/frontend/.env.local.example apps/frontend/.env.local
 
 See `.env.example` files for all options.
 
+## Why SpecScribe?
+
+Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA—available instantly, adapting to your workflow.
+
+**Built for three personas:**
+- **Project Managers**: Generate professional specs in minutes, not hours—stop chasing stakeholders for missing details
+- **Developers**: Get clear, unambiguous requirements with technical constraints included
+- **Founders**: Turn your idea into a technical blueprint that developers understand
+
+**The difference:** Not just a chatbot that records what you say, but an intelligent interviewer that knows what questions to ask, when to dig deeper, and how to structure results into developer-ready specifications.
+
 ## Features
 
-- **Conversational interview mode**: natural, adaptive question flow
-- **Multi-provider**: Anthropic Claude, OpenAI, Google Gemini
-- **Three interfaces**: Web UI, CLI, REST API
+- **Guided interview methodology**: 8 comprehensive question categories with intelligent follow-ups that adapt based on your answers
+- **Prioritized requirements**: Generates MUST/SHOULD/COULD classifications with clear rationale—developers know what to build first
+- **Your choice of AI**: Claude, GPT, or Gemini—not locked into one provider
+- **Three interfaces**: Web UI for project managers, CLI for developers, REST API for automation
+- **Session persistence**: Save progress and resume anytime with SQLite storage
 - **Auto-generated TypeScript types** from backend OpenAPI spec
-- **OAuth + JWT** for web authentication
-- **Session persistence** with SQLite
+- **Secure authentication**: OAuth + JWT for web interface
 
 ## Usage
 
@@ -53,13 +71,13 @@ cd apps/backend
 export ANTHROPIC_API_KEY=your-key
 
 # Start conversational interview
-poetry run python -m requirements_bot.cli conversational --project "My Project"
+poetry run python -m specscribe.cli conversational --project "My Project"
 
 # List sessions
-poetry run python -m requirements_bot.cli sessions list
+poetry run python -m specscribe.cli sessions list
 
 # Load saved session
-poetry run python -m requirements_bot.cli load <session-id>
+poetry run python -m specscribe.cli load <session-id>
 ```
 
 <details>
@@ -81,34 +99,35 @@ poetry run python -m requirements_bot.cli load <session-id>
 | `--project TEXT` | (required) | Project name |
 | `--out PATH` | requirements.md | Output file path |
 | `--model TEXT` | anthropic:claude-3-5-haiku-20241022 | Format: `provider:model-name` |
-| `--db-path PATH` | requirements_bot.db | Database location |
+| `--db-path PATH` | specscribe.db | Database location |
 | `--max-questions INT` | 25 | Max questions (conversational only) |
 
 #### Examples
 
 ```bash
 # Different AI providers
-poetry run python -m requirements_bot.cli conversational \
+poetry run python -m specscribe.cli conversational \
   --project "E-commerce App" \
   --model "openai:gpt-4"
 
-poetry run python -m requirements_bot.cli conversational \
+poetry run python -m specscribe.cli conversational \
   --project "Mobile App" \
   --model "gemini:gemini-1.5-pro"
 
 # Custom output
-poetry run python -m requirements_bot.cli conversational \
+poetry run python -m specscribe.cli conversational \
   --project "My Project" \
   --out "./docs/requirements.md" \
   --max-questions 15
 ```
 
-#### Output Format
+#### What You Get
 
-Generated Markdown includes:
-- Project description and context
-- Interview Q&A organized by category (Scope, Users, Constraints, etc.)
-- Prioritized requirements (MUST/SHOULD/COULD) with rationale
+Generated Markdown specifications include:
+- **Project Overview**: Clear description and business context
+- **Structured Interview**: Q&A organized by 8 categories (Scope, Users, Technical Constraints, Success Metrics, Risks, Timeline, Budget, and Stakeholders)
+- **Prioritized Requirements**: MUST/SHOULD/COULD classification with rationale explaining why each requirement matters
+- **Developer-Ready**: Clear enough to start coding immediately—no guesswork required
 
 </details>
 
@@ -134,9 +153,9 @@ npm run generate:types   # Backend API changes → regenerate types
 ```bash
 cd apps/backend
 
-poetry run python requirements_bot/api_server.py  # Start server
+poetry run python specscribe/api_server.py  # Start server
 poetry run pytest                                 # Tests
-poetry run pytest --cov=requirements_bot         # Tests + coverage
+poetry run pytest --cov=specscribe         # Tests + coverage
 poetry run ruff check .                          # Lint
 poetry run ruff format .                         # Format
 poetry run alembic upgrade head                  # Run migrations
@@ -163,7 +182,7 @@ npm run type-check   # Type checking
 <summary>Project Structure</summary>
 
 ```
-req-bot/
+specscribe/
 ├── apps/
 │   ├── backend/          # FastAPI Python app
 │   └── frontend/         # Next.js React app
@@ -183,11 +202,22 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup and workflows.
 
 **Key rules**: Functions ≤20 lines, single responsibility, type everything, test everything.
 
+## Powered By
+
+SpecScribe supports multiple AI providers—choose the one that fits your needs and budget:
+
+- **Anthropic Claude** (4.5 Haiku, 4.5 Sonnet, 4.1 Opus)
+- **OpenAI GPT** (GPT-5)
+- **Google Gemini** (Gemini 2.5 Pro, Gemini 2.0 Pro)
+
+Switch providers anytime with the `--model` flag.
+
 ## Support
 
-- [GitHub Issues](https://github.com/wzwietering/req-bot/issues) - Bug reports and features
-- [API Docs](http://localhost:8080/docs) - When backend running
-- [DEVELOPMENT.md](DEVELOPMENT.md) - Setup help
+- [GitHub Issues](https://github.com/wzwietering/specscribe/issues) - Bug reports, feature requests, and discussions
+- [API Docs](http://localhost:8080/docs) - Interactive API documentation (when backend is running)
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Detailed setup and workflow guide
+- [BRAND_GUIDE.md](BRAND_GUIDE.md) - Brand identity quick reference for contributors
 
 ## License
 
