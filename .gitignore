@@ -350,3 +350,4 @@ vite.config.ts.timestamp-*
 # Keep tracked frontend source libraries under apps/frontend/src/lib
 !apps/frontend/src/lib/
 !apps/frontend/src/lib/**
+*.db

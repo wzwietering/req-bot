@@ -7,7 +7,7 @@ const benefits = [
   },
   {
     title: 'Professional Documentation',
-    description: 'Structured Markdown with prioritized requirements (MUST/SHOULD/COULD)'
+    description: 'Structured Markdown with prioritized requirements'
   },
   {
     title: 'Adaptive Interview Process',

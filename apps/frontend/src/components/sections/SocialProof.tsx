@@ -67,7 +67,7 @@ export function SocialProof() {
         {/* Technology Trust */}
         <div className="mt-16 bg-gradient-to-r from-deep-indigo-500 to-deep-indigo-600 rounded-2xl p-8 text-white text-center">
           <h3 className="text-feature-title mb-2">Your Choice of AI Provider</h3>
-          <p className="text-deep-indigo-100 mb-6 text-sm">Switch providers anytime—your methodology stays consistent</p>
+          <p className="text-deep-indigo-100 mb-6 text-sm">Switch providers anytime: your methodology stays consistent</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="text-2xl font-bold mb-2">Anthropic Claude</div>

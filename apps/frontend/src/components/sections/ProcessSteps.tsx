@@ -10,7 +10,7 @@ const steps = [
   {
     icon: <ChatIcon />,
     title: 'SpecScribe Guides the Interview',
-    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories—SCOPE, USERS, CONSTRAINTS, SUCCESS, and more—with intelligent follow-ups based on your answers.'
+    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories like SCOPE, USERS, CONSTRAINTS, SUCCESS, and more, with intelligent follow-ups based on your answers.'
   },
   {
     icon: <FileIcon />,
