@@ -351,3 +351,4 @@ vite.config.ts.timestamp-*
 !apps/frontend/src/lib/
 !apps/frontend/src/lib/**
 *.db
+docs/
