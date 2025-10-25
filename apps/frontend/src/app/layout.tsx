@@ -21,7 +21,7 @@ const ibmPlexSans = IBM_Plex_Sans({
 
 export const metadata: Metadata = {
   title: "SpecScribe - Your AI Business Analyst",
-  description: "Turn conversations into code-ready specifications in minutes. SpecScribe uses a guided 8-question interview to capture precise, prioritized requirements—MUST, SHOULD, COULD.",
+  description: "Turn conversations into code-ready specifications in minutes. SpecScribe uses a guided 8-question interview to capture precise, prioritized requirements: MUST, SHOULD, COULD.",
   keywords: "SpecScribe, AI business analyst, requirements gathering, software specifications, developer tools, project management, business analyst, requirements engineering",
 };
 

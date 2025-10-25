@@ -55,7 +55,7 @@ export function Hero() {
 
           {/* Subheading */}
           <p className="text-lead text-deep-indigo-300 mb-10 max-w-2xl mx-auto">
-            A guided 8-question interview that captures requirements with the precision of a business analyst—in 15 minutes, not hours
+            A guided interview that captures requirements with the precision of a business analyst in 15 minutes, not hours
           </p>
 
           {/* CTAs */}

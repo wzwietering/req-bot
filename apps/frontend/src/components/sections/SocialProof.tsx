@@ -29,7 +29,7 @@ export function SocialProof() {
         </svg>
       ),
       title: "Adapt to Your Workflow",
-      description: "Web UI, CLI, or API—integrate SpecScribe however you work",
+      description: "Web UI, CLI, or API: integrate SpecScribe however you work",
       colorClass: "bg-benzol-green-100 text-benzol-green-600"
     }
   ];
@@ -43,7 +43,7 @@ export function SocialProof() {
             Why Teams Choose SpecScribe
           </h2>
           <p className="text-lead text-deep-indigo-300 max-w-2xl mx-auto">
-            The missing member of your development team—combining the precision of a business analyst with the speed of AI
+            Your AI Business Analyst: the missing member of your development team, combining BA precision with AI speed
           </p>
         </div>
 
