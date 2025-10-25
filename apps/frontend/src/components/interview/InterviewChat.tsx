@@ -167,8 +167,8 @@ export function InterviewChat() {
                 Requirements Generation Failed
               </h3>
               <p className="text-deep-indigo-400">
-                We encountered an issue while generating requirements from your answers.
-                This might be due to high demand on our AI service.
+                We encountered an issue while analyzing your interview responses.
+                This might be due to high demand on our service.
               </p>
               <p className="text-sm text-deep-indigo-400">
                 Your interview answers have been saved. You can retry generating requirements.
@@ -222,7 +222,7 @@ export function InterviewChat() {
           {isLoading && (
             <Card padding="md">
               <div className="space-y-3">
-                <LoadingSpinner size="sm" label="Analyzing your answer with AI..." />
+                <LoadingSpinner size="sm" label="Analyzing your answer..." />
 
                 {loadingDuration > 3000 && (
                   <p className="text-xs text-deep-indigo-400 text-center">

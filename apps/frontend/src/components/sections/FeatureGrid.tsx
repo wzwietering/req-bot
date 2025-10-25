@@ -4,14 +4,14 @@ import { ChatIcon, GridIcon, DocumentIcon } from '../icons';
 const features = [
   {
     icon: <ChatIcon />,
-    title: 'Intelligent Interviews',
-    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories, asking intelligent follow-ups to uncover requirements you might have missed.',
+    title: 'Structured BA Methodology',
+    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories, asking adaptive follow-up questions to uncover requirements you might have missed.',
     iconColor: 'green' as const
   },
   {
     icon: <GridIcon />,
     title: 'Multi-Provider Support',
-    description: 'Your choice, your workflow. SpecScribe adapts to work with Claude, GPT, or Gemini—switch providers anytime without changing your process.',
+    description: 'Your choice, your workflow. SpecScribe adapts to work with Claude, GPT, or Gemini. Switch providers anytime without changing your process.',
     iconColor: 'indigo' as const
   },
   {

@@ -302,7 +302,7 @@ Download: "Export Requirements" | "Download Spec"
 ## Example Copy Snippets
 
 ### Marketing Copy
-> "Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA—available instantly, adapting to your workflow."
+> "Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA: available instantly, adapting to your workflow."
 
 ### Technical Copy (Marketing Context)
 > "SpecScribe uses an 8-category question framework to systematically gather project scope, user needs, technical constraints, and success metrics. Powered by Claude, GPT, or Gemini, it analyzes your answers to ask relevant follow-ups and assess completeness."
@@ -322,8 +322,8 @@ Download: "Export Requirements" | "Download Spec"
 | **Methodology** | Guided 8-category interview vs. blank page or generic chat |
 | **Intelligence** | Adaptive follow-ups and answer quality analysis |
 | **Output** | Prioritized requirements (MUST/SHOULD/COULD) with rationale |
-| **Flexibility** | Web UI, CLI, and API—fits any workflow |
-| **AI Choice** | Claude, GPT, or Gemini—not locked into one provider |
+| **Flexibility** | Web UI, CLI, and API: fits any workflow |
+| **AI Choice** | Claude, GPT, or Gemini, not locked into one provider |
 
 ---
 

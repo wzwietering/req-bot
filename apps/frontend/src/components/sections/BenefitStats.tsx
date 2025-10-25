@@ -1,5 +1,5 @@
 const stats = [
-  { value: '8+', label: 'Question categories' },
+  { value: '8', label: 'Question categories' },
   { value: '3', label: 'AI providers' },
   { value: 'OAuth', label: 'Secure authentication' }
 ];

@@ -35,7 +35,7 @@ export function InterviewSetup({ onStart, isLoading }: InterviewSetupProps) {
             </h1>
             <div className="space-y-3 text-left max-w-xl mx-auto">
               <p className="text-deep-indigo-400">
-                I&apos;ll guide you through a conversational interview to gather comprehensive requirements for your project.
+                Your AI Business Analyst will guide you through a structured interview to gather comprehensive requirements for your project.
               </p>
               <ul className="text-sm text-deep-indigo-400 space-y-2 list-disc list-inside">
                 <li>Expect <strong>15-25 questions</strong> covering scope, users, constraints, and success criteria</li>

@@ -10,12 +10,12 @@ const steps = [
   {
     icon: <ChatIcon />,
     title: 'SpecScribe Guides the Interview',
-    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories like SCOPE, USERS, CONSTRAINTS, SUCCESS, and more, with intelligent follow-ups based on your answers.'
+    description: 'Like a seasoned business analyst, SpecScribe guides you through 8 comprehensive question categories like SCOPE, USERS, CONSTRAINTS, SUCCESS, and more, with adaptive follow-up questions based on your answers.'
   },
   {
     icon: <FileIcon />,
     title: 'Receive Your Specification',
-    description: 'Download a structured Markdown document with prioritized requirements (MUST/SHOULD/COULD), user stories, technical constraints, and success metrics—ready for developers immediately.'
+    description: 'Download a structured Markdown document with prioritized requirements (MUST/SHOULD/COULD), user stories, technical constraints, and success metrics. Ready for developers immediately.'
   }
 ];
 

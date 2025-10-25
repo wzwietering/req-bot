@@ -11,7 +11,7 @@ const benefits = [
   },
   {
     title: 'Adaptive Interview Process',
-    description: 'Intelligent follow-ups that dig deeper when answers need clarification'
+    description: 'Adaptive follow-up questions that dig deeper when answers need clarification, just like a seasoned BA'
   }
 ];
 

@@ -6,7 +6,7 @@
 
 [![codecov](https://codecov.io/gh/wzwietering/specscribe/branch/master/graph/badge.svg)](https://codecov.io/gh/wzwietering/specscribe)
 
-SpecScribe is your AI-powered business analyst that transforms vague ideas into precise, code-ready specifications. Using an intelligent 8-category interview methodology, it asks the right follow-up questions to capture every critical detail—ensuring developers have complete context from day one.
+SpecScribe is your AI-powered business analyst that transforms vague ideas into precise, code-ready specifications. Using an intelligent 8-category interview methodology, it asks the right follow-up questions to capture every critical detail ensuring developers have complete context from day one.
 
 **Three interfaces, one methodology:** Web UI for project managers, CLI for developers, REST API for automation.
 
@@ -37,10 +37,10 @@ See `.env.example` files for all options.
 
 ## Why SpecScribe?
 
-Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA—available instantly, adapting to your workflow.
+Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA. Available instantly, adapting to your workflow.
 
 **Built for three personas:**
-- **Project Managers**: Generate professional specs in minutes, not hours—stop chasing stakeholders for missing details
+- **Project Managers**: Generate professional specs in minutes, not hours. Stop chasing stakeholders for missing details
 - **Developers**: Get clear, unambiguous requirements with technical constraints included
 - **Founders**: Turn your idea into a technical blueprint that developers understand
 
@@ -49,8 +49,8 @@ Most teams can't afford a full-time business analyst. SpecScribe gives you the s
 ## Features
 
 - **Guided interview methodology**: 8 comprehensive question categories with intelligent follow-ups that adapt based on your answers
-- **Prioritized requirements**: Generates MUST/SHOULD/COULD classifications with clear rationale—developers know what to build first
-- **Your choice of AI**: Claude, GPT, or Gemini—not locked into one provider
+- **Prioritized requirements**: Generates MUST/SHOULD/COULD classifications with clear rationale. Developers know what to build first
+- **Your choice of AI**: Claude, GPT, or Gemini: not locked into one provider
 - **Three interfaces**: Web UI for project managers, CLI for developers, REST API for automation
 - **Session persistence**: Save progress and resume anytime with SQLite storage
 - **Auto-generated TypeScript types** from backend OpenAPI spec
@@ -127,7 +127,7 @@ Generated Markdown specifications include:
 - **Project Overview**: Clear description and business context
 - **Structured Interview**: Q&A organized by 8 categories (Scope, Users, Technical Constraints, Success Metrics, Risks, Timeline, Budget, and Stakeholders)
 - **Prioritized Requirements**: MUST/SHOULD/COULD classification with rationale explaining why each requirement matters
-- **Developer-Ready**: Clear enough to start coding immediately—no guesswork required
+- **Developer-Ready**: Clear enough to start coding immediately
 
 </details>
 
@@ -204,7 +204,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup and workflows.
 
 ## Powered By
 
-SpecScribe supports multiple AI providers—choose the one that fits your needs and budget:
+SpecScribe supports multiple AI providers, choose the one that fits your needs and budget:
 
 - **Anthropic Claude** (4.5 Haiku, 4.5 Sonnet, 4.1 Opus)
 - **OpenAI GPT** (GPT-5)

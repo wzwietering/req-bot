@@ -89,7 +89,7 @@ export function RequirementsView({ requirements, projectName }: RequirementsView
           Interview Complete!
         </h2>
         <p className="text-deep-indigo-400">
-          We&apos;ve generated {requirements.length} requirements for <strong>{projectName}</strong>
+          Your AI Business Analyst generated {requirements.length} prioritized requirements for <strong>{projectName}</strong>
         </p>
       </div>
 
