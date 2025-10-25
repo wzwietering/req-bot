@@ -3,10 +3,13 @@
 from pydantic import ValidationError
 
 from specscribe.core.conversation_state import ConversationState
+from specscribe.core.database_models import UserTable
 from specscribe.core.logging import log_event
 from specscribe.core.models import Answer, AnswerAnalysis, Question, Session
 from specscribe.core.pipeline import ConversationalInterviewPipeline
+from specscribe.core.services.usage_tracking_service import UsageTrackingService
 from specscribe.core.state_manager import ConversationStateManager
+from specscribe.core.storage import DatabaseManager
 from specscribe.core.storage_interface import StorageInterface
 from specscribe.providers.exceptions import OverloadedError
 
@@ -17,6 +20,11 @@ class APIInterviewService:
     def __init__(self, storage: StorageInterface, model_id: str):
         self.storage = storage
         self.model_id = model_id
+        # Usage tracking requires DatabaseManager for session access
+        if isinstance(storage, DatabaseManager):
+            self.usage_service = UsageTrackingService(storage)
+        else:
+            self.usage_service = None  # type: ignore
 
     def create_session(self, project: str, user_id: str) -> Session:
         """Create new session with LLM-generated questions."""
@@ -28,6 +36,11 @@ class APIInterviewService:
 
         session.user_id = user_id
         self.storage.save_session(session)
+
+        # Track AI-generated questions
+        if self.usage_service:
+            for question in session.questions:
+                self.usage_service.record_question_generated(user_id, question.id)
 
         return session
 
@@ -78,19 +91,46 @@ class APIInterviewService:
 
         analysis = pipeline.conductor.analyze_response(question, answer, session, self.model_id)
         pipeline.conductor.update_answer_metadata(answer, analysis)
+
+        # Track answer submission (use question_id as unique identifier)
+        if self.usage_service:
+            self.usage_service.record_answer_submitted(session.user_id, question.id)
+
         return analysis
+
+    def _check_quota_before_generation(self, user_id: str) -> None:
+        """Check if user has quota available before generating questions."""
+        if not self.usage_service or not isinstance(self.storage, DatabaseManager):
+            return
+        with self.storage.SessionLocal() as db_session:
+            user = db_session.get(UserTable, user_id)
+            if user:
+                self.usage_service.check_quota_available(user_id, user.tier)
 
     def _handle_followups_or_next_question(
         self, session: Session, pipeline: ConversationalInterviewPipeline, current_question: Question, analysis
     ) -> None:
         """Handle follow-up questions or generate next question."""
         if analysis.follow_up_questions:
+            # Check quota before generating followups
+            self._check_quota_before_generation(session.user_id)
             pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_FOLLOWUPS)
-            pipeline.question_queue_manager.insert_followups(analysis.follow_up_questions, current_question, session)
+            followup_questions = pipeline.question_queue_manager.insert_followups(
+                analysis.follow_up_questions, current_question, session
+            )
+            # Track followup questions
+            if self.usage_service:
+                for followup in followup_questions:
+                    self.usage_service.record_question_generated(session.user_id, followup.id)
         else:
+            # Check quota before generating next question
+            self._check_quota_before_generation(session.user_id)
             next_question = pipeline.question_generation.generate_next_question_if_needed(session)
             if next_question:
                 session.questions.append(next_question)
+                # Track AI-generated question
+                if self.usage_service:
+                    self.usage_service.record_question_generated(session.user_id, next_question.id)
 
     def _check_and_finalize_if_complete(
         self, session: Session, pipeline: ConversationalInterviewPipeline, current_question: Question
@@ -189,6 +229,9 @@ class APIInterviewService:
         Concurrent calls to this method on the same session may result in
         duplicate questions if the storage layer doesn't handle conflicts.
         """
+        # Check quota before generating next question
+        self._check_quota_before_generation(session.user_id)
+
         pipeline = self._create_pipeline(session)
 
         new_question = pipeline.question_generation.generate_next_question_if_needed(session)
@@ -198,6 +241,9 @@ class APIInterviewService:
             if new_question.id not in existing_ids:
                 session.questions.append(new_question)
                 self.storage.save_session(session)
+                # Track AI-generated question
+                if self.usage_service:
+                    self.usage_service.record_question_generated(session.user_id, new_question.id)
             else:
                 # Question was already added (possible race condition)
                 return new_question

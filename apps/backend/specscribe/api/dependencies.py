@@ -14,6 +14,7 @@ from specscribe.api.rate_limiting import (
     retry_user_rate_limiter,
 )
 from specscribe.api.services.interview_service import APIInterviewService
+from specscribe.core.database_models import UserTable
 from specscribe.core.models import User
 from specscribe.core.services import (
     AnswerCRUDService,
@@ -25,6 +26,7 @@ from specscribe.core.services import (
 from specscribe.core.services.refresh_token_service import RefreshTokenService
 from specscribe.core.services.session_cookie_config import SessionCookieConfig
 from specscribe.core.services.session_service import SessionValidationError
+from specscribe.core.services.usage_tracking_service import UsageTrackingService
 from specscribe.core.services.user_service import UserService
 from specscribe.core.session_manager import SessionManager
 from specscribe.core.storage import DatabaseManager, StorageInterface
@@ -238,3 +240,27 @@ def check_crud_rate_limit(user_id: Annotated[str, Depends(get_current_user_id)])
             },
             headers={"Retry-After": str(reset_time - int(time.time()))},
         )
+
+
+def get_usage_tracking_service() -> UsageTrackingService:
+    """Get usage tracking service instance."""
+    db_manager = get_database_manager()
+    return UsageTrackingService(db_manager)
+
+
+def enforce_question_quota(
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    db_session: Annotated[DBSession, Depends(get_database_session)],
+) -> None:
+    """Check if user has quota available for question generation.
+
+    Raises HTTPException(429) if quota exceeded.
+    """
+    user = db_session.get(UserTable, user_id)
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    db_manager = get_database_manager()
+    service = UsageTrackingService(db_manager)
+    service.check_quota_available(user_id, user.tier)

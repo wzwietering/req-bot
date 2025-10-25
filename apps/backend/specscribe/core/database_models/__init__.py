@@ -45,6 +45,7 @@ class UserTable(Base):
     provider_id: Mapped[str] = mapped_column(String)  # OAuth provider's user ID
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    tier: Mapped[str] = mapped_column(String, default="free")  # 'free' | 'pro'
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
@@ -189,6 +190,24 @@ class RefreshTokenTable(Base):
     )
 
 
+class UsageEventTable(Base):
+    """Usage tracking for quota enforcement."""
+
+    __tablename__ = "usage_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    event_type: Mapped[str] = mapped_column(String)  # 'question_generated' | 'answer_submitted'
+    entity_id: Mapped[str] = mapped_column(String)  # question_id or answer_id
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
+    # Relationships
+    user: Mapped["UserTable"] = relationship()
+
+    # Composite index for fast rolling window queries
+    __table_args__ = (Index("ix_usage_user_type_time", "user_id", "event_type", "created_at"),)
+
+
 # Export core models only
 __all__ = [
     "Base",
@@ -199,5 +218,6 @@ __all__ = [
     "RequirementTable",
     "OAuthStateTable",
     "RefreshTokenTable",
+    "UsageEventTable",
     "enable_sqlite_foreign_keys",
 ]

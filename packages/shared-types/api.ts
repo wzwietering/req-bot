@@ -397,6 +397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usage/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Usage
+         * @description Get current user's usage statistics.
+         */
+        get: operations["get_my_usage_api_v1_usage_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -736,6 +756,22 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * UsageStatsResponse
+         * @description Usage statistics response.
+         */
+        UsageStatsResponse: {
+            /** Questions Generated */
+            questions_generated: number;
+            /** Answers Submitted */
+            answers_submitted: number;
+            /** Quota Limit */
+            quota_limit: number;
+            /** Quota Remaining */
+            quota_remaining: number;
+            /** Window Days */
+            window_days: number;
         };
         /** UserResponse */
         UserResponse: {
@@ -1506,6 +1542,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_usage_api_v1_usage_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageStatsResponse"];
                 };
             };
         };

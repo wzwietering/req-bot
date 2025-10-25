@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_201_CREATED
 
 from specscribe.api.dependencies import (
+    enforce_question_quota,
     get_api_interview_service,
     get_current_user_id,
     get_session_service,
@@ -32,6 +33,7 @@ async def create_session(
     request: SessionCreateRequest,
     interview_service: Annotated[APIInterviewService, Depends(get_api_interview_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
+    _: Annotated[None, Depends(enforce_question_quota)],
 ) -> SessionCreateResponse:
     """Create a new requirements gathering session with LLM-generated questions."""
     session = interview_service.create_session(request.project, user_id)
