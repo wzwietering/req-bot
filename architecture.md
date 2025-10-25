@@ -1,312 +1,669 @@
-# SpecScribe - Software Architecture Analysis
+# SpecScribe - Software Architecture
+
+**Last Updated**: 2025-10-25
 
 ## Overview
 
-SpecScribe is an AI-powered requirements gathering system that conducts intelligent interviews to transform conversations into code-ready specifications. The system employs a modular architecture with clean separation of concerns, supporting multiple AI providers and offering three interfaces: Web UI, CLI, and REST API.
+SpecScribe is an AI-powered requirements gathering system that conducts structured interviews using an 8-category question framework. The system provides three interfaces (Web UI, CLI, REST API) that share the same core interview logic.
+
+The implementation uses a monorepo architecture with separate frontend (Next.js) and backend (FastAPI) applications. Type safety is maintained across the stack through OpenAPI-generated TypeScript definitions.
+
+**Key Architectural Characteristics**:
+- Monorepo structure with Turborepo orchestration
+- Type-safe contract via OpenAPI-generated TypeScript types
+- Multi-provider AI support (Anthropic, OpenAI, Google)
+- OAuth2 + JWT authentication
+- SQLite storage with SQLAlchemy (PostgreSQL-compatible)
+- Docker Compose deployment configuration
+
+## Monorepo Structure
+
+SpecScribe uses a Turborepo-based monorepo with NPM workspaces for the frontend and Poetry for the backend Python application.
+
+```
+specscribe/
+├── apps/
+│   ├── backend/              # Python FastAPI application
+│   │   ├── specscribe/       # Core application code
+│   │   ├── alembic/          # Database migrations
+│   │   ├── tests/            # Backend tests
+│   │   └── pyproject.toml    # Python dependencies
+│   │
+│   └── frontend/             # Next.js 15 React application
+│       ├── src/              # TypeScript source code
+│       ├── public/           # Static assets
+│       └── package.json      # Node dependencies
+│
+├── packages/
+│   └── shared-types/         # Auto-generated TypeScript types
+│       ├── api.ts            # Generated from OpenAPI spec
+│       └── index.ts          # Type exports
+│
+├── tools/
+│   └── scripts/              # Build and type generation scripts
+│
+├── turbo.json                # Turborepo pipeline configuration
+└── package.json              # Root workspace configuration
+```
+
+**Build System**: Turborepo manages parallel task execution across workspaces with caching and dependency tracking.
+
+**Type Generation Flow**:
+1. Backend FastAPI generates OpenAPI spec
+2. `tools/scripts/generate-types.sh` fetches spec and runs `openapi-typescript`
+3. Types are written to `packages/shared-types/api.ts`
+4. Frontend imports type-safe schemas and API definitions
 
 ## System Architecture
 
 ### High-Level Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   CLI Layer     │    │   Core Logic    │    │   AI Providers  │
-│   (cli.py)      │───▶│   (pipeline.py) │───▶│   (anthropic/   │
-│                 │    │                 │    │    openai/      │
-│                 │    │                 │    │    google)      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       ▼                       │
-         │              ┌─────────────────┐              │
-         │              │   Data Models   │              │
-         └──────────────▶│   (models.py)   │◀─────────────┘
-                        └─────────────────┘
-                                 │
-                                 ▼
-                        ┌─────────────────┐
-                        │   Output Layer  │
-                        │  (document.py)  │
-                        └─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                         User Layer                          │
+│  ┌───────────────┐  ┌──────────┐  ┌────────────────────┐   │
+│  │   Web UI      │  │   CLI    │  │  External Apps     │   │
+│  │  (Next.js)    │  │ (Typer)  │  │  (REST API)        │   │
+│  └───────┬───────┘  └────┬─────┘  └─────────┬──────────┘   │
+└──────────┼──────────────┼─────────────────┼────────────────┘
+           │              │                 │
+           └──────────────┼─────────────────┘
+                          │
+                          ▼
+           ┌──────────────────────────────┐
+           │   Authentication Layer       │
+           │   (OAuth2 + JWT)             │
+           └──────────────┬───────────────┘
+                          │
+                          ▼
+           ┌──────────────────────────────┐
+           │      REST API Layer          │
+           │      (FastAPI)               │
+           │                              │
+           │  - Routes & Validation       │
+           │  - Middleware Stack          │
+           │  - Request/Response Schemas  │
+           └──────────────┬───────────────┘
+                          │
+                          ▼
+           ┌──────────────────────────────┐
+           │    Core Business Logic       │
+           │                              │
+           │  - Interview Orchestration   │
+           │  - Session Management        │
+           │  - Question Queue            │
+           │  - Service Layer             │
+           └──────────────┬───────────────┘
+                          │
+           ┌──────────────┼──────────────┐
+           │              │              │
+           ▼              ▼              ▼
+    ┌───────────┐  ┌───────────┐  ┌───────────┐
+    │    AI     │  │  Storage  │  │   Data    │
+    │ Providers │  │   Layer   │  │  Models   │
+    │           │  │           │  │           │
+    │ - Claude  │  │ - SQLite  │  │ - Session │
+    │ - GPT     │  │ - Alembic │  │ - Question│
+    │ - Gemini  │  │ - Sync    │  │ - Answer  │
+    └───────────┘  └───────────┘  └───────────┘
 ```
 
-## Core Components
+## Frontend Architecture
 
-### 1. CLI Layer (`cli.py`)
+### Technology Stack
 
-- **Purpose**: Entry point and command-line interface
-- **Framework**: Typer for CLI management
-- **Commands**:
-  - `interview`: Structured interview with fixed questions
-  - `conversational`: Intelligent interview with follow-ups and completeness assessment
-- **Responsibilities**:
-  - Command parsing and validation
-  - Orchestrating interview execution
-  - Output file management
+- **Framework**: Next.js 15.5.4 with App Router and Turbopack
+- **React**: 19.2.0
+- **Styling**: Tailwind CSS 4.1.14
+- **TypeScript**: 5.9.3
+- **Type Safety**: Generated types from `@specscribe/shared-types`
 
-### 2. Core Logic Layer
+### Application Structure
 
-#### Pipeline Module (`pipeline.py`)
+```
+apps/frontend/src/
+├── app/                          # Next.js App Router
+│   ├── layout.tsx               # Root layout with AuthProvider
+│   ├── page.tsx                 # Landing page
+│   ├── login/                   # Login page
+│   ├── auth/callback/           # OAuth callback handlers
+│   ├── interview/
+│   │   ├── new/                 # Create new session
+│   │   └── [sessionId]/         # Interactive interview flow
+│   └── sessions/
+│       ├── page.tsx             # Sessions list
+│       └── [id]/qa/             # Q&A view and editing
+│
+├── components/                   # React components
+│   ├── auth/                    # Authentication UI
+│   ├── interview/               # Interview interface
+│   ├── layout/                  # Layout components
+│   └── ui/                      # Reusable primitives
+│
+├── lib/                         # Utilities and services
+│   ├── api/
+│   │   ├── apiClient.ts         # API client with auto-refresh
+│   │   ├── sessions.ts          # Session API calls
+│   │   └── types.ts             # API type definitions
+│   └── auth/
+│       ├── api.ts               # Auth API calls
+│       └── types.ts             # Auth types
+│
+└── hooks/                       # Custom React hooks
+```
 
-- **Purpose**: Interview orchestration and flow control
-- **Key Functions**:
-  - `run_interview()`: Fixed question interview flow
-  - `run_conversational_interview()`: Adaptive interview flow
-- **Features**:
-  - Question queue management
-  - Dynamic follow-up generation
-  - Completeness assessment integration
-  - Session state management
+### Key Features
 
-#### Models Module (`models.py`)
+**Routes** (App Router):
+- `/` - Landing page
+- `/login` - Authentication
+- `/auth/callback/{provider}` - OAuth callback
+- `/interview/new` - Create session
+- `/interview/{sessionId}` - Active interview
+- `/sessions` - Session list
+- `/sessions/{id}/qa` - Q&A view and editing
 
-- **Purpose**: Data structures and business logic
-- **Key Classes**:
-  - `Question`: Interview questions with categories and metadata
-  - `Answer`: User responses with quality flags
-  - `Session`: Interview session state and history
-  - `Requirement`: Structured requirements output
-  - `AnswerAnalysis`: AI analysis of answer quality
-  - `CompletenessAssessment`: Session completeness evaluation
-- **Design Pattern**: Pydantic models for validation and serialization
+**Authentication Flow**:
+1. User initiates OAuth login
+2. Frontend redirects to backend `/api/v1/auth/login/{provider}`
+3. Backend redirects to OAuth provider
+4. Provider redirects to `/api/v1/auth/callback/{provider}`
+5. Backend sets HTTP-only cookies (access + refresh tokens)
+6. Frontend redirects to application
 
-#### Prompts Module (`prompts.py`)
+**API Client**:
+- Centralized client with 401 retry logic
+- Automatic token refresh on expiration
+- Type-safe requests using generated types
+- Custom error handling
 
-- **Purpose**: AI prompt templates and system instructions
-- **Responsibilities**:
-  - Structured prompt generation for different AI tasks
-  - System instruction definitions
-  - Context formatting for AI providers
+## Backend Architecture
 
-### 3. AI Provider Layer
+### Technology Stack
 
-#### Base Provider (`base.py`)
+- **Framework**: FastAPI 0.118.3
+- **Python**: 3.11+
+- **ORM**: SQLAlchemy 2.0.44
+- **Migrations**: Alembic 1.16.5
+- **Authentication**: Authlib 1.6.5, python-jose 3.5.0
+- **AI Providers**: anthropic 0.69.0, openai 2.3.0, google-genai 1.43.0
 
-- **Purpose**: Abstract interface for AI providers
-- **Pattern**: Strategy pattern implementation
-- **Key Methods**:
-  - `generate_questions()`: Question generation
-  - `summarize_requirements()`: Requirements synthesis
-  - `analyze_answer()`: Answer quality analysis
-  - `assess_completeness()`: Session completeness evaluation
+### Module Structure
 
-#### Provider Implementations
+```
+apps/backend/specscribe/
+├── api/                          # API Layer
+│   ├── main.py                  # FastAPI app + middleware
+│   ├── routes/                  # REST endpoints
+│   │   ├── auth.py              # Authentication endpoints
+│   │   ├── sessions.py          # Session CRUD
+│   │   └── questions.py         # Question/Answer management
+│   ├── middleware.py            # Auth, CORS, error handling
+│   ├── dependencies.py          # Dependency injection
+│   ├── schemas.py               # Pydantic request/response models
+│   └── services/
+│       └── interview_service.py # API-specific orchestration
+│
+├── core/                         # Business Logic Layer
+│   ├── models.py                # Domain models
+│   ├── database_models/         # SQLAlchemy ORM models
+│   ├── services/                # 27 specialized service modules
+│   │   ├── session_service.py
+│   │   ├── user_service.py
+│   │   ├── question_generation_service.py
+│   │   └── oauth_*_service.py
+│   ├── persistence/             # Data synchronization
+│   │   ├── session_persistence_service.py
+│   │   ├── question_synchronizer.py
+│   │   ├── answer_synchronizer.py
+│   │   └── requirement_synchronizer.py
+│   ├── interview/               # Interview orchestration
+│   │   ├── interview_conductor.py
+│   │   └── question_queue.py
+│   ├── storage.py               # DatabaseManager
+│   ├── storage_interface.py     # Abstract storage interface
+│   ├── memory_storage.py        # In-memory for testing
+│   └── prompts.py               # LLM prompt templates
+│
+├── providers/                    # AI Provider Layer
+│   ├── base.py                  # Abstract provider interface
+│   ├── anthropic.py             # Claude integration
+│   ├── openai.py                # GPT integration
+│   └── google.py                # Gemini integration
+│
+├── cli.py                       # CLI interface (Typer)
+└── api_server.py                # Server entry point
+```
 
-- **Anthropic Provider** (`anthropic.py`): Claude integration
-- **OpenAI Provider** (`openai.py`): GPT integration  
-- **Google Provider** (`google.py`): Gemini integration
-- **Features**:
-  - JSON response parsing with fallback handling
-  - Error resilience and graceful degradation
-  - Consistent API across providers
+### API Endpoints (High-Level Groupings)
 
-### 4. Output Layer (`document.py`)
+**Authentication** (`/api/v1/auth`):
+- OAuth login/callback for Google, GitHub, Microsoft
+- Token refresh and logout
+- User profile management
 
-- **Purpose**: Markdown document generation
-- **Functionality**: Converts session data to structured Markdown output
+**Sessions** (`/api/v1/sessions`):
+- Create, list, retrieve, delete sessions
+- Session status and completion state
 
-### 5. Storage Layer
+**Interview Flow** (`/api/v1/sessions/{session_id}`):
+- Get next question (`POST /continue`)
+- Submit answers (`POST /answers`)
+- Finalize and generate requirements (`POST /finalize`)
+- Q&A management (create, update, delete)
 
-#### Storage Interface (`storage_interface.py`)
+### Middleware Stack
 
-- **Purpose**: Abstract interface for session storage implementations
-- **Pattern**: Strategy pattern for pluggable storage backends
-- **Key Methods**:
-  - `save_session()`: Persist session data
-  - `load_session()`: Retrieve session data
-  - `list_sessions()`: List all stored sessions
-  - `delete_session()`: Remove session from storage
+Applied in order (FastAPI middleware onion model):
 
-#### Database Storage (`storage.py`)
+1. **SessionMiddleware** - OAuth state management
+2. **CORSMiddleware** - Cross-origin request handling
+3. **RequestIDMiddleware** - Request tracing
+4. **AuthenticationMiddleware** - JWT validation + auto-refresh
+5. **ExceptionHandlingMiddleware** - Unified error responses
 
-- **Implementation**: SQLite-based persistent storage with SQLAlchemy ORM
-- **Features**:
-  - Thread-safe operations with per-session locking
-  - Upsert patterns for efficient updates
-  - Session ID validation
-  - Error handling
-- **Database Schema**: Four main tables (sessions, questions, answers, requirements)
-- **Migration Support**: Alembic integration for schema changes
+### Service Layer
 
-#### Memory Storage (`memory_storage.py`)
+27 service modules organized by domain concern:
 
-- **Purpose**: In-memory storage for testing and development
-- **Features**: Thread-safe operations with deep copying to prevent mutations
-- **Use Cases**: Unit testing and temporary sessions
+- CRUD operations (questions, answers, requirements)
+- OAuth handling (configuration, state, callbacks)
+- Business logic (sessions, interview orchestration)
+- Persistence (synchronization between Pydantic and SQLAlchemy models)
 
-#### Database Schema
+## AI Provider Layer
 
-##### Core Schema (`database_models/__init__.py`)
+### Provider Interface
 
-- **Purpose**: SQLAlchemy ORM models
-- **Tables**:
-  - `SessionTable`: Core session metadata with essential fields only
-  - `QuestionTable`: Interview questions with categories and ordering
-  - `AnswerTable`: User responses with basic analysis flags
-  - `RequirementTable`: Generated requirements with priorities
-- **Features**:
-  - Foreign key relationships with CASCADE delete
-  - Indexes for performance
-  - SQLite foreign key enforcement
-  - Clean separation from business logic (Pydantic models)
+Abstract base class defining the AI provider contract:
 
-##### Migration Management (`migration_manager.py`)
+```python
+class BaseProvider(ABC):
+    @abstractmethod
+    def generate_questions(context: str) -> List[Question]
 
-- **Purpose**: Database schema evolution using Alembic's built-in capabilities
-- **Features**:
-  - Revision tracking via Alembic's standard mechanisms
-  - Migration and rollback operations
-  - Data integrity validation for core relationships
-  - Streamlined error handling
+    @abstractmethod
+    def analyze_answer(question: str, answer: str) -> AnswerAnalysis
+
+    @abstractmethod
+    def generate_followups(context: dict) -> List[Question]
+
+    @abstractmethod
+    def assess_completeness(session: Session) -> CompletenessAssessment
+
+    @abstractmethod
+    def summarize_requirements(session: Session) -> List[Requirement]
+```
+
+**Implementations**:
+- AnthropicProvider (Claude 3.5 Sonnet, Haiku, Opus)
+- OpenAIProvider (GPT-4, GPT-4 Turbo)
+- GoogleProvider (Gemini 1.5 Pro, Flash)
+
+**Features**:
+- JSON response parsing with fallback
+- Error handling and degradation
+- Runtime provider selection
+
+## Database & Storage
+
+### Schema
+
+SQLite (development) with PostgreSQL-compatible design:
+
+```
+users
+├── id (PK)
+├── email
+├── provider (google/github/microsoft)
+├── provider_id
+├── name
+├── avatar_url
+└── timestamps
+
+sessions
+├── id (PK)
+├── user_id (FK)
+├── project
+├── conversation_complete
+├── conversation_state
+├── state_context (JSON)
+└── timestamps
+
+questions
+├── id (PK)
+├── session_id (FK)
+├── text
+├── category (scope/users/constraints/etc.)
+├── required
+└── order_index
+
+answers
+├── id (PK)
+├── session_id (FK)
+├── question_id (FK)
+├── text
+├── is_vague
+├── needs_followup
+└── created_at
+
+requirements
+├── id (PK)
+├── session_id (FK)
+├── title
+├── rationale
+├── priority (MUST/SHOULD/COULD)
+└── order_index
+
+oauth_states
+├── state (PK)
+├── created_at
+└── expires_at
+
+refresh_tokens
+├── id (PK)
+├── user_id (FK)
+├── token_hash
+├── created_at
+├── expires_at
+└── revoked
+```
+
+### Migrations
+
+Alembic 1.16.5 manages schema changes:
+- Location: `apps/backend/alembic/versions/`
+- Workflow: `alembic revision --autogenerate -m "msg"` → `alembic upgrade head`
+
+### Persistence Layer
+
+Synchronizers handle bidirectional mapping between Pydantic and SQLAlchemy models:
+
+- QuestionSynchronizer: Question ordering and categorization
+- AnswerSynchronizer: One-to-one with questions
+- RequirementSynchronizer: Priority-based grouping
+- SessionPersistenceService: Orchestrates synchronization
+
+## Shared Types & Type Safety
+
+### Type Generation Pipeline
+
+```
+Backend (FastAPI)
+    ↓ Generates
+OpenAPI Spec (JSON)
+    ↓ tools/scripts/generate-types.sh
+openapi-typescript (v7.9.1)
+    ↓ Outputs
+packages/shared-types/api.ts
+    ↓ Frontend imports
+Type-safe API calls
+```
+
+### Frontend Usage
+
+```typescript
+import type { paths, components } from '@specscribe/shared-types';
+
+type SessionResponse = components['schemas']['SessionResponse'];
+type CreateSessionRequest = components['schemas']['CreateSessionRequest'];
+
+// Type-safe API client methods automatically inferred
+const session = await apiClient.post<SessionResponse>(
+  '/api/v1/sessions',
+  data
+);
+```
+
+Benefits:
+- Compile-time type checking
+- IDE auto-completion
+- Breaking change detection
 
 ## Architectural Patterns
 
-### 1. Strategy Pattern
+### Strategy Pattern
+- AI provider abstraction (`providers/base.py`)
+- Allows runtime provider selection
 
-- **Implementation**: AI provider abstraction
-- **Benefit**: Easy addition of new AI providers
-- **Location**: `providers/base.py` and implementations
+### Repository Pattern
+- Storage abstraction (`storage_interface.py`)
+- Implementations: `DatabaseManager`, `MemoryStorage`
 
-### 2. Model-View-Controller (MVC)
+### Service Layer
+- Business logic in `core/services/` (27 modules)
+- Reusable across API and CLI interfaces
 
-- **Model**: Data structures in `models.py`
-- **View**: CLI interface and Markdown output
-- **Controller**: Pipeline orchestration
+### Middleware Chain
+- Layered middleware in `api/middleware.py`
+- Handles auth, CORS, logging, errors
 
-### 3. Template Method Pattern
+### DTO Pattern
+- Pydantic models for API contracts (`api/schemas.py`)
+- Separated from domain models
 
-- **Implementation**: Interview flow templates
-- **Variations**: Conversational interview with adaptive question flow
-- **Location**: `pipeline.py`
-
-### 4. Factory Pattern
-
-- **Implementation**: Provider instantiation via `Provider.from_id()`
-- **Benefit**: Dynamic provider selection at runtime
+### Synchronizer Pattern
+- Bidirectional sync between Pydantic and SQLAlchemy models
+- Located in `core/persistence/`
 
 ## Data Flow
 
-### Interview Process Flow
+### Authentication Flow
 
-1. **Initialization**: CLI parses arguments and creates session
-2. **Question Generation**: AI provider generates additional questions
-3. **Interview Loop**:
-   - Present question to user
-   - Capture answer
-   - Analyze answer quality (conversational mode)
-   - Generate follow-ups if needed
-   - Assess session completeness periodically
-4. **Requirements Synthesis**: AI provider converts Q&A to formal requirements
-5. **Document Generation**: Session data converted to Markdown
+```
+Frontend                Backend                 OAuth Provider
+   │                       │                          │
+   │  Click "Sign In"      │                          │
+   │──────────────────────>│                          │
+   │                       │  Redirect to provider    │
+   │                       │─────────────────────────>│
+   │                       │                          │
+   │                       │  User authorizes         │
+   │                       │<─────────────────────────│
+   │                       │  (with code)             │
+   │                       │                          │
+   │                       │  Exchange code for token │
+   │                       │─────────────────────────>│
+   │                       │<─────────────────────────│
+   │                       │                          │
+   │                       │  Create/update user      │
+   │                       │  Generate JWT pair       │
+   │                       │  Set HTTP-only cookies   │
+   │                       │                          │
+   │  Redirect to app      │                          │
+   │<──────────────────────│                          │
+   │  (with cookies)       │                          │
+```
+
+### Interview Session Lifecycle
+
+```
+1. Session Creation
+   User → Frontend → API → SessionService → AI Provider (generate questions)
+                        → DatabaseManager (save session + questions)
+
+2. Interview Loop
+   User answer → Frontend → API → AnswerService (save answer)
+                                → AI Provider (analyze quality)
+                                → AI Provider (generate follow-ups if needed)
+                                → QuestionService (enqueue follow-ups)
+                                → InterviewConductor (get next question)
+
+3. Completeness Assessment (periodic)
+   API → AI Provider (assess session completeness)
+       → SessionService (update state)
+
+4. Requirements Generation
+   User finalize → API → AI Provider (synthesize all Q&A into requirements)
+                      → RequirementService (save requirements)
+                      → SessionService (mark complete)
+```
 
 ### Question Categories
 
-The system organizes questions into eight categories:
+8-category question framework:
 
-- **Scope**: Problem definition and solution boundaries
-- **Users**: Target users and their needs
-- **Constraints**: Platform, budget, timeline limitations
-- **Non-functional**: Performance, security, compliance
-- **Interfaces**: External system integrations
-- **Data**: Storage and management requirements
-- **Risks**: Potential risks and unknowns
-- **Success**: Success metrics and measurement
+- Scope: Problem definition and boundaries
+- Users: Target users and needs
+- Constraints: Platform, budget, timeline
+- Non-functional: Performance, security, compliance
+- Interfaces: External system integrations
+- Data: Storage and management
+- Risks: Potential issues and unknowns
+- Success: Metrics and measurement
 
-## Key Design Decisions
+### Session States
 
-### 1. Multi-Provider Support
+State progression:
 
-- **Rationale**: Avoid vendor lock-in and leverage different AI strengths
-- **Implementation**: Abstract provider interface with pluggable implementations
-- **Trade-off**: Added complexity for flexibility
+`INITIALIZING` → `INTERVIEWING` → `ANALYZING` → `GENERATING_FOLLOWUPS` → `ASSESSING_COMPLETENESS` → `GENERATING_REQUIREMENTS` → `COMPLETE`
 
-### 2. Pydantic Model Validation
+## Design Decisions
 
-- **Rationale**: Type safety and data validation
-- **Benefit**: Runtime validation and IDE support
-- **Cost**: Additional dependency
+### Monorepo with Turborepo
+- Enables code sharing and type generation
+- Trade-off: Setup complexity vs. type safety
 
-### 3. JSON-Based AI Communication
+### Multi-Provider AI Support
+- Abstract provider interface avoids vendor lock-in
+- Trade-off: Added complexity vs. flexibility
 
-- **Rationale**: Structured data exchange with AI providers
-- **Benefit**: Consistent parsing and error handling
-- **Risk**: Dependency on AI model JSON compliance
+### OpenAPI Type Generation
+- Eliminates manual type synchronization
+- Trade-off: Build dependency vs. type safety
 
-### 4. Conversational Interview Mode
+### OAuth2 + JWT Authentication
+- Standard approach with refresh token rotation
+- Supports multiple OAuth providers
 
-- **Adaptive Flow**: Dynamic question generation based on user answers
-- **Quality Focus**: Context-aware follow-up questions for better requirements
-- **Design**: Template method pattern for extensibility
+### SQLite with SQLAlchemy
+- Simple development setup
+- SQLAlchemy abstraction enables PostgreSQL migration
 
-### 5. Error Handling Strategy
+### Pydantic Validation
+- Runtime validation and serialization
+- Automatic OpenAPI schema generation
 
-- **Approach**: Graceful degradation with sensible defaults
-- **Implementation**: Try-catch blocks with fallback responses
-- **Benefit**: System continues functioning despite AI provider issues
+### Service Layer
+- Reusable business logic across interfaces
+- 27 modules with single responsibilities
+
+## Deployment Architecture
+
+### Docker Compose Setup
+
+```yaml
+services:
+  backend:
+    build: apps/backend/
+    ports: 8080:8080
+    volumes: backend_data:/app/data
+    healthcheck: curl http://localhost:8080/health
+
+  frontend:
+    build: apps/frontend/
+    ports: 3000:3000
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8080
+    depends_on:
+      backend: { condition: service_healthy }
+
+volumes:
+  backend_data:  # Persists SQLite database
+
+networks:
+  specscribe-network:
+```
+
+Features:
+- Container isolation with bridge network
+- Health check-based orchestration
+- Persistent volume for SQLite database
+- Environment-based configuration
+
+### Environment Variables
+
+Backend (`.env`):
+- `DATABASE_URL` - Database connection
+- `JWT_SECRET_KEY` - JWT signing key
+- `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` - Per-provider OAuth credentials
+- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` - AI provider keys
+- `ALLOWED_ORIGINS` - CORS configuration
+
+Frontend:
+- `NEXT_PUBLIC_API_URL` - Backend API URL
+- OAuth client IDs for redirects
 
 ## Quality Attributes
 
-### 1. Extensibility
+### Extensibility
+- Add AI providers via `BaseProvider` interface
+- Swap storage backends via `StorageInterface`
+- Multi-provider OAuth support
+- Modular document generation
 
-- **Providers**: Easy addition of new AI providers
-- **Questions**: Dynamic question generation and categorization
-- **Output Formats**: Modular document generation
+### Reliability
+- Exception handling with degradation
+- Fallback behaviors for AI failures
+- Input validation via Pydantic
+- Database transaction management
 
-### 2. Reliability
+### Type Safety
+- TypeScript frontend + Python type hints
+- OpenAPI → TypeScript generation
+- Compile-time error detection
 
-- **Error Handling**: Comprehensive exception handling
-- **Fallbacks**: Default behaviors when AI calls fail
-- **Validation**: Pydantic model validation
+### Security
+- OAuth2 + JWT authentication
+- Refresh token rotation
+- HTTP-only cookies
+- CSRF protection via state parameter
+- Input validation
+- SQLAlchemy ORM (SQL injection prevention)
 
-### 3. Usability
+### Testability
+- In-memory storage for unit tests
+- Mock AI providers
+- FastAPI dependency injection
+- Isolated service layer
 
-- **CLI Interface**: Clear command structure with help
-- **Interactive Flow**: Guided interview process
-- **Output Quality**: Structured, readable requirements
-
-### 4. Maintainability
-
-- **Separation of Concerns**: Clear module boundaries
-- **Type Hints**: Full type annotation coverage
-- **Documentation**: Comprehensive docstrings
-
-## Dependencies
-
-### Core Dependencies
-
-- **typer**: CLI framework
-- **pydantic**: Data validation and serialization
-- **anthropic**: Anthropic Claude API client
-- **openai**: OpenAI API client
-- **google-genai**: Google Gemini API client
-- **sqlalchemy**: ORM and database abstraction layer
-- **alembic**: Database migration management
-
-### Dependency Management
-
-- **Tool**: Poetry for dependency management
-- **Python Version**: 3.11+ requirement
-- **API Keys**: Environment variable configuration
+### Interface Flexibility
+- Three interfaces: Web UI, CLI, REST API
+- Shared core business logic
+- Session persistence and resumption
 
 ## Future Considerations
 
 ### Potential Enhancements
 
-1. **Web Interface**: Add web-based interview interface
-2. **Export Formats**: Support additional output formats (JSON, XML)
-3. **Question Library**: Expand domain-specific question sets
-4. **Advanced Analytics**: Add analytics features when actually needed
-5. **Collaboration**: Multi-user interview support
-6. **Advanced Storage**: Support for PostgreSQL and other databases
-7. **Enhanced Intelligence**: Add smart features incrementally based on real user needs
+1. Export formats: PDF, DOCX, JSON
+2. Usage analytics and metrics
+3. Multi-user collaboration
+4. Domain-specific question templates
+5. PostgreSQL migration
+6. Redis caching layer
+7. Webhook notifications
+8. White-label deployment support
 
-### Scalability Considerations
+### Scalability Path
 
-- **Current State**: Single-user, local execution with SQLite storage
-- **Database Evolution**: Clean migration framework supports future schema updates
-- **Simplicity First**: Core functionality established before adding complex features
-- **Future**: API-based architecture for multi-user scenarios with PostgreSQL support
-- **Migration Path**: Simple, maintainable codebase ready for targeted enhancements
+Current: Single-user, SQLite storage, local execution
+
+Potential evolution:
+- PostgreSQL via SQLAlchemy (no code changes)
+- Redis for session/response caching
+- Horizontal scaling (stateless API)
+- Multi-tenancy (user isolation exists)
+- Background job processing (Celery/RQ)
 
 ## Summary
 
-SpecScribe demonstrates a well-structured, modular architecture that effectively separates concerns while maintaining flexibility. The use of established design patterns, comprehensive error handling, and multi-provider support creates a robust foundation for requirements gathering. The system balances simplicity with extensibility, offering three distinct interfaces (Web UI, CLI, and REST API) that serve different user personas while sharing the same core methodology.
+SpecScribe is a monorepo application with distinct frontend (Next.js) and backend (FastAPI) components connected via type-safe contracts. The architecture separates concerns across API, business logic, and infrastructure layers.
+
+Key characteristics:
+- Three interfaces (Web UI, CLI, REST API) share core interview logic
+- Multi-provider AI support via strategy pattern
+- Type safety maintained through OpenAPI generation
+- Service-oriented backend with 27 specialized modules
+- OAuth2 + JWT authentication with token refresh
+- SQLite storage with PostgreSQL migration path

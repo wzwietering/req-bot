@@ -125,7 +125,15 @@ Confident, intelligent, helpful, and precise
 | **UI/CLI** | Direct, instructional | "What problem are you trying to solve?" |
 | **Marketing** | Aspirational, benefit-focused | "Turn conversations into code-ready specs" |
 | **Documentation** | Technical, precise, exhaustive | "Supports Claude, GPT, and Gemini providers" |
+| **Technical/Architecture** | Humble, factual, succinct | "SQLite storage with PostgreSQL-compatible design" |
 | **Errors** | Helpful, action-oriented | "This answer needs more detail. Can you describe specific workflows?" |
+
+**Technical Writing Guidelines:**
+- State facts without self-congratulation
+- Avoid marketing terms like "robust", "powerful", "cutting-edge"
+- Use bullet points over wordy paragraphs
+- Focus on what the system does, not how well it does it
+- Example: ✅ "Monorepo with type generation" vs. ❌ "Sophisticated monorepo architecture with intelligent type generation"
 
 ---
 
@@ -230,6 +238,14 @@ bg-amber-50 text-amber-600
 4. **Purposeful Color** - Use accents (green, red, amber) sparingly and meaningfully
 5. **Progressive Disclosure** - Show information when needed, not all at once
 
+## Writing Principles
+
+1. **Humility** - Let the work speak for itself, avoid self-praise
+2. **Clarity** - Use simple, direct language
+3. **Brevity** - Bullet points over paragraphs where possible
+4. **Factuality** - State what is, not how good it is
+5. **Context-Awareness** - Marketing copy differs from technical documentation
+
 ---
 
 ## Quick Dos and Don'ts
@@ -246,6 +262,7 @@ bg-amber-50 text-amber-600
 
 - **Use generic AI language** ("AI-powered tool", "smart assistant")
 - **Oversell or use superlatives** (let results speak for themselves)
+- **Self-congratulate in technical docs** ("well-architected", "demonstrates excellence")
 - **Compare to unrelated tools** (focus on BA positioning)
 - **Use emojis** unless explicitly requested by user
 
@@ -287,8 +304,11 @@ Download: "Export Requirements" | "Download Spec"
 ### Marketing Copy
 > "Most teams can't afford a full-time business analyst. SpecScribe gives you the structured methodology and intelligent questioning of an experienced BA—available instantly, adapting to your workflow."
 
-### Technical Copy
+### Technical Copy (Marketing Context)
 > "SpecScribe uses an 8-category question framework to systematically gather project scope, user needs, technical constraints, and success metrics. Powered by Claude, GPT, or Gemini, it analyzes your answers to ask relevant follow-ups and assess completeness."
+
+### Technical Copy (Architecture/Documentation Context)
+> "AI-powered requirements gathering system using an 8-category question framework. Supports multiple AI providers (Anthropic, OpenAI, Google). Provides three interfaces: Web UI, CLI, REST API."
 
 ### Error/Validation Copy
 > "This answer could use more detail. Try describing specific user workflows or scenarios to help us capture complete requirements."
@@ -317,6 +337,13 @@ Before publishing any content, ask:
 - [ ] Does it solve a specific user pain point?
 - [ ] Is the benefit clear and measurable?
 - [ ] Does it align with the "Sage-Architect" personality?
+
+**For Technical/Architecture Documentation:**
+- [ ] Have you removed self-congratulatory language?
+- [ ] Are you stating facts, not opinions about quality?
+- [ ] Are adjectives necessary or just marketing fluff?
+- [ ] Would an engineer appreciate this tone?
+- [ ] Is it humble and succinct?
 
 ---
 

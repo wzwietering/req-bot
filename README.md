@@ -8,7 +8,7 @@
 
 SpecScribe is your AI-powered business analyst that transforms vague ideas into precise, code-ready specifications. Using an intelligent 8-category interview methodology, it asks the right follow-up questions to capture every critical detail—ensuring developers have complete context from day one.
 
-**Three interfaces, one powerful methodology:** Web UI for project managers, CLI for developers, REST API for automation.
+**Three interfaces, one methodology:** Web UI for project managers, CLI for developers, REST API for automation.
 
 ## Quick Start
 
