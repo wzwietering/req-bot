@@ -40,6 +40,7 @@ from specscribe.api.schemas import (
     SessionStatusResponse,
 )
 from specscribe.api.services.interview_service import APIInterviewService
+from specscribe.core.conversation_state import StateTransitionError
 from specscribe.core.logging import log_event
 from specscribe.core.services import (
     AnswerCRUDService,
@@ -113,6 +114,9 @@ async def submit_answer(
             updated_session, answered_question, new_answer, is_complete, requirements_generated
         )
         return AnswerSubmissionResponse(**response_data)
+    except StateTransitionError as e:
+        # This shouldn't happen after our fix, but handle it gracefully anyway
+        raise SessionInvalidStateException(f"Cannot process answer in current session state: {str(e)}")
     except SessionValidationError:
         raise SessionNotFoundAPIException(session_id)
 

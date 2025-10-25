@@ -308,7 +308,11 @@ class APIInterviewService:
             return
 
         # Handle stuck states that need recovery
-        if current_state == ConversationState.ASSESSING_COMPLETENESS:
+        if current_state == ConversationState.PROCESSING_ANSWER:
+            # Session was interrupted during answer processing - recover to WAITING_FOR_INPUT
+            # This prevents "Invalid transition from processing_answer to processing_answer" errors
+            state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
+        elif current_state == ConversationState.ASSESSING_COMPLETENESS:
             # Session was stuck in assessment - recover by transitioning to WAITING_FOR_INPUT
             state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
         elif current_state == ConversationState.GENERATING_FOLLOWUPS:
@@ -317,5 +321,4 @@ class APIInterviewService:
         elif current_state in [ConversationState.INITIALIZING, ConversationState.GENERATING_QUESTIONS]:
             # Session not ready for answers yet - transition to WAITING_FOR_INPUT
             state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-        # PROCESSING_ANSWER, GENERATING_REQUIREMENTS, COMPLETED, FAILED states
-        # will be handled by normal validation in state_manager.transition_to()
+        # GENERATING_REQUIREMENTS, COMPLETED, FAILED states are terminal or require explicit handling
