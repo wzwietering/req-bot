@@ -69,12 +69,16 @@ async def continue_session(
     try:
         session = session_service.load_session_with_validation(session_id, user_id)
 
-        next_question, updated_session = interview_service.get_next_question(session)
+        next_question, updated_session, quota_exceeded, quota_message = interview_service.get_next_question(session)
         is_complete = updated_session.conversation_complete
 
         response_data = SessionResponseBuilder.build_session_continue_response(
             updated_session, next_question, is_complete
         )
+
+        # Add quota information to response
+        response_data["quota_exceeded"] = quota_exceeded
+        response_data["quota_message"] = quota_message
 
         return SessionContinueResponse(**response_data)
     except SessionValidationError:
@@ -96,7 +100,9 @@ async def submit_answer(
         if session.conversation_complete:
             raise SessionInvalidStateException("Session is already complete")
 
-        updated_session = interview_service.process_answer(session_id, request.answer_text)
+        updated_session, quota_exceeded, quota_message = interview_service.process_answer(
+            session_id, request.answer_text
+        )
 
         if not updated_session.answers:
             raise SessionInvalidStateException("No answers found after processing")
@@ -113,6 +119,11 @@ async def submit_answer(
         response_data = SessionResponseBuilder.build_answer_submission_response(
             updated_session, answered_question, new_answer, is_complete, requirements_generated
         )
+
+        # Add quota information to response
+        response_data["quota_exceeded"] = quota_exceeded
+        response_data["quota_message"] = quota_message
+
         return AnswerSubmissionResponse(**response_data)
     except StateTransitionError as e:
         # This shouldn't happen after our fix, but handle it gracefully anyway

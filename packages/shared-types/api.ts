@@ -506,6 +506,13 @@ export interface components {
              * @default false
              */
             requirements_generated: boolean;
+            /**
+             * Quota Exceeded
+             * @default false
+             */
+            quota_exceeded: boolean;
+            /** Quota Message */
+            quota_message?: string | null;
         };
         /**
          * AnswerUpdateRequest
@@ -644,6 +651,13 @@ export interface components {
             /** Conversation Complete */
             conversation_complete: boolean;
             conversation_state: components["schemas"]["ConversationState"];
+            /**
+             * Quota Exceeded
+             * @default false
+             */
+            quota_exceeded: boolean;
+            /** Quota Message */
+            quota_message?: string | null;
         };
         /** SessionCreateRequest */
         SessionCreateRequest: {

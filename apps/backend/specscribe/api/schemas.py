@@ -71,6 +71,8 @@ class SessionContinueResponse(BaseModel):
     next_question: Question | None
     conversation_complete: bool
     conversation_state: ConversationState
+    quota_exceeded: bool = False
+    quota_message: str | None = None
 
 
 class QuestionAnswerRequest(BaseModel):
@@ -95,6 +97,8 @@ class AnswerSubmissionResponse(BaseModel):
     conversation_complete: bool
     conversation_state: ConversationState
     requirements_generated: bool = False
+    quota_exceeded: bool = False
+    quota_message: str | None = None
 
 
 class QuestionAnswerResponse(BaseModel):
