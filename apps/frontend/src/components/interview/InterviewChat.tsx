@@ -38,12 +38,6 @@ export function InterviewChat() {
   }, [currentQuestion, isComplete, isLoading, getNextQuestion]);
 
   useEffect(() => {
-    if (progress && currentQuestion && !isLoading) {
-      updateProgress();
-    }
-  }, [currentQuestion, progress, isLoading, updateProgress]);
-
-  useEffect(() => {
     if (isComplete && requirements.length === 0 && !isLoading && !loadingRequirementsRef.current) {
       loadingRequirementsRef.current = true;
       loadRequirements().finally(() => {
