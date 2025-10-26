@@ -23,6 +23,7 @@ from specscribe.core.services import (
     SessionService,
     SessionSetupManager,
 )
+from specscribe.core.services.exceptions import QuotaExceededError
 from specscribe.core.services.refresh_token_service import RefreshTokenService
 from specscribe.core.services.session_cookie_config import SessionCookieConfig
 from specscribe.core.services.session_service import SessionValidationError
@@ -263,4 +264,8 @@ def enforce_question_quota(
 
     db_manager = get_database_manager()
     service = UsageTrackingService(db_manager)
-    service.check_quota_available(user_id, user.tier)
+
+    try:
+        service.check_quota_available(user_id, user.tier)
+    except QuotaExceededError as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))

@@ -3,21 +3,19 @@
 import os
 from datetime import UTC, datetime, timedelta
 
-from fastapi import HTTPException
-
 from specscribe.core.database_models import UsageEventTable, UserTable
+from specscribe.core.services.exceptions import QuotaExceededError, UserNotFoundError
 from specscribe.core.storage import DatabaseManager
 
 
 class UsageTrackingService:
     """Service for tracking and enforcing user quotas."""
 
-    # Simple in-memory cache: {user_id: (count, expires_at)}
-    _quota_cache: dict[str, tuple[int, datetime]] = {}
-    _cache_ttl_minutes = 5
-
     def __init__(self, storage: DatabaseManager):
         self.storage = storage
+        # Instance-level cache: {user_id: (count, expires_at)}
+        self._quota_cache: dict[str, tuple[int, datetime]] = {}
+        self._cache_ttl_minutes = 5
 
     def record_question_generated(self, user_id: str, question_id: str) -> None:
         """Record that a question was generated for a user."""
@@ -26,6 +24,22 @@ class UsageTrackingService:
         )
         with self.storage.SessionLocal() as session:
             session.add(event)
+            session.commit()
+        self._invalidate_cache(user_id)
+
+    def record_questions_batch(self, user_id: str, question_ids: list[str]) -> None:
+        """Record multiple questions generated for a user in a single transaction."""
+        if not question_ids:
+            return
+
+        now = datetime.now(UTC)
+        events = [
+            UsageEventTable(user_id=user_id, event_type="question_generated", entity_id=qid, created_at=now)
+            for qid in question_ids
+        ]
+
+        with self.storage.SessionLocal() as session:
+            session.add_all(events)
             session.commit()
         self._invalidate_cache(user_id)
 
@@ -57,15 +71,13 @@ class UsageTrackingService:
         return limits.get(tier, limits["free"])
 
     def check_quota_available(self, user_id: str, tier: str) -> None:
-        """Check if user has quota available. Raises HTTPException if not."""
+        """Check if user has quota available. Raises QuotaExceededError if not."""
         window_days = int(os.getenv("QUOTA_WINDOW_DAYS", "30"))
         current_usage = self.count_questions_in_window(user_id, window_days)
         limit = self.get_quota_limit(tier)
 
         if current_usage >= limit:
-            raise HTTPException(
-                status_code=429, detail=f"Monthly quota exceeded ({current_usage}/{limit} questions used)"
-            )
+            raise QuotaExceededError(current_usage, limit, window_days)
 
     def get_user_usage_stats(self, user_id: str) -> dict:
         """Get usage statistics for a user."""
@@ -74,7 +86,7 @@ class UsageTrackingService:
         with self.storage.SessionLocal() as session:
             user = session.get(UserTable, user_id)
             if not user:
-                raise HTTPException(status_code=404, detail="User not found")
+                raise UserNotFoundError(user_id)
 
             tier = user.tier
 

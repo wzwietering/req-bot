@@ -3,9 +3,9 @@
 from unittest.mock import Mock
 
 import pytest
-from fastapi import HTTPException
 
 from specscribe.core.database_models import UsageEventTable, UserTable
+from specscribe.core.services.exceptions import QuotaExceededError, UserNotFoundError
 from specscribe.core.services.usage_tracking_service import UsageTrackingService
 
 
@@ -32,10 +32,8 @@ class TestUsageTrackingService:
     @pytest.fixture
     def usage_service(self, mock_storage):
         """Create usage tracking service."""
-        service = UsageTrackingService(mock_storage)
-        # Clear class-level cache before each test
-        service._quota_cache.clear()
-        return service
+        # Cache is now instance-level, so each test gets a fresh cache automatically
+        return UsageTrackingService(mock_storage)
 
     @pytest.fixture
     def free_tier_user(self):
@@ -128,11 +126,12 @@ class TestUsageTrackingService:
         mock_query.count.return_value = 10  # At limit
         mock_session.query.return_value = mock_query
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(QuotaExceededError) as exc_info:
             usage_service.check_quota_available("user-123", "free")
 
-        assert exc_info.value.status_code == 429
-        assert "quota exceeded" in exc_info.value.detail.lower()
+        assert exc_info.value.current == 10
+        assert exc_info.value.limit == 10
+        assert "quota exceeded" in str(exc_info.value).lower()
 
     def test_check_quota_available_over_limit(self, usage_service, mock_storage):
         """Test quota check when over limit."""
@@ -142,10 +141,11 @@ class TestUsageTrackingService:
         mock_query.count.return_value = 15  # Over limit
         mock_session.query.return_value = mock_query
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(QuotaExceededError) as exc_info:
             usage_service.check_quota_available("user-123", "free")
 
-        assert exc_info.value.status_code == 429
+        assert exc_info.value.current == 15
+        assert exc_info.value.limit == 10
 
     def test_get_user_usage_stats(self, usage_service, mock_storage, free_tier_user):
         """Test getting user usage statistics."""
@@ -198,11 +198,11 @@ class TestUsageTrackingService:
         usage_service.check_quota_available("user-456", "pro")
 
     def test_user_not_found_raises_404(self, usage_service, mock_storage):
-        """Test that missing user raises 404."""
+        """Test that missing user raises UserNotFoundError."""
         mock_session = mock_storage._mock_session
         mock_session.get.return_value = None
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(UserNotFoundError) as exc_info:
             usage_service.get_user_usage_stats("nonexistent-user")
 
-        assert exc_info.value.status_code == 404
+        assert exc_info.value.user_id == "nonexistent-user"

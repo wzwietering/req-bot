@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from specscribe.api.dependencies import get_current_user_id, get_usage_tracking_service
+from specscribe.core.services.exceptions import UserNotFoundError
 from specscribe.core.services.usage_tracking_service import UsageTrackingService
 
 router = APIRouter(prefix="/usage", tags=["usage"])
@@ -27,5 +28,8 @@ async def get_my_usage(
     usage_service: Annotated[UsageTrackingService, Depends(get_usage_tracking_service)],
 ) -> UsageStatsResponse:
     """Get current user's usage statistics."""
-    stats = usage_service.get_user_usage_stats(user_id)
-    return UsageStatsResponse(**stats)
+    try:
+        stats = usage_service.get_user_usage_stats(user_id)
+        return UsageStatsResponse(**stats)
+    except UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

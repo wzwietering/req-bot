@@ -1,5 +1,7 @@
 """API service wrapping the conversational interview pipeline."""
 
+from datetime import UTC, datetime
+
 from pydantic import ValidationError
 
 from specscribe.core.conversation_state import ConversationState
@@ -7,6 +9,7 @@ from specscribe.core.database_models import UserTable
 from specscribe.core.logging import log_event
 from specscribe.core.models import Answer, AnswerAnalysis, Question, Session
 from specscribe.core.pipeline import ConversationalInterviewPipeline
+from specscribe.core.services.exceptions import QuotaExceededError
 from specscribe.core.services.usage_tracking_service import UsageTrackingService
 from specscribe.core.state_manager import ConversationStateManager
 from specscribe.core.storage import DatabaseManager
@@ -33,14 +36,22 @@ class APIInterviewService:
         )
 
         session, _ = pipeline.setup_session(session_id=None)
-
         session.user_id = user_id
-        self.storage.save_session(session)
 
-        # Track AI-generated questions
-        if self.usage_service:
-            for question in session.questions:
-                self.usage_service.record_question_generated(user_id, question.id)
+        try:
+            self.storage.save_session(session)
+
+            # Track AI-generated questions (batch insert for performance)
+            if self.usage_service and session.questions:
+                question_ids = [q.id for q in session.questions]
+                self.usage_service.record_questions_batch(user_id, question_ids)
+        except Exception as e:
+            # If tracking fails, delete the session to maintain consistency
+            try:
+                self.storage.delete_session(session.id)
+            except Exception:
+                pass  # Log but don't fail if cleanup fails
+            raise e
 
         return session
 
@@ -100,9 +111,10 @@ class APIInterviewService:
         analysis = pipeline.conductor.analyze_response(question, answer, session, self.model_id)
         pipeline.conductor.update_answer_metadata(answer, analysis)
 
-        # Track answer submission (use question_id as unique identifier)
+        # Track answer submission with unique identifier (session_id + question_id + timestamp)
         if self.usage_service:
-            self.usage_service.record_answer_submitted(session.user_id, question.id)
+            answer_id = f"{session.id}_{question.id}_{datetime.now(UTC).timestamp()}"
+            self.usage_service.record_answer_submitted(session.user_id, answer_id)
 
         return analysis
 
@@ -121,10 +133,57 @@ class APIInterviewService:
                 if user:
                     self.usage_service.check_quota_available(user_id, user.tier)
             return (True, None)
-        except Exception as e:
-            # HTTPException or any other exception - treat as quota exceeded
-            error_msg = str(e.detail) if hasattr(e, "detail") else str(e)
-            return (False, error_msg)
+        except QuotaExceededError as e:
+            return (False, str(e))
+
+    def _generate_and_track_followups(
+        self,
+        session: Session,
+        pipeline: ConversationalInterviewPipeline,
+        analysis: AnswerAnalysis,
+        current_question: Question,
+    ) -> tuple[bool, str | None]:
+        """Generate and track followup questions.
+
+        Returns:
+            (quota_exceeded, quota_message)
+        """
+        has_quota, quota_msg = self._check_quota_available(session.user_id)
+        if not has_quota:
+            log_event("quota.exceeded.followups_skipped", user_id=session.user_id, quota_error=quota_msg)
+            return (True, quota_msg)
+
+        pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_FOLLOWUPS)
+        followup_questions = pipeline.question_queue_manager.insert_followups(
+            analysis.follow_up_questions, current_question, session
+        )
+
+        if self.usage_service:
+            for followup in followup_questions:
+                self.usage_service.record_question_generated(session.user_id, followup.id)
+
+        return (False, None)
+
+    def _generate_and_track_next_question(
+        self, session: Session, pipeline: ConversationalInterviewPipeline
+    ) -> tuple[bool, str | None]:
+        """Generate and track next question.
+
+        Returns:
+            (quota_exceeded, quota_message)
+        """
+        has_quota, quota_msg = self._check_quota_available(session.user_id)
+        if not has_quota:
+            log_event("quota.exceeded.next_question_skipped", user_id=session.user_id, quota_error=quota_msg)
+            return (True, quota_msg)
+
+        next_question = pipeline.question_generation.generate_next_question_if_needed(session)
+        if next_question:
+            session.questions.append(next_question)
+            if self.usage_service:
+                self.usage_service.record_question_generated(session.user_id, next_question.id)
+
+        return (False, None)
 
     def _handle_followups_or_next_question(
         self, session: Session, pipeline: ConversationalInterviewPipeline, current_question: Question, analysis
@@ -135,35 +194,9 @@ class APIInterviewService:
             (quota_exceeded, quota_message)
         """
         if analysis.follow_up_questions:
-            # Check quota before generating followups
-            has_quota, quota_msg = self._check_quota_available(session.user_id)
-            if has_quota:
-                pipeline.session_manager.state_manager.transition_to(session, ConversationState.GENERATING_FOLLOWUPS)
-                followup_questions = pipeline.question_queue_manager.insert_followups(
-                    analysis.follow_up_questions, current_question, session
-                )
-                # Track followup questions
-                if self.usage_service:
-                    for followup in followup_questions:
-                        self.usage_service.record_question_generated(session.user_id, followup.id)
-                return (False, None)
-            else:
-                log_event("quota.exceeded.followups_skipped", user_id=session.user_id, quota_error=quota_msg)
-                return (True, quota_msg)
+            return self._generate_and_track_followups(session, pipeline, analysis, current_question)
         else:
-            # Check quota before generating next question
-            has_quota, quota_msg = self._check_quota_available(session.user_id)
-            if has_quota:
-                next_question = pipeline.question_generation.generate_next_question_if_needed(session)
-                if next_question:
-                    session.questions.append(next_question)
-                    # Track AI-generated question
-                    if self.usage_service:
-                        self.usage_service.record_question_generated(session.user_id, next_question.id)
-                return (False, None)
-            else:
-                log_event("quota.exceeded.next_question_skipped", user_id=session.user_id, quota_error=quota_msg)
-                return (True, quota_msg)
+            return self._generate_and_track_next_question(session, pipeline)
 
     def _check_and_finalize_if_complete(
         self, session: Session, pipeline: ConversationalInterviewPipeline, current_question: Question
@@ -201,76 +234,79 @@ class APIInterviewService:
         self.storage.save_session(session)
         return session
 
+    def _get_unanswered_question(self, session: Session) -> Question | None:
+        """Find next unanswered question in session."""
+        answered_ids = {a.question_id for a in session.answers}
+        return next((q for q in session.questions if q.id not in answered_ids), None)
+
+    def _force_session_completion(self, session: Session) -> Session:
+        """Force session completion when no questions available and not marked complete."""
+        log_event(
+            "interview.forced_completion",
+            session_id=session.id,
+            reason="No question could be generated and completeness assessment did not mark session complete",
+            answered_count=len(session.answers),
+        )
+        pipeline = self._create_pipeline(session)
+        session.conversation_complete = True
+
+        try:
+            session = pipeline.finalize_session(session)
+        except Exception as e:
+            log_event(
+                "interview.forced_completion_finalization_failed",
+                session_id=session.id,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+
+        self.storage.save_session(session)
+        return session
+
     def get_next_question(self, session: Session) -> tuple[Question | None, Session, bool, str | None]:
         """Get next unanswered question with just-in-time generation.
 
-        If no questions remain and none can be generated, triggers completeness
-        assessment to determine if the interview should be finalized.
-
         Returns:
-            Tuple of (next_question, updated_session, quota_exceeded, quota_message).
-            The updated_session should be used by the caller as it may have been
-            modified during finalization.
+            (next_question, updated_session, quota_exceeded, quota_message).
         """
-        # If already complete, no more questions
         if session.conversation_complete:
             return (None, session, False, None)
 
-        answered_ids = {a.question_id for a in session.answers}
-        next_question = next((q for q in session.questions if q.id not in answered_ids), None)
+        next_question = self._get_unanswered_question(session)
 
-        # If no questions in queue, try to generate next question
         if not next_question:
             next_question, quota_exceeded, quota_msg = self._try_generate_next_question(session)
             if quota_exceeded:
-                # Quota exceeded - can't generate more questions
-                # Return what we have with quota info
                 return (next_question, session, quota_exceeded, quota_msg)
 
-        # If still no question available, assess completeness and potentially finalize
         if not next_question:
             pipeline = self._create_pipeline(session)
             session = self._assess_and_finalize(session, pipeline)
 
-        # DEFENSIVE: Ensure invariant holds - if not complete, must have a question
-        # This handles the edge case where both question generation AND completeness
-        # assessment fail (e.g., LLM unavailable). Better to mark as complete than
-        # return an invalid state.
+        # DEFENSIVE: Ensure session consistency
         if not next_question and not session.conversation_complete:
-            log_event(
-                "interview.forced_completion",
-                session_id=session.id,
-                reason="No question could be generated and completeness assessment did not mark session complete",
-                answered_count=len(session.answers),
-            )
-            pipeline = self._create_pipeline(session)
-            session.conversation_complete = True
-            # Try to finalize, but don't fail if it doesn't work
-            try:
-                session = pipeline.finalize_session(session)
-            except Exception as e:
-                log_event(
-                    "interview.forced_completion_finalization_failed",
-                    session_id=session.id,
-                    error_type=type(e).__name__,
-                    error=str(e),
-                )
-            self.storage.save_session(session)
+            session = self._force_session_completion(session)
 
         return (next_question, session, False, None)
+
+    def _save_and_track_generated_question(self, session: Session, question: Question) -> None:
+        """Save generated question to session and track usage."""
+        existing_ids = {q.id for q in session.questions}
+        if question.id in existing_ids:
+            return  # Already exists, possible race condition
+
+        session.questions.append(question)
+        self.storage.save_session(session)
+
+        if self.usage_service:
+            self.usage_service.record_question_generated(session.user_id, question.id)
 
     def _try_generate_next_question(self, session: Session) -> tuple[Question | None, bool, str | None]:
         """Try to generate the next question using just-in-time generation.
 
-        Note: This method mutates the session by appending the new question.
-        The session is saved immediately after generation to persist the change.
-        Concurrent calls to this method on the same session may result in
-        duplicate questions if the storage layer doesn't handle conflicts.
-
         Returns:
             (question, quota_exceeded, quota_message)
         """
-        # Check quota before generating next question
         has_quota, quota_msg = self._check_quota_available(session.user_id)
         if not has_quota:
             log_event(
@@ -282,20 +318,10 @@ class APIInterviewService:
             return (None, True, quota_msg)
 
         pipeline = self._create_pipeline(session)
-
         new_question = pipeline.question_generation.generate_next_question_if_needed(session)
+
         if new_question:
-            # Check if question already exists before appending (defensive programming)
-            existing_ids = {q.id for q in session.questions}
-            if new_question.id not in existing_ids:
-                session.questions.append(new_question)
-                self.storage.save_session(session)
-                # Track AI-generated question
-                if self.usage_service:
-                    self.usage_service.record_question_generated(session.user_id, new_question.id)
-            else:
-                # Question was already added (possible race condition)
-                return (new_question, False, None)
+            self._save_and_track_generated_question(session, new_question)
 
         return (new_question, False, None)
 
@@ -345,29 +371,19 @@ class APIInterviewService:
         session.conversation_complete = False
 
     def _ensure_safe_state_for_processing(self, session: Session, state_manager: ConversationStateManager) -> None:
-        """Ensure session is in a valid state before processing answer.
-
-        Handles recovery from stuck or invalid states by transitioning through
-        valid intermediate states.
-        """
+        """Ensure session is in a valid state before processing answer."""
         current_state = session.conversation_state
 
-        # If already in a valid state for processing, do nothing
         if current_state == ConversationState.WAITING_FOR_INPUT:
             return
 
-        # Handle stuck states that need recovery
-        if current_state == ConversationState.PROCESSING_ANSWER:
-            # Session was interrupted during answer processing - recover to WAITING_FOR_INPUT
-            # This prevents "Invalid transition from processing_answer to processing_answer" errors
+        recoverable_states = [
+            ConversationState.PROCESSING_ANSWER,
+            ConversationState.ASSESSING_COMPLETENESS,
+            ConversationState.GENERATING_FOLLOWUPS,
+            ConversationState.INITIALIZING,
+            ConversationState.GENERATING_QUESTIONS,
+        ]
+
+        if current_state in recoverable_states:
             state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-        elif current_state == ConversationState.ASSESSING_COMPLETENESS:
-            # Session was stuck in assessment - recover by transitioning to WAITING_FOR_INPUT
-            state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-        elif current_state == ConversationState.GENERATING_FOLLOWUPS:
-            # Follow-ups generation was interrupted - transition to WAITING_FOR_INPUT
-            state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-        elif current_state in [ConversationState.INITIALIZING, ConversationState.GENERATING_QUESTIONS]:
-            # Session not ready for answers yet - transition to WAITING_FOR_INPUT
-            state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
-        # GENERATING_REQUIREMENTS, COMPLETED, FAILED states are terminal or require explicit handling
