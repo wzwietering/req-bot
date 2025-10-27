@@ -32,7 +32,6 @@ class TestUsageTrackingService:
     @pytest.fixture
     def usage_service(self, mock_storage):
         """Create usage tracking service."""
-        # Cache is now instance-level, so each test gets a fresh cache automatically
         return UsageTrackingService(mock_storage)
 
     @pytest.fixture
@@ -166,26 +165,6 @@ class TestUsageTrackingService:
         assert stats["quota_remaining"] == 5
         assert stats["window_days"] == 30
 
-    def test_cache_invalidation_on_record(self, usage_service, mock_storage):
-        """Test that cache is invalidated when recording events."""
-        mock_session = mock_storage._mock_session
-        mock_query = Mock()
-        mock_query.filter.return_value = mock_query
-        mock_query.count.return_value = 5
-        mock_session.query.return_value = mock_query
-
-        # This should cache the result
-        count1 = usage_service.count_questions_in_window("user-123", days=30)
-        assert count1 == 5
-
-        # Record new question (should invalidate cache)
-        usage_service.record_question_generated("user-123", "question-new")
-
-        # Next count should query DB again (cache was invalidated)
-        mock_query.count.return_value = 6
-        count2 = usage_service.count_questions_in_window("user-123", days=30)
-        assert count2 == 6
-
     def test_pro_tier_has_high_quota(self, usage_service, mock_storage):
         """Test that pro tier has effectively unlimited quota."""
         mock_session = mock_storage._mock_session
@@ -206,3 +185,52 @@ class TestUsageTrackingService:
             usage_service.get_user_usage_stats("nonexistent-user")
 
         assert exc_info.value.user_id == "nonexistent-user"
+
+    def test_record_question_empty_user_id_raises_error(self, usage_service):
+        """Test that empty user_id raises ValueError."""
+        with pytest.raises(ValueError, match="user_id cannot be empty"):
+            usage_service.record_question_generated("", "question-123")
+
+        with pytest.raises(ValueError, match="user_id cannot be empty"):
+            usage_service.record_question_generated("   ", "question-123")
+
+    def test_record_question_empty_question_id_raises_error(self, usage_service):
+        """Test that empty question_id raises ValueError."""
+        with pytest.raises(ValueError, match="entity_id cannot be empty"):
+            usage_service.record_question_generated("user-123", "")
+
+        with pytest.raises(ValueError, match="entity_id cannot be empty"):
+            usage_service.record_question_generated("user-123", "   ")
+
+    def test_record_questions_batch_empty_user_id_raises_error(self, usage_service):
+        """Test that empty user_id in batch raises ValueError."""
+        with pytest.raises(ValueError, match="user_id cannot be empty"):
+            usage_service.record_questions_batch("", ["q1", "q2"])
+
+    def test_record_questions_batch_empty_question_id_raises_error(self, usage_service):
+        """Test that empty question_id in batch raises ValueError."""
+        with pytest.raises(ValueError, match="entity_id cannot be empty"):
+            usage_service.record_questions_batch("user-123", ["q1", "", "q3"])
+
+    def test_record_answer_empty_user_id_raises_error(self, usage_service):
+        """Test that empty user_id in answer submission raises ValueError."""
+        with pytest.raises(ValueError, match="user_id cannot be empty"):
+            usage_service.record_answer_submitted("", "answer-123")
+
+    def test_record_answer_empty_answer_id_raises_error(self, usage_service):
+        """Test that empty answer_id raises ValueError."""
+        with pytest.raises(ValueError, match="entity_id cannot be empty"):
+            usage_service.record_answer_submitted("user-123", "")
+
+    def test_count_questions_empty_user_id_raises_error(self, usage_service):
+        """Test that empty user_id in count raises ValueError."""
+        with pytest.raises(ValueError, match="user_id cannot be empty"):
+            usage_service.count_questions_in_window("")
+
+    def test_count_questions_negative_days_raises_error(self, usage_service):
+        """Test that negative days raises ValueError."""
+        with pytest.raises(ValueError, match="days must be positive"):
+            usage_service.count_questions_in_window("user-123", days=-1)
+
+        with pytest.raises(ValueError, match="days must be positive"):
+            usage_service.count_questions_in_window("user-123", days=0)

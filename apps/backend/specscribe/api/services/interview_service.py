@@ -1,6 +1,6 @@
 """API service wrapping the conversational interview pipeline."""
 
-from datetime import UTC, datetime
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -38,20 +38,15 @@ class APIInterviewService:
         session, _ = pipeline.setup_session(session_id=None)
         session.user_id = user_id
 
-        try:
+        # Save session and track usage in a single atomic transaction
+        if isinstance(self.storage, DatabaseManager):
+            self._save_session_with_usage_tracking(session, user_id)
+        else:
+            # Fallback for non-database storage (e.g., memory storage in tests)
             self.storage.save_session(session)
-
-            # Track AI-generated questions (batch insert for performance)
             if self.usage_service and session.questions:
                 question_ids = [q.id for q in session.questions]
                 self.usage_service.record_questions_batch(user_id, question_ids)
-        except Exception as e:
-            # If tracking fails, delete the session to maintain consistency
-            try:
-                self.storage.delete_session(session.id)
-            except Exception:
-                pass  # Log but don't fail if cleanup fails
-            raise e
 
         return session
 
@@ -111,9 +106,9 @@ class APIInterviewService:
         analysis = pipeline.conductor.analyze_response(question, answer, session, self.model_id)
         pipeline.conductor.update_answer_metadata(answer, analysis)
 
-        # Track answer submission with unique identifier (session_id + question_id + timestamp)
+        # Track answer submission with unique identifier
         if self.usage_service:
-            answer_id = f"{session.id}_{question.id}_{datetime.now(UTC).timestamp()}"
+            answer_id = str(uuid4())
             self.usage_service.record_answer_submitted(session.user_id, answer_id)
 
         return analysis
@@ -387,3 +382,26 @@ class APIInterviewService:
 
         if current_state in recoverable_states:
             state_manager.transition_to(session, ConversationState.WAITING_FOR_INPUT)
+
+    def _save_session_with_usage_tracking(self, session: Session, user_id: str) -> None:
+        """Save session and track usage in a single atomic transaction."""
+        if not isinstance(self.storage, DatabaseManager):
+            raise TypeError("Storage must be DatabaseManager for transactional operations")
+
+        session_lock = self.storage._get_session_lock(session.id)
+        with session_lock:
+            with self.storage.SessionLocal() as db_session:
+                try:
+                    # Save session data
+                    self.storage.persistence_service.save_session_data(session, db_session)
+
+                    # Track usage in same transaction
+                    if self.usage_service and session.questions:
+                        question_ids = [q.id for q in session.questions]
+                        self.usage_service.record_questions_batch_in_transaction(db_session, user_id, question_ids)
+
+                    # Commit both operations atomically
+                    db_session.commit()
+                except Exception as e:
+                    db_session.rollback()
+                    raise e

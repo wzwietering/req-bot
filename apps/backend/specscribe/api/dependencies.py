@@ -179,6 +179,27 @@ def get_answer_crud_service() -> AnswerCRUDService:
     return AnswerCRUDService(storage)
 
 
+def _raise_rate_limit_error(message: str, reset_time: int) -> None:
+    """Raise HTTP 429 error with standardized format."""
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={
+            "error": "rate_limit_exceeded",
+            "message": message,
+            "details": [{"type": "rate_limit", "message": f"Rate limit reset at {reset_time}"}],
+            "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
+        },
+        headers={"Retry-After": str(reset_time - int(time.time()))},
+    )
+
+
+def _check_rate_limit(limiter, key: str, error_message: str) -> None:
+    """Check rate limit and raise error if exceeded."""
+    allowed, reset_time = limiter.is_allowed(key)
+    if not allowed:
+        _raise_rate_limit_error(error_message, reset_time)
+
+
 def check_retry_rate_limit(
     session_id: Annotated[str, Depends(get_validated_session_id)], user_id: Annotated[str, Depends(get_current_user_id)]
 ) -> None:
@@ -190,35 +211,12 @@ def check_retry_rate_limit(
 
     Raises HTTPException if either rate limit is exceeded.
     """
-    # Check per-session rate limit
-    session_allowed, session_reset_time = retry_requirements_rate_limiter.is_allowed(session_id)
-
-    if not session_allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": "Too many retry attempts for this session. Please try again later.",
-                "details": [{"type": "rate_limit", "message": f"Rate limit reset at {session_reset_time}"}],
-                "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
-            },
-            headers={"Retry-After": str(session_reset_time - int(time.time()))},
-        )
-
-    # Check per-user rate limit
-    user_allowed, user_reset_time = retry_user_rate_limiter.is_allowed(user_id)
-
-    if not user_allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": "Too many retry attempts across all sessions. Please try again later.",
-                "details": [{"type": "rate_limit", "message": f"Rate limit reset at {user_reset_time}"}],
-                "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
-            },
-            headers={"Retry-After": str(user_reset_time - int(time.time()))},
-        )
+    _check_rate_limit(
+        retry_requirements_rate_limiter, session_id, "Too many retry attempts for this session. Please try again later."
+    )
+    _check_rate_limit(
+        retry_user_rate_limiter, user_id, "Too many retry attempts across all sessions. Please try again later."
+    )
 
 
 def check_crud_rate_limit(user_id: Annotated[str, Depends(get_current_user_id)]) -> None:
@@ -228,19 +226,7 @@ def check_crud_rate_limit(user_id: Annotated[str, Depends(get_current_user_id)])
 
     Raises HTTPException if rate limit is exceeded.
     """
-    allowed, reset_time = crud_rate_limiter.is_allowed(user_id)
-
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": "Too many CRUD operations. Please slow down.",
-                "details": [{"type": "rate_limit", "message": f"Rate limit reset at {reset_time}"}],
-                "status_code": status.HTTP_429_TOO_MANY_REQUESTS,
-            },
-            headers={"Retry-After": str(reset_time - int(time.time()))},
-        )
+    _check_rate_limit(crud_rate_limiter, user_id, "Too many CRUD operations. Please slow down.")
 
 
 def get_usage_tracking_service() -> UsageTrackingService:
