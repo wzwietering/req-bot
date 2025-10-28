@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../components/auth/AuthProvider";
+import { QuotaProvider } from "../contexts/QuotaContext";
+import { QuotaBanner } from "../components/layout/QuotaBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,7 +38,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${ibmPlexSans.variable} antialiased`}
       >
         <AuthProvider>
-          {children}
+          <QuotaProvider>
+            <QuotaBanner />
+            {children}
+          </QuotaProvider>
         </AuthProvider>
       </body>
     </html>

@@ -314,6 +314,31 @@ body {
   white-space: normal;
 }
 
+/* Quota badge pulse animation */
+.quota-badge {
+  animation: quota-pulse 2s ease-in-out infinite;
+}
+
+@keyframes quota-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Diagonal stripes pattern for warning states */
+.bg-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.2) 4px,
+    rgba(255, 255, 255, 0.2) 8px
+  );
+}
+
 /* Reduced motion support for accessibility */
 @media (prefers-reduced-motion: reduce) {
   .btn-base:hover {
@@ -331,6 +356,11 @@ body {
     transition: background-color 0.1s ease-in-out,
                 color 0.1s ease-in-out,
                 border-color 0.1s ease-in-out;
+  }
+
+  /* Disable quota badge animation */
+  .quota-badge {
+    animation: none;
   }
 }
 

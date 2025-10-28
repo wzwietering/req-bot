@@ -104,7 +104,7 @@ export async function apiFetch<T = unknown>(
   // Handle other error responses
   if (!response.ok) {
     const errorText = await response.text();
-    let errorData: { message?: string; error?: string } | null = null;
+    let errorData: { message?: string; error?: string; detail?: string } | null = null;
 
     try {
       errorData = JSON.parse(errorText);
@@ -112,8 +112,20 @@ export async function apiFetch<T = unknown>(
       // Response is not JSON
     }
 
+    // Special handling for 429 (Rate Limit/Quota Exceeded)
+    if (response.status === 429) {
+      const message = errorData?.detail || errorData?.message ||
+        "You've reached your quota limit. Please wait or upgrade to Pro.";
+
+      throw new ApiError(
+        message,
+        429,
+        'quota_exceeded'
+      );
+    }
+
     throw new ApiError(
-      errorData?.message || `API Error: ${response.status} ${errorText}`,
+      errorData?.detail || errorData?.message || `API Error: ${response.status} ${errorText}`,
       response.status,
       errorData?.error || 'api_error'
     );

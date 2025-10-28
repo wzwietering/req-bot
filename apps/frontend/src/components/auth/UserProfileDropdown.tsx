@@ -3,6 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown, FaUser, FaSignOutAlt } from 'react-icons/fa';
 import { User } from '../../lib/auth/types';
+import { useQuota } from '@/contexts/QuotaContext';
+import { UsageIndicator } from '@/components/ui/UsageIndicator';
+import { formatResetDate } from '@/lib/utils/quota';
 
 interface UserProfileDropdownProps {
   user: User;
@@ -14,6 +17,7 @@ export function UserProfileDropdown({ user, onLogout, isLoading = false }: UserP
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { usage, error: usageError, isLoading: usageLoading, status, percentUsed, resetDate, refetch } = useQuota();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -141,6 +145,74 @@ export function UserProfileDropdown({ user, onLogout, isLoading = false }: UserP
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Usage Section */}
+          <div className="p-4 border-b border-deep-indigo-100 bg-white" aria-labelledby="usage-heading">
+            <h3 id="usage-heading" className="sr-only">Usage Statistics</h3>
+
+            {usageLoading && !usage ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="w-5 h-5 border-2 border-deep-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : usageError ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <FaUser className="w-4 h-4" aria-hidden="true" />
+                  <span>Unable to load usage data</span>
+                </div>
+                <button
+                  onClick={refetch}
+                  className="text-xs text-deep-indigo-500 hover:text-deep-indigo-600 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : usage ? (
+              <div className="space-y-3">
+                <UsageIndicator
+                  current={usage.quotaLimit - usage.quotaRemaining}
+                  total={usage.quotaLimit}
+                  status={status}
+                  variant="detailed"
+                />
+
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-deep-indigo-100 text-deep-indigo-700">
+                    {user.tier === 'free' ? 'Free Tier' : 'Pro Tier'}
+                  </span>
+
+                  {user.tier === 'free' && percentUsed >= 80 && (
+                    <span className="text-xs text-deep-indigo-600">
+                      Pro: 10,000/month
+                    </span>
+                  )}
+                </div>
+
+                {resetDate && (
+                  <p className="text-xs text-gray-600">
+                    Resets {formatResetDate(resetDate)}
+                  </p>
+                )}
+
+                {user.tier === 'free' && percentUsed >= 80 && (
+                  <button
+                    onClick={() => {
+                      // TODO: Navigate to upgrade page
+                      console.log('Upgrade to Pro clicked');
+                    }}
+                    className="btn-base btn-md btn-outline w-full text-center"
+                  >
+                    Upgrade to Pro
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">
+                <p>10/10 questions available</p>
+                <p className="text-xs mt-1">Free Tier • Quota resets monthly</p>
+              </div>
+            )}
           </div>
 
           {/* Menu Items */}

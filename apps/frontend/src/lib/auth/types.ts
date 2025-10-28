@@ -4,6 +4,7 @@ export interface User {
   name: string | null;
   avatar_url: string | null;
   provider: 'google' | 'github' | 'microsoft';
+  tier: 'free' | 'pro';
 }
 
 export interface AuthState {

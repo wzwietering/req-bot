@@ -24,6 +24,11 @@ export function getUserFriendlyErrorMessage(error: string | Error): string {
     return 'The requested resource could not be found.';
   }
 
+  // Quota/Rate limit errors
+  if (lowerError.includes('429') || lowerError.includes('quota') || lowerError.includes('rate limit')) {
+    return errorMessage; // Already user-friendly from backend
+  }
+
   // Server errors
   if (lowerError.includes('500') || lowerError.includes('internal server')) {
     return 'A server error occurred. Please try again later.';
