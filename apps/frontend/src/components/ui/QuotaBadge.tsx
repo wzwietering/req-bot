@@ -33,7 +33,7 @@ export function QuotaBadge({
       className={`
         absolute -top-1 -right-1
         flex items-center justify-center
-        min-w-[20px] h-5 px-1.5
+        min-w-[22px] h-5 px-1.5
         rounded-full
         text-xs font-bold
         quota-badge

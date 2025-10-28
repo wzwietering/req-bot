@@ -122,7 +122,7 @@ export function QuotaBanner() {
       aria-labelledby="quota-banner-title"
       className={`w-full border-b ${bgColor} ${borderColor}`}
     >
-      <div className="max-w-7xl mx-auto px-4 py-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-start gap-4">
           {/* Icon */}
           <FiAlertTriangle
@@ -160,7 +160,7 @@ export function QuotaBanner() {
             <button
               onClick={handleDismiss}
               aria-label="Dismiss notification"
-              className={`p-2 rounded-md hover:bg-black/5 transition-colors ${textColor}`}
+              className={`p-2 rounded-md hover:bg-black/5 focus:outline-2 focus:outline-offset-2 focus:outline-current transition-colors ${textColor}`}
             >
               <FiX className="w-5 h-5" aria-hidden="true" />
             </button>

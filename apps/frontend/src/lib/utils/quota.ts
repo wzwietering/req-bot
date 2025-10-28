@@ -82,7 +82,7 @@ export function getUpgradeMessage(
 
   // Power user detection: used 80% in less than 7 days
   if (percentUsed >= 80 && daysIntoWindow < 7) {
-    return "You're a power user! Pro tier includes 10,000 sessions/month";
+    return "You're using SpecScribe frequently. Pro tier includes 10,000 sessions/month";
   }
 
   if (percentUsed >= 80) {

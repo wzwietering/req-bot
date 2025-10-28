@@ -5,6 +5,7 @@ import { FaChevronDown, FaUser, FaSignOutAlt } from 'react-icons/fa';
 import { User } from '../../lib/auth/types';
 import { useQuota } from '@/contexts/QuotaContext';
 import { UsageIndicator } from '@/components/ui/UsageIndicator';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { formatResetDate } from '@/lib/utils/quota';
 
 interface UserProfileDropdownProps {
@@ -152,8 +153,8 @@ export function UserProfileDropdown({ user, onLogout, isLoading = false }: UserP
             <h3 id="usage-heading" className="sr-only">Usage Statistics</h3>
 
             {usageLoading && !usage ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="w-5 h-5 border-2 border-deep-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="py-4">
+                <LoadingSpinner size="sm" />
               </div>
             ) : usageError ? (
               <div className="space-y-2">
@@ -201,7 +202,7 @@ export function UserProfileDropdown({ user, onLogout, isLoading = false }: UserP
                       // TODO: Navigate to upgrade page
                       console.log('Upgrade to Pro clicked');
                     }}
-                    className="btn-base btn-md btn-outline w-full text-center"
+                    className="btn-base btn-md border-2 border-deep-indigo-300 text-deep-indigo-500 hover:bg-deep-indigo-50 w-full text-center"
                   >
                     Upgrade to Pro
                   </button>
@@ -236,7 +237,7 @@ export function UserProfileDropdown({ user, onLogout, isLoading = false }: UserP
               role="menuitem"
             >
               {isLoggingOut ? (
-                <div className="w-4 h-4 border-2 border-jasper-red-500 border-t-transparent rounded-full animate-spin" />
+                <LoadingSpinner size="sm" className="!w-4 !h-4" />
               ) : (
                 <FaSignOutAlt className="w-4 h-4" />
               )}
