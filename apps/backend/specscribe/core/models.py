@@ -14,6 +14,7 @@ class User(BaseModel):
     provider_id: str
     name: str | None = None
     avatar_url: str | None = None
+    tier: Literal["free", "pro"] = "free"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -32,6 +33,7 @@ class UserResponse(BaseModel):
     provider: str
     name: str | None = None
     avatar_url: str | None = None
+    tier: Literal["free", "pro"] = "free"
     created_at: datetime
 
 

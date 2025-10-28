@@ -803,6 +803,12 @@ export interface components {
             /** Avatar Url */
             avatar_url?: string | null;
             /**
+             * Tier
+             * @default free
+             * @enum {string}
+             */
+            tier: "free" | "pro";
+            /**
              * Created At
              * Format: date-time
              */

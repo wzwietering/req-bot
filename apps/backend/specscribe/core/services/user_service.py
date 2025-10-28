@@ -101,6 +101,7 @@ class UserService:
         """Convert UserTable to User model."""
         # Cast provider to the correct Literal type since database only validates at runtime
         provider = cast(Literal["google", "github", "microsoft"], user_table.provider)
+        tier = cast(Literal["free", "pro"], user_table.tier)
         return User(
             id=user_table.id,
             email=user_table.email,
@@ -108,6 +109,7 @@ class UserService:
             provider_id=user_table.provider_id,
             name=user_table.name,
             avatar_url=user_table.avatar_url,
+            tier=tier,
             created_at=user_table.created_at,
             updated_at=user_table.updated_at,
         )
@@ -120,5 +122,6 @@ class UserService:
             provider=user.provider,
             name=user.name,
             avatar_url=user.avatar_url,
+            tier=user.tier,
             created_at=user.created_at,
         )
