@@ -12,6 +12,8 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-with-at-least-32-charac
 os.environ.setdefault("ENVIRONMENT", "test")
 # Use mock provider for tests to avoid API calls
 os.environ.setdefault("MODEL_ID", "mock:test-model")
+# Set high quota limit for tests to avoid hitting limits during test runs
+os.environ.setdefault("FREE_TIER_QUESTION_LIMIT", "1000")
 
 import pytest
 from fastapi.testclient import TestClient

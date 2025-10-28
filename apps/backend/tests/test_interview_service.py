@@ -131,6 +131,58 @@ class TestInterviewServiceStateTransitions:
             # Second call should be PROCESSING_ANSWER
             assert calls[1][0][1] == ConversationState.PROCESSING_ANSWER
 
+    def test_process_answer_when_stuck_in_processing_answer(self, interview_service, mock_storage):
+        """Test that process_answer recovers from stuck PROCESSING_ANSWER state.
+
+        This is the critical missing test case: when a session is stuck in
+        PROCESSING_ANSWER (due to interruption/crash) and user retries,
+        it should recover gracefully instead of raising StateTransitionError.
+        """
+        session = Session(
+            user_id="test-user",
+            project="Test Project",
+            questions=[
+                Question(id="q1", text="Question 1?", category="scope", required=True),
+                Question(id="q2", text="Question 2?", category="users", required=True),
+            ],
+            answers=[
+                Answer(question_id="q1", text="Answer 1"),
+            ],
+            requirements=[],
+            conversation_state=ConversationState.PROCESSING_ANSWER,
+            conversation_complete=False,
+        )
+        mock_storage.load_session.return_value = session
+
+        with patch("specscribe.api.services.interview_service.ConversationalInterviewPipeline") as mock_pipeline_class:
+            mock_pipeline = Mock()
+            mock_pipeline_class.return_value = mock_pipeline
+
+            mock_state_manager = Mock()
+            mock_pipeline.session_manager.state_manager = mock_state_manager
+
+            mock_pipeline.conductor.analyze_response = Mock(
+                return_value=Mock(follow_up_questions=[], needs_clarification=False)
+            )
+            mock_pipeline.conductor.log_answer_received = Mock()
+            mock_pipeline.conductor.update_answer_metadata = Mock()
+            mock_pipeline.question_generation.generate_next_question_if_needed = Mock(return_value=None)
+            mock_pipeline.completeness_assessment.should_check_completeness = Mock(return_value=False)
+
+            # This should NOT raise StateTransitionError
+            # It should recover by transitioning to WAITING_FOR_INPUT first
+            _ = interview_service.process_answer(session_id=session.id, answer_text="Answer 2")
+
+            # Verify state transition happened correctly
+            # Should have at least 2 transitions: recovery + normal processing
+            assert mock_state_manager.transition_to.call_count >= 2
+            calls = mock_state_manager.transition_to.call_args_list
+
+            # First call should be WAITING_FOR_INPUT (recovery from PROCESSING_ANSWER)
+            assert calls[0][0][1] == ConversationState.WAITING_FOR_INPUT
+            # Second call should be PROCESSING_ANSWER (normal flow)
+            assert calls[1][0][1] == ConversationState.PROCESSING_ANSWER
+
     def test_process_answer_normal_flow(self, interview_service, mock_storage, session_with_unanswered_questions):
         """Test normal answer processing when in WAITING_FOR_INPUT state."""
         mock_storage.load_session.return_value = session_with_unanswered_questions
