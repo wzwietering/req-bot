@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../ui/Button';
 import { UserProfileDropdown } from './UserProfileDropdown';
@@ -18,6 +18,7 @@ export function AuthButtons({ className = '', showMainCTA = true }: AuthButtonsP
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { isUrgent, isCritical, canCreateSession, usage, resetDate } = useQuota();
   const router = useRouter();
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const handleLogin = () => {
     router.push('/login');
@@ -65,41 +66,50 @@ export function AuthButtons({ className = '', showMainCTA = true }: AuthButtonsP
           )}
         </div>
         {showMainCTA && (
-          <div className="relative group">
-            <Button
-              size="md"
-              onClick={handleNewInterview}
-              disabled={!canCreateSession}
-              aria-describedby={!canCreateSession ? 'quota-exceeded-tooltip' : undefined}
+          <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={() => !canCreateSession && setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              onFocus={() => !canCreateSession && setShowTooltip(true)}
+              onBlur={() => setShowTooltip(false)}
+              tabIndex={!canCreateSession ? 0 : -1}
             >
-              New Interview
-            </Button>
-            {!canCreateSession && resetDate && (
-              <div
-                id="quota-exceeded-tooltip"
-                role="tooltip"
-                className="absolute top-full mt-2 right-0 w-64 p-3 bg-white rounded-lg shadow-lg border border-deep-indigo-100 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200"
+              <Button
+                size="md"
+                onClick={handleNewInterview}
+                disabled={!canCreateSession}
+                aria-describedby={!canCreateSession ? 'quota-exceeded-tooltip' : undefined}
               >
-                <p className="font-semibold text-sm text-deep-indigo-900 mb-1">
-                  Quota Exceeded
-                </p>
-                <p className="text-sm text-gray-600 mb-2">
-                  You&apos;ve used all {usage?.quotaLimit || 10} sessions this month
-                </p>
-                <p className="text-xs text-gray-500 mb-3">
-                  Resets {formatResetDate(resetDate)}
-                </p>
-                <button
-                  onClick={() => {
-                    // TODO: Navigate to upgrade page
-                    console.log('Upgrade to Pro clicked');
-                  }}
-                  className="btn-base btn-md bg-deep-indigo-400 text-white hover:bg-deep-indigo-500 w-full"
+                New Interview
+              </Button>
+              {!canCreateSession && resetDate && showTooltip && (
+                <div
+                  id="quota-exceeded-tooltip"
+                  role="tooltip"
+                  className="absolute top-full mt-2 right-0 w-64 p-3 bg-white rounded-lg shadow-lg border border-deep-indigo-100 z-50"
                 >
-                  Upgrade to Pro
-                </button>
-              </div>
-            )}
+                  <p className="font-semibold text-sm text-deep-indigo-900 mb-1">
+                    Quota Exceeded
+                  </p>
+                  <p className="text-sm text-gray-600 mb-2">
+                    You&apos;ve used all {usage?.quotaLimit || 10} sessions this month
+                  </p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Resets {formatResetDate(resetDate)}
+                  </p>
+                  <button
+                    onClick={() => {
+                      // TODO: Navigate to upgrade page
+                      console.log('Upgrade to Pro clicked');
+                    }}
+                    className="btn-base btn-md bg-deep-indigo-400 text-white hover:bg-deep-indigo-500 w-full"
+                  >
+                    Upgrade to Pro
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

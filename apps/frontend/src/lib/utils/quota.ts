@@ -2,6 +2,10 @@
  * Quota-related utility functions
  */
 
+// Time constants
+export const MS_PER_HOUR = 60 * 60 * 1000;
+export const MS_PER_DAY = 24 * MS_PER_HOUR;
+
 export type QuotaStatus = "healthy" | "notice" | "warning" | "urgent" | "critical";
 
 /**
@@ -30,23 +34,24 @@ export function getStatusLabel(status: QuotaStatus): string {
 }
 
 /**
- * Format reset date with smart precision based on time remaining
+ * Format reset date with smart precision based on time remaining.
+ * Note: In a rolling window system, this represents when the next
+ * quota slot becomes available (when the oldest usage event expires).
  */
 export function formatResetDate(date: Date): string {
   const now = new Date();
   const msUntil = date.getTime() - now.getTime();
-  const hoursUntil = Math.floor(msUntil / (1000 * 60 * 60));
-  const daysUntil = Math.floor(msUntil / (1000 * 60 * 60 * 24));
+  const hoursUntil = Math.floor(msUntil / MS_PER_HOUR);
+  const daysUntil = Math.floor(msUntil / MS_PER_DAY);
 
   if (msUntil < 0) {
     return "soon"; // Reset date has passed, should reset soon
   }
 
   if (hoursUntil < 24) {
-    if (hoursUntil < 1) {
-      return "in less than an hour";
-    }
-    return `in ${hoursUntil} hour${hoursUntil === 1 ? "" : "s"}`;
+    return hoursUntil < 1
+      ? "in less than an hour"
+      : `in ${hoursUntil} hour${hoursUntil === 1 ? "" : "s"}`;
   }
 
   if (daysUntil < 2) {

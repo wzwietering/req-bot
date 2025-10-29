@@ -8,7 +8,7 @@
 import { useState, useEffect } from "react";
 import { FiAlertTriangle, FiX } from "react-icons/fi";
 import { useQuota } from "@/contexts/QuotaContext";
-import { formatResetDate, getUpgradeMessage } from "@/lib/utils/quota";
+import { formatResetDate, getUpgradeMessage, calculatePercentUsed, MS_PER_DAY } from "@/lib/utils/quota";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 interface BannerDismissal {
@@ -18,7 +18,7 @@ interface BannerDismissal {
 }
 
 const DISMISSAL_KEY = "quota-banner-dismissal";
-const DISMISSAL_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DISMISSAL_DURATION_MS = MS_PER_DAY;
 
 function getBannerDismissal(): BannerDismissal | null {
   if (typeof window === "undefined") return null;
@@ -35,18 +35,50 @@ function getBannerDismissal(): BannerDismissal | null {
 function setBannerDismissal(state: "urgent" | "critical") {
   if (typeof window === "undefined") return;
 
-  const dismissal: BannerDismissal = {
-    dismissedAt: new Date().toISOString(),
-    quotaState: state,
-    suppressUntil: new Date(Date.now() + DISMISSAL_DURATION_MS).toISOString(),
-  };
+  try {
+    const dismissal: BannerDismissal = {
+      dismissedAt: new Date().toISOString(),
+      quotaState: state,
+      suppressUntil: new Date(Date.now() + DISMISSAL_DURATION_MS).toISOString(),
+    };
 
-  localStorage.setItem(DISMISSAL_KEY, JSON.stringify(dismissal));
+    localStorage.setItem(DISMISSAL_KEY, JSON.stringify(dismissal));
+  } catch (error) {
+    console.error("Failed to save banner dismissal:", error);
+  }
 }
 
 function clearBannerDismissal() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(DISMISSAL_KEY);
+
+  try {
+    localStorage.removeItem(DISMISSAL_KEY);
+  } catch (error) {
+    console.error("Failed to clear banner dismissal:", error);
+  }
+}
+
+/**
+ * Determine if banner should be shown based on dismissal state
+ */
+function shouldShowBanner(
+  shouldShow: boolean,
+  currentState: "urgent" | "critical",
+  dismissal: BannerDismissal | null
+): boolean {
+  if (!shouldShow) return false;
+  if (!dismissal) return true;
+
+  const now = new Date();
+  const suppressUntil = new Date(dismissal.suppressUntil);
+
+  // Show if state worsened (urgent → critical)
+  if (dismissal.quotaState === "urgent" && currentState === "critical") {
+    return true;
+  }
+
+  // Show if suppression period elapsed
+  return now >= suppressUntil;
 }
 
 export function QuotaBanner() {
@@ -65,30 +97,14 @@ export function QuotaBanner() {
     }
 
     const dismissal = getBannerDismissal();
+    const visible = shouldShowBanner(shouldShow, currentState, dismissal);
 
-    if (!dismissal) {
-      setIsVisible(true);
-      return;
-    }
+    setIsVisible(visible);
 
-    const now = new Date();
-    const suppressUntil = new Date(dismissal.suppressUntil);
-
-    // Show if state worsened (urgent → critical)
-    if (dismissal.quotaState === "urgent" && currentState === "critical") {
-      setIsVisible(true);
+    // Clear dismissal if showing again (state worsened or time elapsed)
+    if (visible && dismissal) {
       clearBannerDismissal();
-      return;
     }
-
-    // Show if 24 hours have elapsed
-    if (now >= suppressUntil) {
-      setIsVisible(true);
-      clearBannerDismissal();
-      return;
-    }
-
-    setIsVisible(false);
   }, [shouldShow, currentState]);
 
   const handleDismiss = () => {
@@ -106,8 +122,9 @@ export function QuotaBanner() {
   }
 
   const tier = user?.tier || "free";
-  const daysIntoWindow = Math.floor((Date.now() - (resetDate.getTime() - usage.windowDays * 24 * 60 * 60 * 1000)) / (24 * 60 * 60 * 1000));
-  const percentUsed = usage.quotaLimit > 0 ? Math.round(((usage.quotaLimit - usage.quotaRemaining) / usage.quotaLimit) * 100) : 0;
+  // Calculate days into window (for rolling window, approximate from reset date)
+  const daysIntoWindow = Math.max(0, Math.floor((Date.now() - (resetDate.getTime() - usage.windowDays * MS_PER_DAY)) / MS_PER_DAY));
+  const percentUsed = calculatePercentUsed(usage.quotaLimit - usage.quotaRemaining, usage.quotaLimit);
   const upgradeMessage = getUpgradeMessage(percentUsed, daysIntoWindow, tier);
 
   const bgColor = isCritical ? "bg-jasper-red-50" : "bg-amber-50";

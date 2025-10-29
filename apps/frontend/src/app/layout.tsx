@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "../components/auth/AuthProvider";
 import { QuotaProvider } from "../contexts/QuotaContext";
 import { QuotaBanner } from "../components/layout/QuotaBanner";
+import { QuotaErrorBoundary } from "../components/errors/QuotaErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,10 +39,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${ibmPlexSans.variable} antialiased`}
       >
         <AuthProvider>
-          <QuotaProvider>
-            <QuotaBanner />
-            {children}
-          </QuotaProvider>
+          <QuotaErrorBoundary>
+            <QuotaProvider>
+              <QuotaBanner />
+              {children}
+            </QuotaProvider>
+          </QuotaErrorBoundary>
         </AuthProvider>
       </body>
     </html>

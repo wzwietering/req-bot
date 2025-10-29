@@ -10,6 +10,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { getUserUsage, type UsageStats } from "@/lib/api/usage";
@@ -19,6 +20,7 @@ import {
   getQuotaStatus,
   type QuotaStatus,
 } from "@/lib/utils/quota";
+import { onQuotaUpdate } from "@/lib/utils/eventBus";
 
 interface QuotaContextValue {
   usage: UsageStats | null;
@@ -74,18 +76,17 @@ export function QuotaProvider({ children }: QuotaProviderProps) {
   }, [fetchUsage]);
 
   // Listen for quota events (e.g., after creating a session or hitting quota)
+  // Use ref to avoid race conditions with event listener closure
+  const fetchUsageRef = useRef(fetchUsage);
+  fetchUsageRef.current = fetchUsage;
+
   useEffect(() => {
-    const handleQuotaUpdate = () => {
-      fetchUsage();
-    };
+    const cleanup = onQuotaUpdate(() => {
+      fetchUsageRef.current();
+    });
 
-    // Custom event for quota changes
-    window.addEventListener('quota-update', handleQuotaUpdate);
-
-    return () => {
-      window.removeEventListener('quota-update', handleQuotaUpdate);
-    };
-  }, [fetchUsage]);
+    return cleanup;
+  }, []);
 
   // Calculate derived values
   const percentUsed = usage
@@ -104,10 +105,8 @@ export function QuotaProvider({ children }: QuotaProviderProps) {
   const isCritical = status === "critical";
   const canCreateSession = !isCritical;
 
-  // Calculate reset date (assuming rolling 30-day window from now)
-  const resetDate = usage
-    ? new Date(Date.now() + usage.windowDays * 24 * 60 * 60 * 1000)
-    : null;
+  // Use the reset date from API (when next quota slot becomes available)
+  const resetDate = usage?.nextQuotaAvailableAt ?? null;
 
   const value: QuotaContextValue = {
     usage,

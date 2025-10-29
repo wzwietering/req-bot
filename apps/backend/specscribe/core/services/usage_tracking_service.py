@@ -107,6 +107,24 @@ class UsageTrackingService:
         if current_usage >= limit:
             raise QuotaExceededError(current_usage, limit, window_days)
 
+    def get_oldest_event_in_window(self, user_id: str, days: int) -> datetime | None:
+        """Get the oldest question generation event in the current window."""
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+
+        with self.storage.SessionLocal() as session:
+            oldest = (
+                session.query(UsageEventTable.created_at)
+                .filter(
+                    UsageEventTable.user_id == user_id,
+                    UsageEventTable.event_type == "question_generated",
+                    UsageEventTable.created_at >= cutoff,
+                )
+                .order_by(UsageEventTable.created_at.asc())
+                .first()
+            )
+
+        return oldest[0] if oldest else None
+
     def get_user_usage_stats(self, user_id: str) -> dict:
         """Get usage statistics for a user."""
         window_days = int(os.getenv("QUOTA_WINDOW_DAYS", "30"))
@@ -121,13 +139,22 @@ class UsageTrackingService:
         questions_count = self.count_questions_in_window(user_id, window_days)
         answers_count = self._count_answers_in_window(user_id, window_days)
         limit = self.get_quota_limit(tier)
+        quota_remaining = max(0, limit - questions_count)
+
+        # Calculate when next quota slot becomes available (only if at limit)
+        next_quota_available_at = None
+        if quota_remaining == 0:
+            oldest_event = self.get_oldest_event_in_window(user_id, window_days)
+            if oldest_event:
+                next_quota_available_at = oldest_event + timedelta(days=window_days)
 
         return {
             "questions_generated": questions_count,
             "answers_submitted": answers_count,
             "quota_limit": limit,
-            "quota_remaining": max(0, limit - questions_count),
+            "quota_remaining": quota_remaining,
             "window_days": window_days,
+            "next_quota_available_at": next_quota_available_at,
         }
 
     def _query_question_count(self, user_id: str, days: int) -> int:

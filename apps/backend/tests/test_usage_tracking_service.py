@@ -1,5 +1,6 @@
 """Tests for UsageTrackingService."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -155,6 +156,8 @@ class TestUsageTrackingService:
         mock_query.filter.return_value = mock_query
         # Mock two separate query calls (questions and answers)
         mock_query.count.side_effect = [5, 3]  # 5 questions, 3 answers
+        mock_query.order_by.return_value = mock_query
+        mock_query.first.return_value = None  # No oldest event when under limit
         mock_session.query.return_value = mock_query
 
         stats = usage_service.get_user_usage_stats("user-123")
@@ -164,6 +167,34 @@ class TestUsageTrackingService:
         assert stats["quota_limit"] == 10
         assert stats["quota_remaining"] == 5
         assert stats["window_days"] == 30
+        assert stats["next_quota_available_at"] is None  # Not at limit
+
+    def test_get_user_usage_stats_at_limit_with_reset_date(self, usage_service, mock_storage, free_tier_user):
+        """Test getting user stats when at quota limit includes next_quota_available_at."""
+        mock_session = mock_storage._mock_session
+        mock_session.get.return_value = free_tier_user
+
+        # Create mock for oldest event timestamp
+        oldest_event_time = datetime.now(UTC) - timedelta(days=25)
+        expected_reset = oldest_event_time + timedelta(days=30)
+
+        mock_query = Mock()
+        mock_query.filter.return_value = mock_query
+        # Mock three query calls: questions count, answers count, oldest event
+        mock_query.count.side_effect = [10, 8]  # 10 questions (at limit), 8 answers
+        mock_query.order_by.return_value = mock_query
+        mock_query.first.return_value = (oldest_event_time,)  # Return oldest event
+        mock_session.query.return_value = mock_query
+
+        stats = usage_service.get_user_usage_stats("user-123")
+
+        assert stats["questions_generated"] == 10
+        assert stats["answers_submitted"] == 8
+        assert stats["quota_limit"] == 10
+        assert stats["quota_remaining"] == 0
+        assert stats["window_days"] == 30
+        assert stats["next_quota_available_at"] is not None
+        assert stats["next_quota_available_at"] == expected_reset
 
     def test_pro_tier_has_high_quota(self, usage_service, mock_storage):
         """Test that pro tier has effectively unlimited quota."""

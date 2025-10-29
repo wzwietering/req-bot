@@ -13,6 +13,7 @@ export interface UsageStats {
   quotaLimit: number;
   quotaRemaining: number;
   windowDays: number;
+  nextQuotaAvailableAt: Date | null;
 }
 
 /**
@@ -27,5 +28,8 @@ export async function getUserUsage(): Promise<UsageStats> {
     quotaLimit: response.quota_limit,
     quotaRemaining: response.quota_remaining,
     windowDays: response.window_days,
+    nextQuotaAvailableAt: response.next_quota_available_at
+      ? new Date(response.next_quota_available_at)
+      : null,
   };
 }

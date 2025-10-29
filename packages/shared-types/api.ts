@@ -786,6 +786,8 @@ export interface components {
             quota_remaining: number;
             /** Window Days */
             window_days: number;
+            /** Next Quota Available At */
+            next_quota_available_at: string | null;
         };
         /** UserResponse */
         UserResponse: {

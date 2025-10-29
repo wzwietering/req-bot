@@ -1,5 +1,6 @@
 """Usage tracking and quota management routes."""
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,6 +21,7 @@ class UsageStatsResponse(BaseModel):
     quota_limit: int
     quota_remaining: int
     window_days: int
+    next_quota_available_at: datetime | None
 
 
 @router.get("/me", response_model=UsageStatsResponse)

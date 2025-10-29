@@ -6,7 +6,7 @@
  */
 
 import { FiCheckCircle, FiInfo, FiAlertTriangle, FiXCircle } from "react-icons/fi";
-import { getStatusLabel, type QuotaStatus } from "@/lib/utils/quota";
+import { getStatusLabel, calculatePercentUsed, type QuotaStatus } from "@/lib/utils/quota";
 
 interface UsageIndicatorProps {
   current: number;
@@ -58,7 +58,7 @@ export function UsageIndicator({
   className = "",
 }: UsageIndicatorProps) {
   const Icon = statusIcons[status];
-  const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+  const percentage = calculatePercentUsed(current, total);
   const statusLabel = getStatusLabel(status);
 
   if (variant === "compact") {
